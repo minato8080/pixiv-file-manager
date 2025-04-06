@@ -2657,7 +2657,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pixiv-file-manager-tauri"
+name = "pixiv-file-manager"
 version = "0.1.0"
 dependencies = [
  "rusqlite",

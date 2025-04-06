@@ -1,5 +1,5 @@
 [package]
-name = "pixiv-file-manager-tauri"
+name = "pixiv-file-manager"
 version = "0.1.0"
 description = "A Tauri App"
 authors = ["you"]

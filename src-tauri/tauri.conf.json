@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "pixiv-file-manager-tauri",
+  "productName": "pixiv-file-manager",
   "version": "0.1.0",
-  "identifier": "com.pixiv-file-manager-tauri.app",
+  "identifier": "com.pixiv-file-manager.app",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "pixiv-file-manager-tauri",
+        "title": "pixiv-file-manager",
         "width": 800,
         "height": 600
       }

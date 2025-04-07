@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { invoke } from "@tauri-apps/api/core"
 import { useState, useEffect } from "react"
 import { X, Search, Clock, Filter, ChevronDown } from "lucide-react"
 
@@ -38,19 +39,20 @@ const ExplorerSearch: React.FC = () => {
     // In a real app, this would be a call to your Tauri backend
     const fetchTags = async () => {
       // Mock data - in real app, fetch from TAG_INFO.tag
-      const mockTags: Tag[] = [
-        { id: 1, name: "Document" },
-        { id: 2, name: "Image" },
-        { id: 3, name: "Video" },
-        { id: 4, name: "Audio" },
-        { id: 5, name: "Archive" },
-        { id: 6, name: "Project" },
-        { id: 7, name: "Important" },
-        { id: 8, name: "Personal" },
-        { id: 9, name: "Work" },
-        { id: 10, name: "Favorite" },
-      ]
-      setAvailableTags(mockTags)
+      const tags = await invoke<Tag[]>("get_all_tags")
+      // const mockTags: Tag[] = [
+      //   { id: 1, name: "Document" },
+      //   { id: 2, name: "Image" },
+      //   { id: 3, name: "Video" },
+      //   { id: 4, name: "Audio" },
+      //   { id: 5, name: "Archive" },
+      //   { id: 6, name: "Project" },
+      //   { id: 7, name: "Important" },
+      //   { id: 8, name: "Personal" },
+      //   { id: 9, name: "Work" },
+      //   { id: 10, name: "Favorite" },
+      // ]
+      setAvailableTags(tags)
     }
 
     fetchTags()

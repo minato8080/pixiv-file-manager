@@ -1,4 +1,4 @@
-use super::global::Tag;
+use super::global::TagInfo;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -14,7 +14,7 @@ pub struct SearchResult {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SearchHistoryItem {
     pub id: i64,
-    pub tags: Vec<Tag>,
+    pub tags: Vec<TagInfo>,
     pub condition: String,
     pub timestamp: String,
 }

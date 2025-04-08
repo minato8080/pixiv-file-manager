@@ -4,18 +4,18 @@
 )]
 
 mod commands;
-mod models;
 mod constants;
+mod models;
 
-use crate::commands::search::{
-    get_all_tags, get_search_history, save_search_history, search_by_tags,
-};
 use crate::commands::fetch_tags::process_capture_tags_info;
+use crate::commands::search_tags::{
+    get_search_history, get_unique_tag_list, save_search_history, search_by_tags,
+};
+use crate::constants::DB_PATH;
 use crate::models::global::AppState;
 use rusqlite::{Connection, Result};
 use std::sync::Mutex;
 use tauri::Manager;
-use crate::constants::DB_PATH;
 
 fn main() {
     tauri::Builder::default()
@@ -41,7 +41,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_all_tags,
+            get_unique_tag_list,
             search_by_tags,
             get_search_history,
             save_search_history,
@@ -54,19 +54,21 @@ fn initialize_db(conn: &Connection) -> Result<()> {
     // テーブルが存在しない場合は作成
     conn.execute(
         "CREATE TABLE IF NOT EXISTS ID_DETAIL (
-            id INTEGER PRIMARY KEY,
+            id INTEGER,
             suffix INTEGER,
             author TEXT,
             character TEXT,
-            save_dir TEXT
+            save_dir TEXT,
+            PRIMARY KEY (id, suffix)
         )",
         [],
     )?;
 
     conn.execute(
         "CREATE TABLE IF NOT EXISTS TAG_INFO (
-            id INTEGER PRIMARY KEY,
-            tag TEXT NOT NULL UNIQUE
+            id INTEGER,
+            tag TEXT,
+            PRIMARY KEY (id, tag)
         )",
         [],
     )?;

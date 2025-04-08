@@ -13,7 +13,7 @@ interface ProcessStats {
   failed_file_paths: string[]
 }
 
-export default function TagExplorer() {
+export default function TagsFetcher() {
   const [selectedFolders, setSelectedFolders] = useState<string[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [progress, setProgress] = useState({ current: 0, total: 0 })

@@ -1,16 +1,17 @@
-use rusqlite::{params, Connection, Result};
+use rusqlite::{params, Result};
 use serde::Serialize;
-use std::{collections::HashSet, time::Instant};
+use std::fs;
 use std::path::Path;
 use std::vec::Vec;
-use std::fs;
-use tauri::Emitter;
+use std::{collections::HashSet, time::Instant};
+use tauri::{Emitter, State};
 
+use crate::models::global::AppState;
 use crate::models::pixiv::{PixivApi, RealPixivApi};
-use crate::constants::DB_PATH;
 
 #[tauri::command]
 pub fn process_capture_tags_info(
+    state: State<AppState>,
     window: tauri::Window,
     folders: Vec<String>,
 ) -> Result<ProcessStats, String> {
@@ -21,7 +22,7 @@ pub fn process_capture_tags_info(
     }
     println!("Image IDs: {:?}", all_image_ids);
     // 画像IDを処理し、結果を返す
-    match process_image_ids(window, &RealPixivApi, &all_image_ids) {
+    match process_image_ids(state, window, &RealPixivApi, &all_image_ids) {
         Ok(stats) => Ok(stats),       // 成功時は ProcessStats を返す
         Err(e) => Err(e.to_string()), // 失敗時はエラーメッセージを文字列として返す
     }
@@ -52,6 +53,7 @@ pub struct ProcessStats {
 }
 
 fn process_image_ids(
+    state: State<AppState>,
     window: tauri::Window,
     api: &impl PixivApi,
     image_ids: &[String],
@@ -59,11 +61,13 @@ fn process_image_ids(
     let start = Instant::now();
     // let current_dir = env::current_dir()?;
     // println!("Current directory: {:?}", current_dir);
-    let conn = Connection::open(DB_PATH.clone())?;
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS TAG_INFO (id INTEGER PRIMARY KEY, tag TEXT)",
-        [],
-    )?;
+    // let conn = Connection::open(DB_PATH.clone())?;
+    let conn = state.db.lock().unwrap();
+
+    // conn.execute(
+    //     "CREATE TABLE IF NOT EXISTS TAG_INFO (id INTEGER, tag TEXT)",
+    //     [],
+    // )?;
 
     let mut success_count = 0;
     let mut fail_count = 0;
@@ -102,7 +106,7 @@ fn process_image_ids(
     Ok(ProcessStats {
         total_files: total,
         failed_files: fail_count,
-        processing_time_ms: duration.as_millis(),     // 処理時間を計測していないため、仮に0を設定
+        processing_time_ms: duration.as_millis(), // 処理時間を計測していないため、仮に0を設定
         failed_file_paths: vec![], // 失敗したファイルパスを追跡していないため、空のベクターを設定
     })
 }

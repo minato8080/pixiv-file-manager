@@ -1,79 +1,67 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { invoke } from "@tauri-apps/api/core"
-import { useState, useEffect } from "react"
-import { X, Search, Clock, Filter, ChevronDown } from "lucide-react"
+import type React from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { useState, useEffect } from "react";
+import { X, Search, Clock, Filter, ChevronDown } from "lucide-react";
 
 // Types
-interface Tag {
-  id: number
-  name: string
+interface GetUniqueTagListResp {
+  tag: string;
 }
 
 interface SearchHistory {
-  id: number
-  tags: Tag[]
-  condition: "AND" | "OR"
-  timestamp: Date
+  id: number;
+  tags: GetUniqueTagListResp[];
+  condition: "AND" | "OR";
+  timestamp: Date;
 }
 
 interface SearchResult {
-  id: number
-  title: string
-  thumbnailUrl: string
+  id: number;
+  title: string;
+  thumbnailUrl: string;
 }
 
-const ExplorerSearch: React.FC = () => {
+const TagsSearcher: React.FC = () => {
   // State
-  const [availableTags, setAvailableTags] = useState<Tag[]>([])
-  const [selectedTags, setSelectedTags] = useState<Tag[]>([])
-  const [searchCondition, setSearchCondition] = useState<"AND" | "OR">("AND")
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
-  const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([])
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
-  const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false)
+  const [availableTags, setAvailableTags] = useState<GetUniqueTagListResp[]>(
+    []
+  );
+  const [selectedTags, setSelectedTags] = useState<GetUniqueTagListResp[]>([]);
+  const [searchCondition, setSearchCondition] = useState<"AND" | "OR">("AND");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false);
 
   // Fetch tags from database (mock implementation)
   useEffect(() => {
-    // In a real app, this would be a call to your Tauri backend
     const fetchTags = async () => {
-      // Mock data - in real app, fetch from TAG_INFO.tag
-      const tags = await invoke<Tag[]>("get_all_tags")
-      // const mockTags: Tag[] = [
-      //   { id: 1, name: "Document" },
-      //   { id: 2, name: "Image" },
-      //   { id: 3, name: "Video" },
-      //   { id: 4, name: "Audio" },
-      //   { id: 5, name: "Archive" },
-      //   { id: 6, name: "Project" },
-      //   { id: 7, name: "Important" },
-      //   { id: 8, name: "Personal" },
-      //   { id: 9, name: "Work" },
-      //   { id: 10, name: "Favorite" },
-      // ]
-      setAvailableTags(tags)
-    }
+      const tags = await invoke<GetUniqueTagListResp[]>("get_unique_tag_list");
+      setAvailableTags(tags);
+      console.log(tags);
+    };
 
-    fetchTags()
-  }, [])
+    fetchTags();
+  }, []);
 
   // Add tag to selected tags
-  const addTag = (tag: Tag) => {
-    if (!selectedTags.some((t) => t.id === tag.id)) {
-      setSelectedTags([...selectedTags, tag])
+  const addTag = (tag: GetUniqueTagListResp) => {
+    if (!selectedTags.some((t) => t.tag === tag.tag)) {
+      setSelectedTags([...selectedTags, tag]);
     }
-    setIsTagDropdownOpen(false)
-  }
+    setIsTagDropdownOpen(false);
+  };
 
   // Remove tag from selected tags
-  const removeTag = (tagId: number) => {
-    setSelectedTags(selectedTags.filter((tag) => tag.id !== tagId))
-  }
+  const removeTag = (tag: string) => {
+    setSelectedTags(selectedTags.filter((param) => param.tag !== tag));
+  };
 
   // Perform search
   const handleSearch = () => {
-    if (selectedTags.length === 0) return
+    if (selectedTags.length === 0) return;
 
     // Mock search results
     const mockResults: SearchResult[] = Array(20)
@@ -82,9 +70,9 @@ const ExplorerSearch: React.FC = () => {
         id: index,
         title: `Result ${index + 1}`,
         thumbnailUrl: `/placeholder.svg?height=100&width=100`,
-      }))
+      }));
 
-    setSearchResults(mockResults)
+    setSearchResults(mockResults);
 
     // Add to search history
     const newHistoryItem: SearchHistory = {
@@ -92,23 +80,23 @@ const ExplorerSearch: React.FC = () => {
       tags: [...selectedTags],
       condition: searchCondition,
       timestamp: new Date(),
-    }
+    };
 
-    const updatedHistory = [newHistoryItem, ...searchHistory].slice(0, 10)
-    setSearchHistory(updatedHistory)
-  }
+    const updatedHistory = [newHistoryItem, ...searchHistory].slice(0, 10);
+    setSearchHistory(updatedHistory);
+  };
 
   // Apply history item
   const applyHistoryItem = (historyItem: SearchHistory) => {
-    setSelectedTags(historyItem.tags)
-    setSearchCondition(historyItem.condition)
-    setIsHistoryOpen(false)
-  }
+    setSelectedTags(historyItem.tags);
+    setSearchCondition(historyItem.condition);
+    setIsHistoryOpen(false);
+  };
 
   // Format timestamp for display
   const formatTimestamp = (date: Date) => {
-    return date.toLocaleString()
-  }
+    return date.toLocaleString();
+  };
 
   return (
     <div className="flex flex-col h-screen bg-gray-100">
@@ -134,11 +122,11 @@ const ExplorerSearch: React.FC = () => {
                 <div className="absolute z-10 mt-1 w-56 max-h-60 overflow-auto bg-white border rounded-md shadow-lg">
                   {availableTags.map((tag) => (
                     <button
-                      key={tag.id}
+                      key={tag.tag}
                       className="w-full px-4 py-2 text-left hover:bg-gray-100"
                       onClick={() => addTag(tag)}
                     >
-                      {tag.name}
+                      {tag.tag}
                     </button>
                   ))}
                 </div>
@@ -191,9 +179,15 @@ const ExplorerSearch: React.FC = () => {
           {selectedTags.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-2">
               {selectedTags.map((tag) => (
-                <div key={tag.id} className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-md">
-                  {tag.name}
-                  <button className="text-blue-600 hover:text-blue-800" onClick={() => removeTag(tag.id)}>
+                <div
+                  key={tag.tag}
+                  className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-md"
+                >
+                  {tag.tag}
+                  <button
+                    className="text-blue-600 hover:text-blue-800"
+                    onClick={() => removeTag(tag.tag)}
+                  >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
@@ -217,8 +211,11 @@ const ExplorerSearch: React.FC = () => {
                 >
                   <div className="flex flex-wrap gap-1 mb-1">
                     {item.tags.map((tag) => (
-                      <span key={tag.id} className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-md">
-                        {tag.name}
+                      <span
+                        key={tag.tag}
+                        className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-md"
+                      >
+                        {tag.tag}
                       </span>
                     ))}
                   </div>
@@ -229,7 +226,9 @@ const ExplorerSearch: React.FC = () => {
                 </button>
               ))
             ) : (
-              <div className="p-4 text-center text-gray-500">No search history</div>
+              <div className="p-4 text-center text-gray-500">
+                No search history
+              </div>
             )}
           </div>
         </div>
@@ -249,7 +248,9 @@ const ExplorerSearch: React.FC = () => {
                   alt={result.title}
                   className="w-full aspect-square object-cover mb-2"
                 />
-                <span className="text-sm text-center truncate w-full">{result.title}</span>
+                <span className="text-sm text-center truncate w-full">
+                  {result.title}
+                </span>
               </div>
             ))}
           </div>
@@ -261,8 +262,7 @@ const ExplorerSearch: React.FC = () => {
         )}
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default ExplorerSearch
-
+export default TagsSearcher;

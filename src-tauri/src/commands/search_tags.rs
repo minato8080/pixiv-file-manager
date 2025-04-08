@@ -1,23 +1,26 @@
 use crate::models::{
-    global::{AppState, Tag},
+    global::{AppState, GetUniqueTagListResp},
     search::{SearchHistoryItem, SearchResult},
 };
 use rusqlite::{params, Result};
 use tauri::State;
 
 #[tauri::command]
-pub fn get_all_tags(state: State<AppState>) -> Result<Vec<Tag>, String> {
+pub fn get_unique_tag_list(state: State<AppState>) -> Result<Vec<GetUniqueTagListResp>, String> {
     let conn = state.db.lock().unwrap();
+    let count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM TAG_INFO", [], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+    println!("TAG_INFOの総数: {}", count);
 
     let mut stmt = conn
-        .prepare("SELECT id, tag FROM TAG_INFO ORDER BY tag")
+        .prepare("SELECT tag, COUNT(tag) as count FROM TAG_INFO GROUP BY tag ORDER BY count DESC")
         .map_err(|e| e.to_string())?;
 
     let tag_iter = stmt
         .query_map([], |row| {
-            Ok(Tag {
-                id: row.get(0)?,
-                tag: row.get(1)?,
+            Ok(GetUniqueTagListResp {
+                tag: row.get(0)?,
             })
         })
         .map_err(|e| e.to_string())?;

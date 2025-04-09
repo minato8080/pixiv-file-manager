@@ -6,11 +6,10 @@ import TagsSearcher from "./TagsSearcher";
 import TagsFetcher from "./TagsFetcher";
 import "@/styles/styles.css";
 
-function Page() {
-  
+function App() {
   const tabs: TabItem[] = [
     {
-      label: "Search Tags",
+      label: "Search",
       icon: <FolderSearch className="h-4 w-4" />,
       content: <TagsSearcher />,
     },
@@ -19,18 +18,17 @@ function Page() {
       icon: <Tags className="h-4 w-4" />,
       content: <TagsFetcher />,
     },
-  ];
+  ]
 
   return (
-    <div className="w-full py-2 px-2">
-      <h1 className="text-3xl font-bold mb-2">Pixiv File Manager</h1>
-      <TabbedInterface tabs={tabs} />
+    <div className="h-screen flex flex-col p-2 bg-gray-100 dark:bg-gray-900">
+      <TabbedInterface tabs={tabs} className="h-full" />
     </div>
-  );
+  )
 }
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <Page />
-  </React.StrictMode>
-);
+    <App />
+  </React.StrictMode>,
+)

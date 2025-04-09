@@ -1,14 +1,12 @@
 "use client"
 
 import type React from "react"
-import { invoke } from "@tauri-apps/api/core"
+
 import { useState, useEffect, useRef } from "react"
+import { invoke } from "@tauri-apps/api/core"
 import {
-  X,
   Search,
-  Clock,
   Filter,
-  ChevronDown,
   Trash2,
   Grid,
   List,
@@ -18,7 +16,20 @@ import {
   CheckSquare,
   Square,
   Folder,
+  X,
+  History,
+  ChevronDown,
 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { Card } from "@/components/ui/card"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { cn } from "@/lib/utils"
 
 // Types
 interface GetUniqueTagListResp {
@@ -51,21 +62,24 @@ interface ViewMode {
   size: string
 }
 
-const TagsSearcher: React.FC = () => {
+export default function TagsSearcher() {
   // State
   const [availableTags, setAvailableTags] = useState<GetUniqueTagListResp[]>([])
   const [selectedTags, setSelectedTags] = useState<GetUniqueTagListResp[]>([])
   const [searchCondition, setSearchCondition] = useState<"AND" | "OR">("AND")
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([])
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false)
   const [selectedItems, setSelectedItems] = useState<number[]>([])
   const [operationMode, setOperationMode] = useState(false)
   const [showMoveDialog, setShowMoveDialog] = useState(false)
-  const [showMoveConfirmation, setShowMoveConfirmation] = useState(false)
-  const [movedCount, setMovedCount] = useState(0)
   const [targetFolder, setTargetFolder] = useState("")
+  const [showHistoryDialog, setShowHistoryDialog] = useState(false)
+  const [tagFilter, setTagFilter] = useState("")
+
+  // Refs for dropdown
+  const tagDropdownRef = useRef<HTMLDivElement>(null)
+  const tagButtonRef = useRef<HTMLButtonElement>(null)
 
   // View mode state
   const viewModes: ViewMode[] = [
@@ -73,7 +87,7 @@ const TagsSearcher: React.FC = () => {
       id: "large",
       name: "Large Icons",
       icon: <Maximize2 className="w-4 h-4" />,
-      gridCols: "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5",
+      gridCols: "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6",
       size: "aspect-square",
     },
     {
@@ -100,27 +114,9 @@ const TagsSearcher: React.FC = () => {
   ]
   const [currentViewMode, setCurrentViewMode] = useState<ViewMode>(viewModes[0])
 
-  // Refs for click outside detection
-  const historyRef = useRef<HTMLDivElement>(null)
-  const historyButtonRef = useRef<HTMLButtonElement>(null)
-  const tagDropdownRef = useRef<HTMLDivElement>(null)
-  const tagButtonRef = useRef<HTMLButtonElement>(null)
-
-  // Handle click outside
+  // Handle click outside for tag dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      // Close history dropdown when clicking outside
-      if (
-        isHistoryOpen &&
-        historyRef.current &&
-        !historyRef.current.contains(event.target as Node) &&
-        historyButtonRef.current &&
-        !historyButtonRef.current.contains(event.target as Node)
-      ) {
-        setIsHistoryOpen(false)
-      }
-
-      // Close tag dropdown when clicking outside
       if (
         isTagDropdownOpen &&
         tagDropdownRef.current &&
@@ -136,29 +132,67 @@ const TagsSearcher: React.FC = () => {
     return () => {
       document.removeEventListener("mousedown", handleClickOutside)
     }
-  }, [isHistoryOpen, isTagDropdownOpen])
+  }, [isTagDropdownOpen])
 
-  // Handle keyboard and wheel events for view mode switching
+  // Fetch tags from database (mock implementation)
+  useEffect(() => {
+    const fetchTags = async () => {
+      try {
+        const tags = await invoke<GetUniqueTagListResp[]>("get_unique_tag_list")
+        console.log("Fetched tags:", tags)
+        setAvailableTags(tags)
+      } catch (error) {
+        console.error("Error fetching tags:", error)
+        // For demo purposes, use mock data if invoke fails
+        const mockTags: GetUniqueTagListResp[] = [
+          { tag: "landscape", count: 120 },
+          { tag: "portrait", count: 85 },
+          { tag: "anime", count: 230 },
+          { tag: "character", count: 175 },
+          { tag: "background", count: 65 },
+          { tag: "sketch", count: 42 },
+          { tag: "digital", count: 198 },
+          { tag: "traditional", count: 76 },
+        ]
+        setAvailableTags(mockTags)
+      }
+    }
+
+    fetchTags()
+  }, [])
+
+  // Add keyboard and mouse wheel event listeners for view mode switching
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl + Plus/Minus to change view mode
       if (e.ctrlKey) {
         if (e.key === "+" || e.key === "=") {
           e.preventDefault()
-          changeViewMode("larger")
-        } else if (e.key === "-") {
+          const currentIndex = viewModes.findIndex((mode) => mode.id === currentViewMode.id)
+          const nextIndex = Math.max(0, currentIndex - 1)
+          setCurrentViewMode(viewModes[nextIndex])
+        } else if (e.key === "-" || e.key === "_") {
           e.preventDefault()
-          changeViewMode("smaller")
+          const currentIndex = viewModes.findIndex((mode) => mode.id === currentViewMode.id)
+          const nextIndex = Math.min(viewModes.length - 1, currentIndex + 1)
+          setCurrentViewMode(viewModes[nextIndex])
         }
       }
     }
 
     const handleWheel = (e: WheelEvent) => {
+      // Ctrl + Mouse wheel to change view mode
       if (e.ctrlKey) {
         e.preventDefault()
+        const currentIndex = viewModes.findIndex((mode) => mode.id === currentViewMode.id)
         if (e.deltaY < 0) {
-          changeViewMode("larger")
+          // Scroll up - larger icons
+          const nextIndex = Math.max(0, currentIndex - 1)
+          setCurrentViewMode(viewModes[nextIndex])
         } else {
-          changeViewMode("smaller")
+          // Scroll down - smaller icons
+          const nextIndex = Math.min(viewModes.length - 1, currentIndex + 1)
+          setCurrentViewMode(viewModes[nextIndex])
         }
       }
     }
@@ -170,32 +204,7 @@ const TagsSearcher: React.FC = () => {
       window.removeEventListener("keydown", handleKeyDown)
       window.removeEventListener("wheel", handleWheel)
     }
-  }, [currentViewMode])
-
-  // Change view mode (larger or smaller)
-  const changeViewMode = (direction: "larger" | "smaller") => {
-    const currentIndex = viewModes.findIndex((mode) => mode.id === currentViewMode.id)
-    let newIndex
-
-    if (direction === "larger") {
-      newIndex = Math.max(0, currentIndex - 1)
-    } else {
-      newIndex = Math.min(viewModes.length - 1, currentIndex + 1)
-    }
-
-    setCurrentViewMode(viewModes[newIndex])
-  }
-
-  // Fetch tags from database (mock implementation)
-  useEffect(() => {
-    const fetchTags = async () => {
-      const tags = await invoke<GetUniqueTagListResp[]>("get_unique_tag_list")
-      setAvailableTags(tags)
-      console.log(tags)
-    }
-
-    fetchTags()
-  }, [])
+  }, [currentViewMode, viewModes])
 
   // Add tag to selected tags
   const addTag = (tag: GetUniqueTagListResp) => {
@@ -252,7 +261,7 @@ const TagsSearcher: React.FC = () => {
   const applyHistoryItem = (historyItem: SearchHistory) => {
     setSelectedTags(historyItem.tags)
     setSearchCondition(historyItem.condition)
-    setIsHistoryOpen(false)
+    setShowHistoryDialog(false)
   }
 
   // Format timestamp for display
@@ -285,409 +294,382 @@ const TagsSearcher: React.FC = () => {
 
   // Confirm move operation
   const confirmMove = () => {
-    setMovedCount(selectedItems.length)
     setShowMoveDialog(false)
-    setShowMoveConfirmation(true)
     setSelectedItems([])
   }
 
-  // Open target location
-  const openTargetLocation = () => {
-    // In a real app, this would open the folder
-    console.log(`Opening folder: ${targetFolder}`)
-    setShowMoveConfirmation(false)
-  }
+  // Filter available tags
+  const filteredTags = availableTags.filter((tag) => tag.tag.toLowerCase().includes(tagFilter.toLowerCase()))
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100">
-      {/* Header */}
-      <div className="bg-white p-4 shadow-sm">
-        <h1 className="text-xl font-semibold mb-4">File Explorer</h1>
+    <div className="flex flex-col h-full">
+      {/* Compact search controls with more color */}
+      <div className="flex flex-wrap items-center gap-2 mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+        <div className="relative">
+          <Button
+            variant="secondary"
+            size="sm"
+            className="h-9 bg-white dark:bg-gray-800 border shadow-sm"
+            onClick={() => setIsTagDropdownOpen(!isTagDropdownOpen)}
+            ref={tagButtonRef}
+          >
+            <Filter className="h-4 w-4 mr-1 text-blue-500" />
+            Select Tags
+            <ChevronDown className="h-4 w-4 ml-1" />
+          </Button>
 
-        {/* Search Controls */}
-        <div className="flex flex-col gap-4">
-          {/* Tag Selection */}
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
-              <button
-                ref={tagButtonRef}
-                className="flex items-center gap-2 px-3 py-2 border rounded-md hover:bg-gray-50"
-                onClick={() => setIsTagDropdownOpen(!isTagDropdownOpen)}
-              >
-                <Filter className="w-4 h-4" />
-                Select Tags
-                <ChevronDown className="w-4 h-4" />
-              </button>
-
-              {isTagDropdownOpen && (
-                <div
-                  ref={tagDropdownRef}
-                  className="absolute z-10 mt-1 w-56 max-h-60 overflow-auto bg-white border rounded-md shadow-lg"
-                >
-                  {availableTags.map((tag) => (
+          {isTagDropdownOpen && (
+            <div
+              ref={tagDropdownRef}
+              className="absolute z-50 mt-1 w-64 bg-white dark:bg-gray-800 rounded-md shadow-lg border overflow-hidden"
+            >
+              <div className="p-2 border-b">
+                <Input
+                  placeholder="Filter tags..."
+                  value={tagFilter}
+                  onChange={(e) => setTagFilter(e.target.value)}
+                  className="h-8"
+                />
+              </div>
+              <div className="max-h-64 overflow-auto">
+                {filteredTags.length > 0 ? (
+                  filteredTags.map((tag) => (
                     <button
                       key={tag.tag}
-                      className="w-full px-4 py-2 text-left hover:bg-gray-100"
+                      className="w-full px-3 py-2 text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 flex justify-between items-center"
                       onClick={() => addTag(tag)}
                     >
-                      {tag.tag} +{tag.count}
+                      <span className="truncate">{tag.tag}</span>
+                      <Badge className="ml-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                        +{tag.count}
+                      </Badge>
                     </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Search Condition */}
-            <div className="flex flex-col">
-              <label className="flex items-center gap-1">
-                <input
-                  type="radio"
-                  name="condition"
-                  checked={searchCondition === "AND"}
-                  onChange={() => setSearchCondition("AND")}
-                />
-                AND
-              </label>
-              <label className="flex items-center gap-1">
-                <input
-                  type="radio"
-                  name="condition"
-                  checked={searchCondition === "OR"}
-                  onChange={() => setSearchCondition("OR")}
-                />
-                OR
-              </label>
-            </div>
-
-            {/* Clear Button */}
-            <button
-              className="flex items-center gap-2 px-3 py-2 border rounded-md hover:bg-gray-50 text-gray-700"
-              onClick={clearSearchConditions}
-            >
-              <Trash2 className="w-4 h-4" />
-              Clear
-            </button>
-
-            {/* Search Button */}
-            <button
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              onClick={handleSearch}
-              disabled={selectedTags.length === 0}
-            >
-              <Search className="w-4 h-4" />
-              Search
-            </button>
-
-            {/* History Button */}
-            <button
-              ref={historyButtonRef}
-              className="flex items-center gap-2 px-3 py-2 border rounded-md hover:bg-gray-50"
-              onClick={() => setIsHistoryOpen(!isHistoryOpen)}
-            >
-              <Clock className="w-4 h-4" />
-              History
-            </button>
-
-            <div className="ml-auto flex items-center gap-2">
-              {/* View Mode Selector */}
-              <div className="flex border rounded-md overflow-hidden">
-                {viewModes.map((mode) => (
-                  <button
-                    key={mode.id}
-                    className={`p-2 ${currentViewMode.id === mode.id ? "bg-gray-200" : "bg-white hover:bg-gray-50"}`}
-                    onClick={() => setCurrentViewMode(mode)}
-                    title={mode.name}
-                  >
-                    {mode.icon}
-                  </button>
-                ))}
+                  ))
+                ) : (
+                  <div className="p-3 text-center text-gray-500">No tags found</div>
+                )}
               </div>
-
-              {/* Operation Mode Toggle */}
-              <button
-                className={`flex items-center gap-2 px-3 py-2 border rounded-md ${
-                  operationMode ? "bg-blue-100 border-blue-300" : "hover:bg-gray-50"
-                }`}
-                onClick={() => setOperationMode(!operationMode)}
-              >
-                {operationMode ? "Exit Selection" : "Select Files"}
-              </button>
-            </div>
-          </div>
-
-          {/* Selected Tags */}
-          {selectedTags.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {selectedTags.map((tag) => (
-                <div key={tag.tag} className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-md">
-                  {tag.tag}
-                  <button className="text-blue-600 hover:text-blue-800" onClick={() => removeTag(tag.tag)}>
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Operation Controls */}
-          {operationMode && searchResults.length > 0 && (
-            <div className="flex items-center gap-2 mt-2 p-2 bg-blue-50 rounded-md">
-              <button
-                className="flex items-center gap-1 px-3 py-1 bg-white border rounded-md hover:bg-gray-50"
-                onClick={selectAllItems}
-              >
-                <CheckSquare className="w-4 h-4" />
-                Select All
-              </button>
-              <button
-                className="flex items-center gap-1 px-3 py-1 bg-white border rounded-md hover:bg-gray-50"
-                onClick={deselectAllItems}
-              >
-                <Square className="w-4 h-4" />
-                Deselect All
-              </button>
-              <button
-                className="flex items-center gap-1 px-3 py-1 bg-white border rounded-md hover:bg-gray-50"
-                onClick={handleMove}
-                disabled={selectedItems.length === 0}
-              >
-                <FolderInput className="w-4 h-4" />
-                Move Selected ({selectedItems.length})
-              </button>
-              <span className="ml-auto text-sm text-blue-700">
-                {selectedItems.length} of {searchResults.length} selected
-              </span>
             </div>
           )}
         </div>
+
+        <div className="flex items-center space-x-2 px-3 py-1.5 bg-white dark:bg-gray-800 rounded-md border shadow-sm">
+          <Switch
+            id="search-condition"
+            checked={searchCondition === "OR"}
+            onCheckedChange={(checked) => setSearchCondition(checked ? "OR" : "AND")}
+          />
+          <Label htmlFor="search-condition" className="font-medium">
+            {searchCondition}
+          </Label>
+        </div>
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-9 bg-white dark:bg-gray-800"
+          onClick={clearSearchConditions}
+          disabled={selectedTags.length === 0}
+        >
+          <Trash2 className="h-4 w-4 mr-1 text-red-500" />
+          Clear
+        </Button>
+
+        <Button
+          variant="default"
+          size="sm"
+          className="h-9 bg-blue-600 hover:bg-blue-700"
+          onClick={handleSearch}
+          disabled={selectedTags.length === 0}
+        >
+          <Search className="h-4 w-4 mr-1" />
+          Search
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-9 bg-white dark:bg-gray-800"
+          onClick={() => setShowHistoryDialog(true)}
+        >
+          <History className="h-4 w-4 mr-1 text-purple-500" />
+          History
+        </Button>
+
+        <div className="ml-auto flex items-center gap-1">
+          {/* View Mode Selector */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 bg-white dark:bg-gray-800">
+                {currentViewMode.icon}
+                <span className="ml-1 hidden sm:inline">{currentViewMode.name}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {viewModes.map((mode) => (
+                <DropdownMenuItem
+                  key={mode.id}
+                  onClick={() => setCurrentViewMode(mode)}
+                  className={`flex items-center gap-2 ${
+                    currentViewMode.id === mode.id
+                      ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                      : ""
+                  }`}
+                >
+                  {mode.icon}
+                  <span>{mode.name}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button
+            variant={operationMode ? "secondary" : "outline"}
+            size="sm"
+            className={`h-9 ${operationMode ? "bg-blue-100 text-blue-800 border-blue-300" : "bg-white dark:bg-gray-800"}`}
+            onClick={() => setOperationMode(!operationMode)}
+          >
+            {operationMode ? <CheckSquare className="h-4 w-4 text-blue-600" /> : <Square className="h-4 w-4" />}
+            <span className="ml-1">Select</span>
+          </Button>
+        </div>
       </div>
 
-      {/* Search History Dropdown */}
-      {isHistoryOpen && (
-        <div ref={historyRef} className="absolute top-32 right-4 z-20 w-80 bg-white border rounded-md shadow-lg">
-          <div className="p-2 border-b font-medium">Recent Searches</div>
-          <div className="max-h-80 overflow-auto">
-            {searchHistory.length > 0 ? (
-              searchHistory.map((item) => (
-                <button
-                  key={item.id}
-                  className="w-full p-3 text-left hover:bg-gray-50 border-b"
-                  onClick={() => applyHistoryItem(item)}
-                >
-                  <div className="flex flex-wrap gap-1 mb-1">
-                    {item.tags.map((tag) => (
-                      <span key={tag.tag} className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-md">
-                        {tag.tag}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="flex justify-between items-center text-xs text-gray-500">
-                    <span>Condition: {item.condition}</span>
-                    <span>{formatTimestamp(item.timestamp)}</span>
-                  </div>
-                </button>
-              ))
-            ) : (
-              <div className="p-4 text-center text-gray-500">No search history</div>
-            )}
+      {/* Selected Tags */}
+      {selectedTags.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-3 p-2 bg-gray-50 dark:bg-gray-800/50 rounded-md border">
+          {selectedTags.map((tag) => (
+            <Badge
+              key={tag.tag}
+              className="pl-2 h-6 flex items-center gap-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 hover:bg-blue-200"
+            >
+              {tag.tag}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-4 w-4 p-0 ml-1 hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full"
+                onClick={() => removeTag(tag.tag)}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </Badge>
+          ))}
+        </div>
+      )}
+
+      {/* Operation Controls */}
+      {operationMode && searchResults.length > 0 && (
+        <div className="flex items-center gap-2 mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-200 dark:border-blue-800">
+          <Button variant="outline" size="sm" className="h-8 bg-white dark:bg-gray-800" onClick={selectAllItems}>
+            <CheckSquare className="h-3.5 w-3.5 mr-1 text-green-500" />
+            Select All
+          </Button>
+
+          <Button variant="outline" size="sm" className="h-8 bg-white dark:bg-gray-800" onClick={deselectAllItems}>
+            <Square className="h-3.5 w-3.5 mr-1 text-red-500" />
+            Clear
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 bg-white dark:bg-gray-800"
+            onClick={handleMove}
+            disabled={selectedItems.length === 0}
+          >
+            <FolderInput className="h-3.5 w-3.5 mr-1 text-blue-500" />
+            Move ({selectedItems.length})
+          </Button>
+
+          <div className="ml-auto text-sm font-medium text-blue-700 dark:text-blue-300">
+            {selectedItems.length} of {searchResults.length} selected
           </div>
         </div>
       )}
 
       {/* Results Area */}
-      <div className="flex-1 overflow-auto p-4">
-        {searchResults.length > 0 ? (
-          currentViewMode.id === "details" ? (
-            <div className="bg-white rounded-md shadow-sm">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    {operationMode && <th scope="col" className="px-3 py-2 w-10"></th>}
-                    <th
-                      scope="col"
-                      className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      File
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Modified
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Location
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Size
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Author
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Character
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Tags
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {searchResults.map((result) => (
-                    <tr
-                      key={result.id}
-                      className={`hover:bg-gray-50 ${operationMode && selectedItems.includes(result.id) ? "bg-blue-50" : ""}`}
-                      onClick={() => toggleItemSelection(result.id)}
-                    >
-                      {operationMode && (
-                        <td className="px-3 py-2">
-                          <div className="flex items-center">
+      <Card className="flex-1 overflow-hidden border-2 border-gray-200 dark:border-gray-700">
+        <ScrollArea className="h-full">
+          {searchResults.length > 0 ? (
+            currentViewMode.id === "details" ? (
+              <div className="w-full">
+                <table className="w-full">
+                  <thead className="bg-gray-100 dark:bg-gray-800 sticky top-0">
+                    <tr>
+                      {operationMode && <th className="w-8 p-2"></th>}
+                      <th className="text-left p-2 text-xs font-medium">File</th>
+                      <th className="text-left p-2 text-xs font-medium">Location</th>
+                      <th className="text-left p-2 text-xs font-medium">Author</th>
+                      <th className="text-left p-2 text-xs font-medium">Character</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {searchResults.map((result) => (
+                      <tr
+                        key={result.id}
+                        className={cn(
+                          "hover:bg-blue-50 dark:hover:bg-blue-900/20 border-b border-gray-200 dark:border-gray-700",
+                          operationMode && selectedItems.includes(result.id) && "bg-blue-100 dark:bg-blue-900/30",
+                        )}
+                        onClick={() => toggleItemSelection(result.id)}
+                      >
+                        {operationMode && (
+                          <td className="p-2">
                             {selectedItems.includes(result.id) ? (
-                              <CheckSquare className="w-4 h-4 text-blue-600" />
+                              <CheckSquare className="h-4 w-4 text-blue-600" />
                             ) : (
-                              <Square className="w-4 h-4 text-gray-400" />
+                              <Square className="h-4 w-4 text-gray-400" />
                             )}
+                          </td>
+                        )}
+                        <td className="p-2">
+                          <div className="flex items-center gap-2">
+                            <img
+                              src={result.thumbnail_url || "/placeholder.svg"}
+                              alt={result.file_name}
+                              className="h-8 w-8 object-cover rounded border border-gray-200 dark:border-gray-700"
+                            />
+                            <span className="text-sm">{result.file_name}</span>
                           </div>
                         </td>
-                      )}
-                      <td className="px-3 py-2">
-                        <div className="flex items-center">
-                          <img
-                            src={result.thumbnail_url || "/placeholder.svg"}
-                            alt={result.file_name}
-                            className="h-10 w-10 mr-2 object-cover"
-                          />
-                          <span className="text-sm">{result.file_name}</span>
-                        </div>
-                      </td>
-                      <td className="px-3 py-2 text-sm text-gray-500">{new Date().toLocaleDateString()}</td>
-                      <td className="px-3 py-2 text-sm text-gray-500">{result.save_dir}</td>
-                      <td className="px-3 py-2 text-sm text-gray-500">{Math.floor(Math.random() * 1000) + 100} KB</td>
-                      <td className="px-3 py-2 text-sm text-gray-500">{result.author || "-"}</td>
-                      <td className="px-3 py-2 text-sm text-gray-500">{result.character || "-"}</td>
-                      <td className="px-3 py-2 text-sm text-gray-500">
-                        {selectedTags
-                          .slice(0, 3)
-                          .map((t) => t.tag)
-                          .join(", ")}
-                        {selectedTags.length > 3 ? "..." : ""}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        <td className="p-2 text-sm text-gray-600 dark:text-gray-300">{result.save_dir}</td>
+                        <td className="p-2 text-sm text-gray-600 dark:text-gray-300">{result.author || "-"}</td>
+                        <td className="p-2 text-sm text-gray-600 dark:text-gray-300">{result.character || "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className={`grid ${currentViewMode.gridCols} gap-3 p-3`}>
+                {searchResults.map((result) => (
+                  <div
+                    key={result.id}
+                    className={cn(
+                      "flex flex-col items-center p-2 rounded-md border hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer",
+                      operationMode &&
+                        selectedItems.includes(result.id) &&
+                        "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700",
+                      !selectedItems.includes(result.id) && "border-gray-200 dark:border-gray-700",
+                    )}
+                    onClick={() => toggleItemSelection(result.id)}
+                  >
+                    {operationMode && (
+                      <div className="self-start mb-1">
+                        {selectedItems.includes(result.id) ? (
+                          <CheckSquare className="h-4 w-4 text-blue-600" />
+                        ) : (
+                          <Square className="h-4 w-4 text-gray-400" />
+                        )}
+                      </div>
+                    )}
+                    <img
+                      src={result.thumbnail_url || "/placeholder.svg"}
+                      alt={result.file_name}
+                      className={`object-cover mb-1 rounded border border-gray-200 dark:border-gray-700 ${currentViewMode.size}`}
+                    />
+                    <span className="text-xs text-center truncate w-full">{result.file_name}</span>
+                  </div>
+                ))}
+              </div>
+            )
           ) : (
-            <div className={`grid ${currentViewMode.gridCols} gap-4`}>
-              {searchResults.map((result) => (
-                <div
-                  key={result.id}
-                  className={`flex flex-col items-center p-2 bg-white rounded-md shadow-sm hover:shadow-md cursor-pointer ${
-                    operationMode && selectedItems.includes(result.id) ? "ring-2 ring-blue-500 bg-blue-50" : ""
-                  }`}
-                  onClick={() => toggleItemSelection(result.id)}
-                >
-                  {operationMode && (
-                    <div className="self-start mb-1">
-                      {selectedItems.includes(result.id) ? (
-                        <CheckSquare className="w-4 h-4 text-blue-600" />
-                      ) : (
-                        <Square className="w-4 h-4 text-gray-400" />
-                      )}
-                    </div>
-                  )}
-                  <img
-                    src={result.thumbnail_url || "/placeholder.svg"}
-                    alt={result.file_name}
-                    className={`object-cover mb-2 ${currentViewMode.size}`}
-                  />
-                  <span className="text-sm text-center truncate w-full">{result.file_name}</span>
-                </div>
-              ))}
+            <div className="flex flex-col items-center justify-center h-[200px] text-gray-500">
+              <Search className="h-12 w-12 mb-2 opacity-50" />
+              <p className="text-base">Select tags and search to see results</p>
             </div>
-          )
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full text-gray-500">
-            <Search className="w-12 h-12 mb-2" />
-            <p>Select tags and search to see results</p>
+          )}
+        </ScrollArea>
+      </Card>
+
+      {/* Add status bar at the bottom */}
+      {searchResults.length > 0 && (
+        <div className="flex items-center justify-between text-xs text-gray-500 p-2 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+          <div>{searchResults.length} items</div>
+          <div className="flex items-center gap-2">
+            <span>View: {currentViewMode.name}</span>
+            <span className="text-gray-400">|</span>
+            <span>Ctrl+Mouse wheel or Ctrl+/- to change view</span>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* History Dialog */}
+      <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Search History</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-auto">
+            {searchHistory.length > 0 ? (
+              <div className="space-y-2">
+                {searchHistory.map((item) => (
+                  <Card
+                    key={item.id}
+                    className="p-3 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                    onClick={() => applyHistoryItem(item)}
+                  >
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {item.tags.map((tag) => (
+                        <Badge
+                          key={tag.tag}
+                          variant="outline"
+                          className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-200 dark:border-blue-800"
+                        >
+                          {tag.tag}
+                        </Badge>
+                      ))}
+                    </div>
+                    <div className="flex justify-between items-center text-xs text-gray-500">
+                      <span className="font-medium text-blue-600 dark:text-blue-400">Condition: {item.condition}</span>
+                      <span>{formatTimestamp(item.timestamp)}</span>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="p-4 text-center text-gray-500">No search history available</div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Move Dialog */}
-      {showMoveDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96 max-w-full">
-            <h3 className="text-lg font-medium mb-4">Move {selectedItems.length} files</h3>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Destination Folder</label>
+      <Dialog open={showMoveDialog} onOpenChange={setShowMoveDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Move {selectedItems.length} files</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Destination Folder</Label>
               <div className="flex gap-2">
-                <input
-                  type="text"
-                  className="flex-1 border rounded-md px-3 py-2"
+                <Input
                   value={targetFolder}
                   onChange={(e) => setTargetFolder(e.target.value)}
                   placeholder="C:/Path/To/Destination"
+                  className="flex-1"
                 />
-                <button className="p-2 border rounded-md">
-                  <Folder className="w-5 h-5" />
-                </button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                >
+                  <Folder className="h-4 w-4" />
+                </Button>
               </div>
             </div>
-            <div className="flex justify-end gap-2">
-              <button className="px-4 py-2 border rounded-md hover:bg-gray-50" onClick={() => setShowMoveDialog(false)}>
-                Cancel
-              </button>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" onClick={confirmMove}>
-                Move
-              </button>
-            </div>
           </div>
-        </div>
-      )}
-
-      {/* Move Confirmation Dialog */}
-      {showMoveConfirmation && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96 max-w-full">
-            <h3 className="text-lg font-medium mb-4">Files Moved</h3>
-            <p className="mb-4">
-              {movedCount} files have been moved to {targetFolder || "the selected destination"}
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                className="px-4 py-2 border rounded-md hover:bg-gray-50"
-                onClick={() => setShowMoveConfirmation(false)}
-              >
-                Close
-              </button>
-              <button
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                onClick={openTargetLocation}
-              >
-                Open Location
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowMoveDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmMove} className="bg-blue-600 hover:bg-blue-700">
+              Move Files
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
-
-export default TagsSearcher

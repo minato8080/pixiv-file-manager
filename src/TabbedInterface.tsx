@@ -3,7 +3,6 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 
 export type TabItem = {
@@ -40,16 +39,18 @@ export function TabbedInterface({ tabs, defaultTabIndex = 0, className }: Tabbed
   }
 
   return (
-    <div className={cn("w-full", className)}>
-      <div className="border-b">
+    <div className={cn("flex flex-col h-full", className)}>
+      <div className="border-b bg-gray-100 dark:bg-gray-800">
         <div className="flex overflow-x-auto scrollbar-hide">
           {tabs.map((tab, index) => (
             <button
               key={index}
               onClick={() => handleTabClick(index)}
               className={cn(
-                "relative px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white focus:ring-blue-500",
-                activeTabIndex === index ? "text-blue-600" : "text-gray-500 hover:text-blue-600",
+                "relative px-4 py-2 text-sm font-medium transition-colors focus:outline-none",
+                activeTabIndex === index
+                  ? "text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-900"
+                  : "text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400",
               )}
               aria-selected={activeTabIndex === index}
               role="tab"
@@ -59,27 +60,21 @@ export function TabbedInterface({ tabs, defaultTabIndex = 0, className }: Tabbed
                 <span>{tab.label}</span>
               </div>
               {activeTabIndex === index && (
-                <motion.div
-                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"
-                  layoutId="tab-indicator"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.3 }}
-                />
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400" />
               )}
             </button>
           ))}
         </div>
       </div>
-      <div className="mt-4 relative">
+      <div className="flex-1 relative overflow-hidden">
         {tabs.map((tab, index) => (
           <div
             key={index}
             className={cn(
-              "absolute top-0 left-0 w-full transition-opacity duration-200",
+              "absolute inset-0 transition-opacity duration-200 flex flex-col",
               activeTabIndex === index ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none",
             )}
-            style={{ display: initializedTabs[index] ? "block" : "none" }}
+            style={{ display: initializedTabs[index] ? "flex" : "none" }}
           >
             {initializedTabs[index] && tab.content}
           </div>

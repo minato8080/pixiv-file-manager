@@ -22,7 +22,7 @@ function Page() {
   ];
 
   return (
-    <div className="container mx-auto py-2 px-2">
+    <div className="w-full py-2 px-2">
       <h1 className="text-3xl font-bold mb-2">Pixiv File Manager</h1>
       <TabbedInterface tabs={tabs} />
     </div>

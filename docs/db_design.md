@@ -3,7 +3,8 @@
 - **ID_DETAIL**
   - `id`: integer
   - `suffix`: integer | null
-  - `author`: string | null
+  - `author_name`: string
+  - `author_account`: string
   - `character`: string | null
   - `save_dir`: string | null
 

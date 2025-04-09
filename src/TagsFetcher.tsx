@@ -53,7 +53,7 @@ export default function TagsFetcher() {
     setProgress({ current: 0, total: 0 })
 
     try {
-      const result = await invoke<ProcessStats>("process_capture_tags_info", {
+      const result = await invoke<ProcessStats>("process_capture_illust_detail", {
         folders: selectedFolders,
       })
       console.log("処理結果:", result)

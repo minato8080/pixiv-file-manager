@@ -6,13 +6,15 @@
 mod commands;
 mod constants;
 mod models;
+mod api;
 
-use crate::commands::fetch_tags::process_capture_tags_info;
-use crate::commands::search_tags::{
+use crate::commands::fetch::{process_capture_illust_detail, process_capture_tags_info};
+use crate::commands::search::{
     get_search_history, get_unique_tag_list, save_search_history, search_by_tags,
 };
 use crate::constants::DB_PATH;
 use crate::models::global::AppState;
+use models::pixiv::{PixivApi, RealPixivApi};
 use rusqlite::{Connection, Result};
 use std::sync::Mutex;
 use tauri::Manager;
@@ -30,12 +32,14 @@ fn main() {
             }
 
             let conn = Connection::open(DB_PATH.clone()).unwrap();
+            let app_pixiv_api = RealPixivApi::create_api().unwrap();
 
             // Initialize database
             initialize_db(&conn).unwrap();
 
             app.manage(AppState {
                 db: Mutex::new(conn),
+                app_pixiv_api: app_pixiv_api,
             });
 
             Ok(())
@@ -45,7 +49,8 @@ fn main() {
             search_by_tags,
             get_search_history,
             save_search_history,
-            process_capture_tags_info
+            process_capture_tags_info,
+            process_capture_illust_detail
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -56,7 +61,8 @@ fn initialize_db(conn: &Connection) -> Result<()> {
         "CREATE TABLE IF NOT EXISTS ID_DETAIL (
             id INTEGER,
             suffix INTEGER,
-            author TEXT,
+            author_name TEXT,
+            author_account TEXT,
             character TEXT,
             save_dir TEXT,
             PRIMARY KEY (id, suffix)

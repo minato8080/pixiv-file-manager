@@ -2913,6 +2913,7 @@ dependencies = [
 name = "pixiv-file-manager"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "dirs",
  "once_cell",
  "pyo3",

@@ -2,7 +2,7 @@ import json
 from pixivpy3 import AppPixivAPI
 
 
-def createAPI() -> AppPixivAPI | None:
+def create_api() -> AppPixivAPI | None:
     try:
         with open("../py/client.json", "r") as file:
             client_data = json.load(file)
@@ -16,16 +16,20 @@ def createAPI() -> AppPixivAPI | None:
         return None  # エラー時は None を返す
 
 
-def fetch_tags_from_pixiv(image_id: int) -> list:
-    api = createAPI()
-    if api is None:
-        print("APIが初期化されていません。")
-        return None
-
+def fetch_tags_from_pixiv(api: AppPixivAPI, image_id: int) -> list:
     # PixivAPIのリクエスト
     illust_info = api.illust_detail(image_id)
 
     if "illust" in illust_info and illust_info.illust is not None:
         tags = [tag["name"] for tag in illust_info.illust.tags]
         return tags
+    return None
+
+
+def fetch_detail_from_pixiv(api: AppPixivAPI, image_id: int) -> dict:
+    # PixivAPIのリクエスト
+    illust_info = api.illust_detail(image_id)
+
+    if "illust" in illust_info and illust_info.illust is not None:
+        return json.dumps(illust_info.illust)
     return None

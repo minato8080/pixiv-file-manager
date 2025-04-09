@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 
@@ -20,6 +20,24 @@ interface TabbedInterfaceProps {
 
 export function TabbedInterface({ tabs, defaultTabIndex = 0, className }: TabbedInterfaceProps) {
   const [activeTabIndex, setActiveTabIndex] = useState(defaultTabIndex)
+  const [initializedTabs, setInitializedTabs] = useState<boolean[]>([])
+
+  // Initialize the tabs tracking array on first render
+  useEffect(() => {
+    const initialized = tabs.map((_, index) => index === defaultTabIndex)
+    setInitializedTabs(initialized)
+  }, [tabs.length, defaultTabIndex])
+
+  const handleTabClick = (index: number) => {
+    setActiveTabIndex(index)
+
+    // Mark this tab as initialized if it wasn't already
+    if (!initializedTabs[index]) {
+      const newInitializedTabs = [...initializedTabs]
+      newInitializedTabs[index] = true
+      setInitializedTabs(newInitializedTabs)
+    }
+  }
 
   return (
     <div className={cn("w-full", className)}>
@@ -28,7 +46,7 @@ export function TabbedInterface({ tabs, defaultTabIndex = 0, className }: Tabbed
           {tabs.map((tab, index) => (
             <button
               key={index}
-              onClick={() => setActiveTabIndex(index)}
+              onClick={() => handleTabClick(index)}
               className={cn(
                 "relative px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white focus:ring-blue-500",
                 activeTabIndex === index ? "text-blue-600" : "text-gray-500 hover:text-blue-600",
@@ -53,18 +71,20 @@ export function TabbedInterface({ tabs, defaultTabIndex = 0, className }: Tabbed
           ))}
         </div>
       </div>
-      <div className="mt-4">
-        <motion.div
-          key={activeTabIndex}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.2 }}
-        >
-          {tabs[activeTabIndex].content}
-        </motion.div>
+      <div className="mt-4 relative">
+        {tabs.map((tab, index) => (
+          <div
+            key={index}
+            className={cn(
+              "absolute top-0 left-0 w-full transition-opacity duration-200",
+              activeTabIndex === index ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none",
+            )}
+            style={{ display: initializedTabs[index] ? "block" : "none" }}
+          >
+            {initializedTabs[index] && tab.content}
+          </div>
+        ))}
       </div>
     </div>
   )
 }
-

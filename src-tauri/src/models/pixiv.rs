@@ -1,35 +1,64 @@
-use std::error::Error;
 use pyo3::prelude::*;
+use serde::{Deserialize, Serialize};
+use std::error::Error;
+
+use super::global::AppState;
+use tauri::State;
 
 pub trait PixivApi {
-    fn fetch_tags(&self, image_id: usize) -> Result<Vec<String>, Box<dyn std::error::Error>>;
+    fn create_api() -> Result<PyObject, Box<dyn Error>>
+    where
+        Self: Sized;
+    fn fetch_tags(
+        state: &State<AppState>,
+        image_id: usize,
+    ) -> Result<Vec<String>, Box<dyn Error>>;
+    fn fetch_detail(
+        state: &State<AppState>,
+        image_id: usize,
+    ) -> Result<PixivIllustDetail, Box<dyn Error>>;
 }
 
+#[derive(Clone)]
 pub struct RealPixivApi;
 
-impl PixivApi for RealPixivApi {
-    fn fetch_tags(&self, image_id: usize) -> Result<Vec<String>, Box<dyn Error>> {
-        
-        Python::with_gil(|py| {
-            // Pythonのモジュールパスにroot/src-tauri/src/pyを追加
-            let sys_path = py.import("sys")?.getattr("path")?;
-            sys_path.call_method1("insert", (0, r"C:\Users\fujin\workspace\pixiv-file-manager\py"))?;
-    
-            // Pythonファイルのモジュール名（拡張子 .py は不要）
-            let module = PyModule::import(py, "pixiv_fetcher")?;
-    
-            // 関数の呼び出し
-            let result = module.getattr("fetch_tags_from_pixiv")?.call1((
-                image_id,
-            ))?;
-    
-            // Pythonのリスト -> Rust Vec<String> に変換
-            let tags: Option<Vec<String>> = result.extract()?;
-            println!("取得タグ: {:?}", tags);
-            tags.ok_or_else(|| "タグが見つかりませんでした".into())
-        }).map_err(|e| {
-            eprintln!("タグ取得に失敗しました: {:?}", e);
-            e
-        })
-    }
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PixivIllustDetail {
+    pub id: i64,
+    pub title: String,
+    pub image_urls: ImageUrls,
+    pub user: User,
+    pub tags: Vec<Tag>,
+    pub create_date: String,
+    pub width: i32,
+    pub height: i32,
+    pub total_view: i32,
+    pub total_bookmarks: i32,
+    pub total_comments: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ImageUrls {
+    pub square_medium: String,
+    pub medium: String,
+    pub large: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct User {
+    pub id: i64,
+    pub name: String,
+    pub account: String,
+    pub profile_image_urls: ProfileImageUrls,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ProfileImageUrls {
+    pub medium: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Tag {
+    pub name: String,
+    pub translated_name: Option<String>,
 }

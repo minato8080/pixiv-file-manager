@@ -1,6 +1,11 @@
-use crate::models::{
-    global::AppState,
-    search::{SearchHistoryItem, SearchResult,GetUniqueTagListResp},
+use std::path::Path;
+
+use crate::{
+    api::windows::generate_thumbnail,
+    models::{
+        global::AppState,
+        search::{GetUniqueTagListResp, SearchHistoryItem, SearchResult},
+    },
 };
 use rusqlite::{params, Result};
 use tauri::State;
@@ -8,10 +13,6 @@ use tauri::State;
 #[tauri::command]
 pub fn get_unique_tag_list(state: State<AppState>) -> Result<Vec<GetUniqueTagListResp>, String> {
     let conn = state.db.lock().unwrap();
-    // let count: i64 = conn
-    //     .query_row("SELECT COUNT(*) FROM TAG_INFO", [], |row| row.get(0))
-    //     .map_err(|e| e.to_string())?;
-    // println!("TAG_INFOの総数: {}", count);
 
     let mut stmt = conn
         .prepare("SELECT tag, COUNT(tag) as count FROM TAG_INFO GROUP BY tag ORDER BY count DESC")
@@ -21,7 +22,7 @@ pub fn get_unique_tag_list(state: State<AppState>) -> Result<Vec<GetUniqueTagLis
         .query_map([], |row| {
             Ok(GetUniqueTagListResp {
                 tag: row.get(0)?,
-                count: row.get(1)?
+                count: row.get(1)?,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -37,49 +38,36 @@ pub fn get_unique_tag_list(state: State<AppState>) -> Result<Vec<GetUniqueTagLis
 #[tauri::command]
 pub fn search_by_tags(
     state: State<AppState>,
-    tag_ids: Vec<i64>,
+    tags: Vec<String>,
     condition: String,
 ) -> Result<Vec<SearchResult>, String> {
-    if tag_ids.is_empty() {
+    if tags.is_empty() {
         return Ok(Vec::new());
     }
 
     let conn = state.db.lock().unwrap();
 
-    // Build query based on condition
+    // クエリを条件に基づいて構築
     let query = match condition.as_str() {
         "AND" => {
-            let placeholders = (0..tag_ids.len())
-                .map(|_| "?")
-                .collect::<Vec<_>>()
-                .join(",");
+            let placeholders = (0..tags.len()).map(|_| "?").collect::<Vec<_>>().join(",");
 
             format!(
-                "SELECT i.id, i.title, i.thumbnail_path 
-                FROM ITEMS i
-                WHERE i.id IN (
-                    SELECT it.item_id 
-                    FROM ITEM_TAGS it
-                    WHERE it.tag_id IN ({})
-                    GROUP BY it.item_id
-                    HAVING COUNT(DISTINCT it.tag_id) = ?
-                )
-                ORDER BY i.title",
+                "SELECT id 
+                FROM TAG_INFO 
+                WHERE tag IN ({})
+                GROUP BY id
+                HAVING COUNT(DISTINCT tag) = ?",
                 placeholders
             )
         }
         "OR" => {
-            let placeholders = (0..tag_ids.len())
-                .map(|_| "?")
-                .collect::<Vec<_>>()
-                .join(",");
+            let placeholders = (0..tags.len()).map(|_| "?").collect::<Vec<_>>().join(",");
 
             format!(
-                "SELECT DISTINCT i.id, i.title, i.thumbnail_path 
-                FROM ITEMS i
-                JOIN ITEM_TAGS it ON i.id = it.item_id
-                WHERE it.tag_id IN ({})
-                ORDER BY i.title",
+                "SELECT DISTINCT id 
+                FROM TAG_INFO 
+                WHERE tag IN ({})",
                 placeholders
             )
         }
@@ -88,33 +76,76 @@ pub fn search_by_tags(
 
     let mut stmt = conn.prepare(&query).map_err(|e| e.to_string())?;
 
-    let mut params: Vec<&dyn rusqlite::ToSql> = tag_ids
-        .iter()
-        .map(|id| id as &dyn rusqlite::ToSql)
-        .collect();
+    let mut params: Vec<&dyn rusqlite::ToSql> =
+        tags.iter().map(|tag| tag as &dyn rusqlite::ToSql).collect();
 
-    // For AND condition, we need to add the count of tags
-    let tag_count = tag_ids.len() as i64;
+    // AND条件の場合、タグの数を追加
+    let tag_count = tags.len() as i64;
     if condition == "AND" {
         params.push(&tag_count);
     }
 
-    let result_iter = stmt
+    let id_iter = stmt
         .query_map(params.as_slice(), |row| {
-            Ok(SearchResult {
-                id: row.get(0)?,
-                title: row.get(1)?,
-                thumbnail_path: row.get(2)?,
-                author: row.get(3)?,
-                character: row.get(4)?,
-                save_dir: row.get(5)?,
-            })
+            let id: i64 = row.get(0)?;
+            Ok(id)
         })
         .map_err(|e| e.to_string())?;
 
     let mut results = Vec::new();
-    for result in result_iter {
-        results.push(result.map_err(|e| e.to_string())?);
+    for id in id_iter {
+        let id = id.map_err(|e| e.to_string())?;
+        let mut detail_stmt = conn
+            .prepare(
+                "SELECT id, suffix, extension, author_name, character, save_dir
+            FROM ID_DETAIL 
+            WHERE id = ?",
+            )
+            .map_err(|e| e.to_string())?;
+
+        let detail_iter = detail_stmt
+            .query_map(params![id], |row| {
+                println!("{:?}", row);
+                let id: i64 = row.get(0)?;
+                let suffix: Option<i64> = row.get(1)?;
+                let extension: String = row.get(2)?;
+                let author: String = row.get(3)?;
+                let character: Option<String> = row.get(4)?;
+                let save_dir: String = row.get(5)?;
+                let file_name = match suffix {
+                    Some(s) => format!("{}_p{}.{}", id, s, extension),
+                    None => format!("{}.{}", id, extension),
+                };
+                let pathbuf = Path::new(&save_dir).join(&file_name);
+                let path = pathbuf.to_str().unwrap().to_string();
+                println!("{}", path);
+                let update_time: String = {
+                    let metadata = std::fs::metadata(&path)
+                        .map_err(|_e| rusqlite::Error::InvalidPath(pathbuf.clone()))?;
+                    let modified_time = metadata.modified().unwrap();
+                    let datetime: chrono::DateTime<chrono::Local> = modified_time.into();
+                    datetime.format("%Y-%m-%d %H:%M:%S").to_string()
+                };
+                // ここでサムネイルを取得する処理を書く
+                let thumbnail_path = generate_thumbnail(pathbuf.clone())
+                    .map_err(|_e| rusqlite::Error::InvalidPath(pathbuf))?;
+
+                Ok(SearchResult {
+                    id,
+                    file_name,
+                    author,
+                    character,
+                    save_dir,
+                    path,
+                    update_time,
+                    thumbnail_path,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+
+        for detail in detail_iter {
+            results.push(detail.map_err(|e| e.to_string())?);
+        }
     }
 
     Ok(results)
@@ -162,8 +193,8 @@ pub fn save_search_history(
     let conn = state.db.lock().unwrap();
 
     // Clear existing history
-    conn.execute("DELETE FROM SEARCH_HISTORY", [])
-        .map_err(|e| e.to_string())?;
+    // conn.execute("DELETE FROM SEARCH_HISTORY", [])
+    //     .map_err(|e| e.to_string())?;
 
     // Insert new history items
     for item in history {

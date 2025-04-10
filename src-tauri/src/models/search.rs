@@ -3,11 +3,13 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SearchResult {
     pub id: i64,
-    pub title: String,
+    pub file_name: String,
     pub thumbnail_path: String,
     pub author: String,
-    pub character: String,
+    pub character: Option<String>,
     pub save_dir: String,
+    pub path: String,
+    pub update_time: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

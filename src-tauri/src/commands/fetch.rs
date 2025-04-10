@@ -1,14 +1,13 @@
 use rusqlite::{params, Result};
 use std::fs;
 use std::path::Path;
-use std::vec::Vec;
 use std::time::Instant;
+use std::vec::Vec;
 use tauri::{Emitter, State};
 
 use crate::models::fetch::{DirDetail, FileDetail, IdInfo, ProcessStats};
 use crate::models::global::AppState;
 use crate::models::pixiv::{PixivApi, RealPixivApi};
-
 
 #[tauri::command]
 pub fn process_capture_tags_info(
@@ -42,19 +41,31 @@ fn extract_dir_detail<P: AsRef<Path>>(folder: P) -> DirDetail {
                 } else if let Some(filename) = entry.file_name().to_str() {
                     if filename.ends_with(".jpg") || filename.ends_with(".png") {
                         if let Some(id) = filename.split('_').next() {
-                            let suffix = filename.to_string();
+                            let suffix = filename
+                                .split("_p")
+                                .nth(1)
+                                .and_then(|s| s.split('.').next())
+                                .unwrap_or("")
+                                .to_string();
+                            println!("{}", suffix);
                             let extension = filename.split('.').last().unwrap_or("").to_string();
                             let save_path = path.to_str().unwrap_or("").to_string();
+                            let save_dir = path
+                                .parent()
+                                .unwrap_or(Path::new(""))
+                                .to_str()
+                                .unwrap_or("")
+                                .to_string();
                             ids.push(IdInfo {
                                 id: id.to_string(),
-                                save_dir: save_path.clone(),
-                                save_path: filename.to_string(),
+                                save_path: save_path.clone(),
                             });
                             details.push(FileDetail {
                                 id: id.to_string(),
                                 suffix,
                                 save_path,
                                 extension,
+                                save_dir,
                             });
                         }
                     }
@@ -83,7 +94,8 @@ fn process_image_ids(
     let total = vec_id_info.len();
 
     for id_info in vec_id_info {
-        if let Ok(tags) = RealPixivApi::fetch_tags(&state, id_info.id.parse::<usize>().unwrap_or_default())
+        if let Ok(tags) =
+            RealPixivApi::fetch_tags(&state, id_info.id.parse::<usize>().unwrap_or_default())
         {
             for tag in tags {
                 conn.execute(
@@ -158,11 +170,28 @@ fn process_image_ids_detail(
             if let Ok(resp) =
                 RealPixivApi::fetch_detail(&state, id_info.id.parse::<usize>().unwrap_or_default())
             {
+                let mut target_file_detail = None;
                 // ID_DETAILにデータをINSERT
-                conn.execute(
-                "INSERT OR REPLACE INTO ID_DETAIL (id, suffix, author_name, author_account, character, save_dir) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                params![resp.id, None::<i64>, resp.user.name, resp.user.account, None::<String>, id_info.save_dir],
-            )?;
+                for file_detail in &dir_detail.file_details {
+                    if file_detail.id == id_info.id {
+                        target_file_detail = Some(file_detail);
+                        break;
+                    }
+                }
+                if let Some(file_detail) = target_file_detail {
+                    conn.execute(
+                        "INSERT OR REPLACE INTO ID_DETAIL (id, suffix, extension, author_name, author_account, character, save_dir) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                        params![
+                            resp.id,
+                            file_detail.suffix,
+                            file_detail.extension,
+                            resp.user.name,
+                            resp.user.account,
+                            None::<String>,
+                            file_detail.save_dir
+                        ],
+                    )?;
+                }
 
                 // TAG_INFOにタグをINSERT
                 for tag in resp.tags {

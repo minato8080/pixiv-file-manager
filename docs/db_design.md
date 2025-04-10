@@ -1,16 +1,19 @@
 # DB定義
 
 - **ID_DETAIL**
-  - `id`: integer
-  - `suffix`: integer | null
-  - `author_name`: string
-  - `author_account`: string
-  - `character`: string | null
-  - `save_dir`: string | null
+  - `id`: INTEGER
+  - `suffix`: INTEGER
+  - `extension`: TEXT
+  - `author_name`: TEXT
+  - `author_account`: TEXT
+  - `character`: TEXT
+  - `save_dir`: TEXT
+  - **PRIMARY KEY**: (`id`, `suffix`)
 
 - **TAG_INFO**
-  - `id`: integer
-  - `tag`: string
+  - `id`: INTEGER
+  - `tag`: TEXT
+  - **PRIMARY KEY**: (`id`, `tag`)
 
 - **DB_INFO**
-  - `update_time`: timestamp
+  - `update_time`: TEXT

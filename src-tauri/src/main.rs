@@ -8,18 +8,28 @@ mod constants;
 mod models;
 mod api;
 
-use crate::commands::fetch::{process_capture_illust_detail, process_capture_tags_info};
-use crate::commands::search::{
-    get_search_history, get_unique_tag_list, save_search_history, search_by_tags,
-};
-use crate::constants::DB_PATH;
-use crate::models::global::AppState;
-use models::pixiv::{PixivApi, RealPixivApi};
 use rusqlite::{Connection, Result};
 use std::sync::Mutex;
 use tauri::Manager;
+// use windows::Win32::System::Com::*;
+
+use commands::fetch::{process_capture_illust_detail, process_capture_tags_info};
+use commands::search::{
+    get_search_history, get_unique_tag_list, save_search_history, search_by_tags,
+};
+use constants::DB_PATH;
+use models::global::AppState;
+use models::pixiv::{PixivApi, RealPixivApi};
 
 fn main() {
+    // COMの初期化
+    // unsafe {
+    //     if let Err(e) = CoInitializeEx(None, COINIT_MULTITHREADED).ok() {
+    //         eprintln!("COM initialization failed: {:?}", e);
+    //         return;
+    //     }
+    // }
+    
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app: &mut tauri::App| {
@@ -54,17 +64,23 @@ fn main() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+    
+    // COMの終了処理
+    // unsafe {
+    //     CoUninitialize();
+    // }
 }
 fn initialize_db(conn: &Connection) -> Result<()> {
     // テーブルが存在しない場合は作成
     conn.execute(
         "CREATE TABLE IF NOT EXISTS ID_DETAIL (
-            id INTEGER,
+            id INTEGER NOT NULL,
             suffix INTEGER,
-            author_name TEXT,
-            author_account TEXT,
+            extension TEXT NOT NULL,
+            author_name TEXT NOT NULL,
+            author_account TEXT NOT NULL,
             character TEXT,
-            save_dir TEXT,
+            save_dir TEXT NOT NULL,
             PRIMARY KEY (id, suffix)
         )",
         [],
@@ -72,8 +88,8 @@ fn initialize_db(conn: &Connection) -> Result<()> {
 
     conn.execute(
         "CREATE TABLE IF NOT EXISTS TAG_INFO (
-            id INTEGER,
-            tag TEXT,
+            id INTEGER NOT NULL,
+            tag TEXT NOT NULL,
             PRIMARY KEY (id, tag)
         )",
         [],
@@ -81,7 +97,7 @@ fn initialize_db(conn: &Connection) -> Result<()> {
 
     conn.execute(
         "CREATE TABLE IF NOT EXISTS DB_INFO (
-            update_time TEXT
+            update_time TEXT NOT NULL
         )",
         [],
     )?;

@@ -12,6 +12,7 @@ pub struct ProcessStats {
 pub struct FileDetail {
     pub id: String,
     pub suffix: String,
+    pub save_dir: String,
     pub save_path: String,
     pub extension: String,
 }
@@ -19,7 +20,6 @@ pub struct FileDetail {
 #[derive(Debug, Clone)]
 pub struct IdInfo {
     pub id: String,
-    pub save_dir: String,
     pub save_path: String,
 }
 

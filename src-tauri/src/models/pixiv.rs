@@ -1,22 +1,16 @@
-use pyo3::prelude::*;
-use serde::{Deserialize, Serialize};
-use std::error::Error;
-
 use super::global::AppState;
+use pixieve_rs::{errors::AuthError, pixiv::{client::PixivClient, result::illustration_proxy::IllustrationProxy}};
+use serde::{Deserialize, Serialize};
 use tauri::State;
 
 pub trait PixivApi {
-    fn create_api() -> Result<PyObject, Box<dyn Error>>
+    fn create_api() -> Result<PixivClient, AuthError>
     where
         Self: Sized;
-    fn fetch_tags(
-        state: &State<AppState>,
-        image_id: usize,
-    ) -> Result<Vec<String>, Box<dyn Error>>;
     fn fetch_detail(
-        state: &State<AppState>,
+        state: &State<'_,AppState>,
         image_id: usize,
-    ) -> Result<PixivIllustDetail, Box<dyn Error>>;
+    ) -> Result<IllustrationProxy, anyhow::Error>;
 }
 
 #[derive(Clone)]

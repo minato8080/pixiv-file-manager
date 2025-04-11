@@ -3,17 +3,17 @@
     windows_subsystem = "windows"
 )]
 
+mod api;
 mod commands;
 mod constants;
 mod models;
-mod api;
 
 use rusqlite::{Connection, Result};
 use std::sync::Mutex;
 use tauri::Manager;
 // use windows::Win32::System::Com::*;
 
-use commands::fetch::{process_capture_illust_detail, process_capture_tags_info};
+use commands::fetch::process_capture_illust_detail;
 use commands::search::{
     get_search_history, get_unique_tag_list, save_search_history, search_by_tags,
 };
@@ -29,7 +29,7 @@ fn main() {
     //         return;
     //     }
     // }
-    
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app: &mut tauri::App| {
@@ -59,12 +59,11 @@ fn main() {
             search_by_tags,
             get_search_history,
             save_search_history,
-            process_capture_tags_info,
             process_capture_illust_detail
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
-    
+
     // COMの終了処理
     // unsafe {
     //     CoUninitialize();

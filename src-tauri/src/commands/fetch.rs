@@ -9,25 +9,6 @@ use crate::models::fetch::{DirDetail, FileDetail, IdInfo, ProcessStats};
 use crate::models::global::AppState;
 use crate::models::pixiv::{PixivApi, RealPixivApi};
 
-#[tauri::command]
-pub fn process_capture_tags_info(
-    state: State<AppState>,
-    window: tauri::Window,
-    folders: Vec<String>,
-) -> Result<ProcessStats, String> {
-    let mut all_image_ids = Vec::new();
-    for folder in folders {
-        let image_detail = extract_dir_detail(&folder);
-        all_image_ids.extend(image_detail.id_info);
-    }
-    println!("Image IDs: {:?}", all_image_ids);
-    // 画像IDを処理し、結果を返す
-    match process_image_ids(state, window, all_image_ids) {
-        Ok(stats) => Ok(stats),       // 成功時は ProcessStats を返す
-        Err(e) => Err(e.to_string()), // 失敗時はエラーメッセージを文字列として返す
-    }
-}
-
 fn extract_dir_detail<P: AsRef<Path>>(folder: P) -> DirDetail {
     let mut ids = Vec::new();
     let mut details = Vec::new();
@@ -81,61 +62,9 @@ fn extract_dir_detail<P: AsRef<Path>>(folder: P) -> DirDetail {
     }
 }
 
-fn process_image_ids(
-    state: State<AppState>,
-    window: tauri::Window,
-    vec_id_info: Vec<IdInfo>,
-) -> Result<ProcessStats, Box<dyn std::error::Error>> {
-    let start = Instant::now();
-    let conn = state.db.lock().unwrap();
-
-    let mut success_count = 0;
-    let mut fail_count = 0;
-    let total = vec_id_info.len();
-
-    for id_info in vec_id_info {
-        if let Ok(tags) =
-            RealPixivApi::fetch_tags(&state, id_info.id.parse::<usize>().unwrap_or_default())
-        {
-            for tag in tags {
-                conn.execute(
-                    "INSERT OR REPLACE INTO TAG_INFO (id, tag) VALUES (?1, ?2)",
-                    params![id_info.id, tag],
-                )?;
-            }
-            success_count += 1;
-        } else {
-            fail_count += 1;
-        }
-
-        // emit でフロントに通知（イベント名: tag-progress）
-        if let Err(e) = window.emit(
-            "tag-progress",
-            serde_json::json!({
-                "type": "progress",
-                "success": success_count,
-                "fail": fail_count,
-                "current":success_count + fail_count,
-                "total": total,
-            }),
-        ) {
-            eprintln!("Failed to emit event: {}", e);
-        }
-        std::thread::sleep(std::time::Duration::from_secs(1));
-    }
-    let duration = start.elapsed();
-
-    Ok(ProcessStats {
-        total_files: total,
-        failed_files: fail_count,
-        processing_time_ms: duration.as_millis(), // 処理時間を計測していないため、仮に0を設定
-        failed_file_paths: vec![], // 失敗したファイルパスを追跡していないため、空のベクターを設定
-    })
-}
-
 #[tauri::command]
 pub fn process_capture_illust_detail(
-    state: State<AppState>,
+    state: State<'_, AppState>,
     window: tauri::Window,
     folders: Vec<String>,
 ) -> Result<ProcessStats, String> {
@@ -178,15 +107,16 @@ fn process_image_ids_detail(
                         break;
                     }
                 }
+                println!("{:?}", target_file_detail.unwrap());
                 if let Some(file_detail) = target_file_detail {
                     conn.execute(
                         "INSERT OR REPLACE INTO ID_DETAIL (id, suffix, extension, author_name, author_account, character, save_dir) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                         params![
-                            resp.id,
+                            resp.illust.id(),
                             file_detail.suffix,
                             file_detail.extension,
-                            resp.user.name,
-                            resp.user.account,
+                            resp.illust.user().name(),
+                            resp.illust.user().account(),
                             None::<String>,
                             file_detail.save_dir
                         ],
@@ -194,10 +124,10 @@ fn process_image_ids_detail(
                 }
 
                 // TAG_INFOにタグをINSERT
-                for tag in resp.tags {
+                for tag in resp.illust.tags() {
                     conn.execute(
                         "INSERT OR REPLACE INTO TAG_INFO (id, tag) VALUES (?1, ?2)",
-                        params![id_info.id, tag.name],
+                        params![id_info.id, tag.name()],
                     )?;
                 }
 

@@ -1,25 +1,19 @@
-import { useState } from "react"
-import { open } from "@tauri-apps/plugin-dialog"
-import { invoke } from "@tauri-apps/api/core"
-import { FolderOpen, Trash2, Play } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Badge } from "@/components/ui/badge"
-
-interface ProcessStats {
-  total_files: number
-  failed_files: number
-  processing_time_ms: number
-  failed_file_paths: string[]
-}
+import { useState } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
+import { invoke } from "@tauri-apps/api/core";
+import { FolderOpen, Trash2, Play } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { ProcessStats } from "./types";
 
 export default function TagsFetcher() {
-  const [selectedFolders, setSelectedFolders] = useState<string[]>([])
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [progress, setProgress] = useState({ current: 0, total: 0 })
-  const [stats, setStats] = useState<ProcessStats | null>(null)
-  const [showFailedDetails, setShowFailedDetails] = useState(false)
+  const [selectedFolders, setSelectedFolders] = useState<string[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const [stats, setStats] = useState<ProcessStats | null>(null);
+  const [showFailedDetails, setShowFailedDetails] = useState(false);
 
   // Function to select folders
   const selectFolders = async () => {
@@ -28,80 +22,86 @@ export default function TagsFetcher() {
         directory: true,
         multiple: true,
         title: "Select folders containing images",
-      })
+      });
 
       if (Array.isArray(selected)) {
-        setSelectedFolders(selected)
+        setSelectedFolders(selected);
       } else if (selected !== null) {
-        setSelectedFolders([selected])
+        setSelectedFolders([selected]);
       }
     } catch (error) {
-      console.error("Error selecting folders:", error)
+      console.error("Error selecting folders:", error);
     }
-  }
+  };
 
   // Clear selected folders
   const clearSelection = () => {
-    setSelectedFolders([])
-    setStats(null)
-  }
+    setSelectedFolders([]);
+    setStats(null);
+  };
 
   // Function to start processing
   const startProcessing = async () => {
-    if (selectedFolders.length === 0) return
+    if (selectedFolders.length === 0) return;
 
-    setIsProcessing(true)
-    setProgress({ current: 0, total: 0 })
-    setStats(null)
+    setIsProcessing(true);
+    setProgress({ current: 0, total: 0 });
+    setStats(null);
 
     try {
-      const result = await invoke<ProcessStats>("process_capture_illust_detail", {
-        folders: selectedFolders,
-      })
+      const result = await invoke<ProcessStats>(
+        "process_capture_illust_detail",
+        {
+          folders: selectedFolders,
+        }
+      );
 
-      setStats(result)
+      setStats(result);
     } catch (error) {
-      console.error("Error processing tags:", error)
+      console.error("Error processing tags:", error);
     } finally {
-      setIsProcessing(false)
+      setIsProcessing(false);
     }
-  }
+  };
 
   // Calculate estimated time based on file count
   const getEstimatedTime = (fileCount: number) => {
     // Mock calculation - in real app this would come from Rust
-    const estimatedSecondsPerFile = 0.05
-    const totalSeconds = fileCount * estimatedSecondsPerFile
+    const estimatedSecondsPerFile = 0.05;
+    const totalSeconds = fileCount * estimatedSecondsPerFile;
 
     if (totalSeconds < 60) {
-      return `${Math.ceil(totalSeconds)} seconds`
+      return `${Math.ceil(totalSeconds)} seconds`;
     } else {
-      const minutes = Math.floor(totalSeconds / 60)
-      const seconds = Math.ceil(totalSeconds % 60)
-      return `${minutes} min ${seconds} sec`
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = Math.ceil(totalSeconds % 60);
+      return `${minutes} min ${seconds} sec`;
     }
-  }
+  };
 
   // Count files in selected folders (mock implementation)
   const fileCountInfo = () => {
-    if (selectedFolders.length === 0) return null
+    if (selectedFolders.length === 0) return null;
 
     // In a real app, this data would come from Rust
     const folderCounts = selectedFolders.map((folder, index) => {
-      const baseCount = 50 + index * 25
-      const subDirCount = 20 + index * 10
-      return { folder, baseCount, subDirCount }
-    })
+      const baseCount = 50 + index * 25;
+      const subDirCount = 20 + index * 10;
+      return { folder, baseCount, subDirCount };
+    });
 
-    const totalFiles = folderCounts.reduce((sum, item) => sum + item.baseCount + item.subDirCount, 0)
+    const totalFiles = folderCounts.reduce(
+      (sum, item) => sum + item.baseCount + item.subDirCount,
+      0
+    );
 
     return {
       folders: folderCounts,
       total: totalFiles,
-    }
-  }
+    };
+  };
 
-  const counts = fileCountInfo()
+  const counts = fileCountInfo();
 
   return (
     <div className="flex flex-col h-full">
@@ -148,7 +148,10 @@ export default function TagsFetcher() {
                   className="flex items-start justify-between gap-2 text-sm border-b pb-2 border-gray-200 dark:border-gray-700"
                 >
                   <div className="truncate flex-1">
-                    <p className="font-medium truncate text-blue-700 dark:text-blue-300" title={folder}>
+                    <p
+                      className="font-medium truncate text-blue-700 dark:text-blue-300"
+                      title={folder}
+                    >
                       {folder}
                     </p>
                     {counts && (
@@ -193,7 +196,9 @@ export default function TagsFetcher() {
               <div className="text-center">
                 <FolderOpen className="h-12 w-12 mx-auto mb-2 opacity-50" />
                 <p>No folders selected</p>
-                <p className="text-sm text-gray-400 mt-1">Click "Add Folders" to begin</p>
+                <p className="text-sm text-gray-400 mt-1">
+                  Click "Add Folders" to begin
+                </p>
               </div>
             </div>
           )}
@@ -213,7 +218,10 @@ export default function TagsFetcher() {
             <div
               className="bg-blue-600 h-full rounded-full transition-all"
               style={{
-                width: progress.total > 0 ? `${(progress.current / progress.total) * 100}%` : "30%",
+                width:
+                  progress.total > 0
+                    ? `${(progress.current / progress.total) * 100}%`
+                    : "30%",
               }}
             ></div>
           </div>
@@ -225,18 +233,28 @@ export default function TagsFetcher() {
         <Card className="mt-3 p-3 border-2 border-gray-200 dark:border-gray-700">
           <div className="grid grid-cols-3 gap-3 text-center">
             <div className="p-2 rounded-md bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800">
-              <div className="text-2xl font-bold text-green-700 dark:text-green-300">{stats.total_files}</div>
-              <div className="text-xs text-green-600 dark:text-green-400">Files Processed</div>
+              <div className="text-2xl font-bold text-green-700 dark:text-green-300">
+                {stats.total_files}
+              </div>
+              <div className="text-xs text-green-600 dark:text-green-400">
+                Files Processed
+              </div>
             </div>
             <div className="p-2 rounded-md bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800">
-              <div className="text-2xl font-bold text-red-700 dark:text-red-300">{stats.failed_files}</div>
-              <div className="text-xs text-red-600 dark:text-red-400">Failed Files</div>
+              <div className="text-2xl font-bold text-red-700 dark:text-red-300">
+                {stats.failed_files}
+              </div>
+              <div className="text-xs text-red-600 dark:text-red-400">
+                Failed Files
+              </div>
             </div>
             <div className="p-2 rounded-md bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800">
               <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
                 {(stats.processing_time_ms / 1000).toFixed(1)}s
               </div>
-              <div className="text-xs text-blue-600 dark:text-blue-400">Processing Time</div>
+              <div className="text-xs text-blue-600 dark:text-blue-400">
+                Processing Time
+              </div>
             </div>
           </div>
 
@@ -256,7 +274,11 @@ export default function TagsFetcher() {
                 <ScrollArea className="h-[100px] mt-2 border rounded-md border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-900/10">
                   <div className="p-2">
                     {stats.failed_file_paths.map((path, index) => (
-                      <div key={index} className="text-xs truncate py-1 text-red-700 dark:text-red-300" title={path}>
+                      <div
+                        key={index}
+                        className="text-xs truncate py-1 text-red-700 dark:text-red-300"
+                        title={path}
+                      >
                         {path}
                       </div>
                     ))}
@@ -268,5 +290,5 @@ export default function TagsFetcher() {
         </Card>
       )}
     </div>
-  )
+  );
 }

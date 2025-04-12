@@ -1,16 +1,11 @@
-import type React from "react";
-
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { useState, useEffect, useRef } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import {
   Search,
   Filter,
   Trash2,
-  Grid,
-  List,
-  LayoutGrid,
-  Maximize2,
   FolderInput,
   CheckSquare,
   Square,
@@ -34,37 +29,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-
-// Types
-interface GetUniqueTagListResp {
-  tag: string;
-  count: number;
-}
-
-interface SearchHistory {
-  id: number;
-  tags: GetUniqueTagListResp[];
-  condition: "AND" | "OR";
-  timestamp: Date;
-}
-
-interface SearchResult {
-  id: number;
-  file_name: string;
-  author: string;
-  character: string | null;
-  save_dir: string;
-  update_time: string;
-  thumbnail_url: string;
-}
-
-interface ViewMode {
-  id: string;
-  name: string;
-  icon: React.ReactNode;
-  gridCols: string;
-  size: string;
-}
+import { VIEW_MODES, ViewMode } from "./constants";
+import { GetUniqueTagListResp, SearchHistory, SearchResult } from "./types";
 
 export default function TagsSearcher() {
   // State
@@ -91,39 +57,8 @@ export default function TagsSearcher() {
   const historyDropdownRef = useRef<HTMLDivElement>(null);
   const viewModeDropdownRef = useRef<HTMLDivElement>(null);
 
-  // View mode state
-  const viewModes: ViewMode[] = [
-    {
-      id: "large",
-      name: "Large Icons",
-      icon: <Maximize2 className="w-4 h-4" />,
-      gridCols: "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6",
-      size: "aspect-square",
-    },
-    {
-      id: "medium",
-      name: "Medium Icons",
-      icon: <LayoutGrid className="w-4 h-4" />,
-      gridCols: "grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8",
-      size: "aspect-square",
-    },
-    {
-      id: "small",
-      name: "Small Icons",
-      icon: <Grid className="w-4 h-4" />,
-      gridCols: "grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12",
-      size: "h-16 w-16",
-    },
-    {
-      id: "details",
-      name: "Details",
-      icon: <List className="w-4 h-4" />,
-      gridCols: "",
-      size: "h-10 w-10",
-    },
-  ];
   const [currentViewMode, setCurrentViewMode] = useState<ViewMode>(
-    viewModes[0]
+    VIEW_MODES[0]
   );
 
   // Handle click outside for tag dropdown
@@ -174,18 +109,6 @@ export default function TagsSearcher() {
         setAvailableTags(tags);
       } catch (error) {
         console.error("Error fetching tags:", error);
-        // For demo purposes, use mock data if invoke fails
-        const mockTags: GetUniqueTagListResp[] = [
-          { tag: "landscape", count: 120 },
-          { tag: "portrait", count: 85 },
-          { tag: "anime", count: 230 },
-          { tag: "character", count: 175 },
-          { tag: "background", count: 65 },
-          { tag: "sketch", count: 42 },
-          { tag: "digital", count: 198 },
-          { tag: "traditional", count: 76 },
-        ];
-        setAvailableTags(mockTags);
       }
     };
 
@@ -199,18 +122,18 @@ export default function TagsSearcher() {
       if (e.ctrlKey) {
         if (e.key === "+" || e.key === "=") {
           e.preventDefault();
-          const currentIndex = viewModes.findIndex(
+          const currentIndex = VIEW_MODES.findIndex(
             (mode) => mode.id === currentViewMode.id
           );
           const nextIndex = Math.max(0, currentIndex - 1);
-          setCurrentViewMode(viewModes[nextIndex]);
+          setCurrentViewMode(VIEW_MODES[nextIndex]);
         } else if (e.key === "-" || e.key === "_") {
           e.preventDefault();
-          const currentIndex = viewModes.findIndex(
+          const currentIndex = VIEW_MODES.findIndex(
             (mode) => mode.id === currentViewMode.id
           );
-          const nextIndex = Math.min(viewModes.length - 1, currentIndex + 1);
-          setCurrentViewMode(viewModes[nextIndex]);
+          const nextIndex = Math.min(VIEW_MODES.length - 1, currentIndex + 1);
+          setCurrentViewMode(VIEW_MODES[nextIndex]);
         }
       }
     };
@@ -219,17 +142,17 @@ export default function TagsSearcher() {
       // Ctrl + Mouse wheel to change view mode
       if (e.ctrlKey) {
         e.preventDefault();
-        const currentIndex = viewModes.findIndex(
+        const currentIndex = VIEW_MODES.findIndex(
           (mode) => mode.id === currentViewMode.id
         );
         if (e.deltaY < 0) {
           // Scroll up - larger icons
           const nextIndex = Math.max(0, currentIndex - 1);
-          setCurrentViewMode(viewModes[nextIndex]);
+          setCurrentViewMode(VIEW_MODES[nextIndex]);
         } else {
           // Scroll down - smaller icons
-          const nextIndex = Math.min(viewModes.length - 1, currentIndex + 1);
-          setCurrentViewMode(viewModes[nextIndex]);
+          const nextIndex = Math.min(VIEW_MODES.length - 1, currentIndex + 1);
+          setCurrentViewMode(VIEW_MODES[nextIndex]);
         }
       }
     };
@@ -241,7 +164,7 @@ export default function TagsSearcher() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("wheel", handleWheel);
     };
-  }, [currentViewMode, viewModes]);
+  }, [currentViewMode, VIEW_MODES]);
 
   // Add tag to selected tags
   const addTag = (tag: GetUniqueTagListResp) => {
@@ -285,18 +208,6 @@ export default function TagsSearcher() {
     };
 
     performSearch();
-    // Mock search results
-    // const mockResults: SearchResult[] = Array(20)
-    //   .fill(null)
-    //   .map((_, index) => ({
-    //     id: index,
-    //     suffix: null,
-    //     author: index % 3 === 0 ? "Author " + (index % 5) : null,
-    //     character: index % 4 === 0 ? "Character " + (index % 6) : null,
-    //     save_dir: `C:/Users/Documents/Images/Folder${index % 5}`,
-    //     file_name: `Result_${index + 1}.png`,
-    //     thumbnail_url: `/placeholder.svg?height=100&width=100`,
-    //   }));
 
     // Add to search history
     const newHistoryItem: SearchHistory = {
@@ -396,13 +307,18 @@ export default function TagsSearcher() {
   // Handle folder selection
   const handleSelectFolder = async () => {
     try {
-      // Mock invoke to Rust backend
-      const selectedFolder = await invoke<string>("select_folder");
-      setTargetFolder(selectedFolder || "");
+      // Function to select folders
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: "Select folders containing images",
+      });
+
+      if (selected) {
+        setTargetFolder(selected);
+      }
     } catch (error) {
-      console.error("Error selecting folder:", error);
-      // Mock response
-      setTargetFolder("C:/Selected/Folder/Path");
+      console.error("Error selecting folders:", error);
     }
   };
 
@@ -592,7 +508,7 @@ export default function TagsSearcher() {
                 ref={viewModeDropdownRef}
                 className="absolute z-50 right-0 mt-1 w-40 bg-white dark:bg-gray-800 rounded-md shadow-lg border overflow-hidden"
               >
-                {viewModes.map((mode) => (
+                {VIEW_MODES.map((mode) => (
                   <button
                     key={mode.id}
                     onClick={() => {
@@ -762,7 +678,7 @@ export default function TagsSearcher() {
                             <img
                               src={result.thumbnail_url || "/placeholder.svg"}
                               alt={result.file_name}
-                              className="h-8 w-8 object-cover rounded border border-gray-200 dark:border-gray-700"
+                              className="h-8 w-8 object-contain rounded border border-gray-200 dark:border-gray-700"
                             />
                             <span className="text-sm">{result.file_name}</span>
                           </div>
@@ -814,7 +730,7 @@ export default function TagsSearcher() {
                     <img
                       src={result.thumbnail_url || "/placeholder.svg"}
                       alt={result.file_name}
-                      className={`object-cover mb-1 rounded border border-gray-200 dark:border-gray-700 ${currentViewMode.size}`}
+                      className={`object-contain mb-1 rounded border border-gray-200 dark:border-gray-700 ${currentViewMode.size}`}
                     />
                     <span className="text-xs text-center truncate w-full">
                       {result.file_name}

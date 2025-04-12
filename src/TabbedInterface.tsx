@@ -1,40 +1,44 @@
-import type React from "react"
+import type React from "react";
 
-import { useState, useEffect } from "react"
-import { cn } from "@/lib/utils"
+import { useState, useEffect } from "react";
+import { cn } from "@/lib/utils";
 
 export type TabItem = {
-  label: string
-  content: React.ReactNode
-  icon?: React.ReactNode
-}
+  label: string;
+  content: React.ReactNode;
+  icon?: React.ReactNode;
+};
 
 interface TabbedInterfaceProps {
-  tabs: TabItem[]
-  defaultTabIndex?: number
-  className?: string
+  tabs: TabItem[];
+  defaultTabIndex?: number;
+  className?: string;
 }
 
-export function TabbedInterface({ tabs, defaultTabIndex = 0, className }: TabbedInterfaceProps) {
-  const [activeTabIndex, setActiveTabIndex] = useState(defaultTabIndex)
-  const [initializedTabs, setInitializedTabs] = useState<boolean[]>([])
+export function TabbedInterface({
+  tabs,
+  defaultTabIndex = 0,
+  className,
+}: TabbedInterfaceProps) {
+  const [activeTabIndex, setActiveTabIndex] = useState(defaultTabIndex);
+  const [initializedTabs, setInitializedTabs] = useState<boolean[]>([]);
 
   // Initialize the tabs tracking array on first render
   useEffect(() => {
-    const initialized = tabs.map((_, index) => index === defaultTabIndex)
-    setInitializedTabs(initialized)
-  }, [tabs.length, defaultTabIndex])
+    const initialized = tabs.map((_, index) => index === defaultTabIndex);
+    setInitializedTabs(initialized);
+  }, [tabs.length, defaultTabIndex]);
 
   const handleTabClick = (index: number) => {
-    setActiveTabIndex(index)
+    setActiveTabIndex(index);
 
     // Mark this tab as initialized if it wasn't already
     if (!initializedTabs[index]) {
-      const newInitializedTabs = [...initializedTabs]
-      newInitializedTabs[index] = true
-      setInitializedTabs(newInitializedTabs)
+      const newInitializedTabs = [...initializedTabs];
+      newInitializedTabs[index] = true;
+      setInitializedTabs(newInitializedTabs);
     }
-  }
+  };
 
   return (
     <div className={cn("flex flex-col h-full", className)}>
@@ -48,7 +52,7 @@ export function TabbedInterface({ tabs, defaultTabIndex = 0, className }: Tabbed
                 "relative px-4 py-2 text-sm font-medium transition-colors focus:outline-none",
                 activeTabIndex === index
                   ? "text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-900"
-                  : "text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400",
+                  : "text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
               )}
               aria-selected={activeTabIndex === index}
               role="tab"
@@ -70,7 +74,9 @@ export function TabbedInterface({ tabs, defaultTabIndex = 0, className }: Tabbed
             key={index}
             className={cn(
               "absolute inset-0 transition-opacity duration-200 flex flex-col",
-              activeTabIndex === index ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none",
+              activeTabIndex === index
+                ? "opacity-100 z-10"
+                : "opacity-0 z-0 pointer-events-none"
             )}
             style={{ display: initializedTabs[index] ? "flex" : "none" }}
           >
@@ -79,5 +85,5 @@ export function TabbedInterface({ tabs, defaultTabIndex = 0, className }: Tabbed
         ))}
       </div>
     </div>
-  )
+  );
 }

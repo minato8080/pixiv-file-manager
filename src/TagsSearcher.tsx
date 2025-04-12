@@ -13,6 +13,8 @@ import {
   X,
   History,
   ChevronDown,
+  User,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,8 +31,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { VIEW_MODES, ViewMode } from "./constants";
-import { GetUniqueTagListResp, SearchHistory, SearchResult } from "./types";
+import { VIEW_MODES, type ViewMode } from "./constants";
+import type {
+  AuthorInfo,
+  GetUniqueTagListResp,
+  SearchHistory,
+  SearchResult,
+} from "./types";
 
 export default function TagsSearcher() {
   // State
@@ -51,17 +58,29 @@ export default function TagsSearcher() {
   const [isHistoryDropdownOpen, setIsHistoryDropdownOpen] = useState(false);
   const [isViewModeDropdownOpen, setIsViewModeDropdownOpen] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [availableCharacters, setAvailableCharacters] = useState<string[]>([]);
+  const [availableAuthors, setAvailableAuthors] = useState<AuthorInfo[]>([]);
+  const [selectedCharacter, setSelectedCharacter] = useState<string | null>(
+    null
+  );
+  const [selectedAuthor, setSelectedAuthor] = useState<AuthorInfo | null>(null);
+  const [isCharacterDropdownOpen, setIsCharacterDropdownOpen] = useState(false);
+  const [isAuthorDropdownOpen, setIsAuthorDropdownOpen] = useState(false);
+  const [characterFilter, setCharacterFilter] = useState("");
+  const [authorFilter, setAuthorFilter] = useState("");
 
   // Refs for dropdown
   const tagDropdownRef = useRef<HTMLDivElement>(null);
   const historyDropdownRef = useRef<HTMLDivElement>(null);
   const viewModeDropdownRef = useRef<HTMLDivElement>(null);
+  const characterDropdownRef = useRef<HTMLDivElement>(null);
+  const authorDropdownRef = useRef<HTMLDivElement>(null);
 
   const [currentViewMode, setCurrentViewMode] = useState<ViewMode>(
     VIEW_MODES[0]
   );
 
-  // Handle click outside for tag dropdown
+  // Handle click outside for dropdowns
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       // Tag dropdown
@@ -90,29 +109,65 @@ export default function TagsSearcher() {
       ) {
         setIsViewModeDropdownOpen(false);
       }
+
+      // Character dropdown
+      if (
+        isCharacterDropdownOpen &&
+        characterDropdownRef.current &&
+        !characterDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsCharacterDropdownOpen(false);
+      }
+
+      // Author dropdown
+      if (
+        isAuthorDropdownOpen &&
+        authorDropdownRef.current &&
+        !authorDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsAuthorDropdownOpen(false);
+      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [isTagDropdownOpen, isHistoryDropdownOpen, isViewModeDropdownOpen]);
+  }, [
+    isTagDropdownOpen,
+    isHistoryDropdownOpen,
+    isViewModeDropdownOpen,
+    isCharacterDropdownOpen,
+    isAuthorDropdownOpen,
+  ]);
 
-  // Fetch tags from database (mock implementation)
+  // Fetch tags, characters, authors, and search history from database
   useEffect(() => {
-    const fetchTags = async () => {
+    const fetchData = async () => {
       try {
+        // Fetch tags
         const tags = await invoke<GetUniqueTagListResp[]>(
           "get_unique_tag_list"
         );
-        console.log("Fetched tags:", tags);
         setAvailableTags(tags);
+
+        // Fetch characters
+        const characters = await invoke<string[]>("get_unique_characters");
+        setAvailableCharacters(characters);
+
+        // Fetch authors
+        const authors = await invoke<AuthorInfo[]>("get_unique_authors");
+        setAvailableAuthors(authors);
+
+        // Fetch search history
+        const history = await invoke<SearchHistory[]>("get_search_history");
+        setSearchHistory(history);
       } catch (error) {
-        console.error("Error fetching tags:", error);
+        console.error("Error fetching data:", error);
       }
     };
 
-    fetchTags();
+    fetchData();
   }, []);
 
   // Add keyboard and mouse wheel event listeners for view mode switching
@@ -183,17 +238,24 @@ export default function TagsSearcher() {
   const clearSearchConditions = () => {
     setSelectedTags([]);
     setSearchCondition("AND");
+    setSelectedCharacter(null);
+    setSelectedAuthor(null);
   };
 
   // Perform search
   const handleSearch = () => {
-    if (selectedTags.length === 0) return;
+    if (selectedTags.length === 0 && !selectedCharacter && !selectedAuthor)
+      return;
+
     const performSearch = async () => {
       try {
-        const results: SearchResult[] = await invoke("search_by_tags", {
+        const results: SearchResult[] = await invoke("search_by_criteria", {
           tags: selectedTags.map((tag) => tag.tag),
           condition: searchCondition,
+          character: selectedCharacter,
+          author: selectedAuthor?.author_id,
         });
+        
         setSearchResults(
           results.map((r) => {
             const url = convertFileSrc(r.thumbnail_url);
@@ -202,34 +264,38 @@ export default function TagsSearcher() {
           })
         );
         setSelectedItems([]);
+
+        // Save search history to DB
+        if (results.length > 0) {
+          const newHistoryItem: SearchHistory = {
+            id: Date.now(),
+            tags: [...selectedTags],
+            condition: searchCondition,
+            timestamp: new Date(),
+            result_count: results.length,
+          };
+
+          const updatedHistory = [newHistoryItem, ...searchHistory].slice(0, 10);
+          setSearchHistory(updatedHistory);
+        }
       } catch (error) {
         console.error("検索エラー:", error);
       }
     };
 
     performSearch();
-
-    // Add to search history
-    const newHistoryItem: SearchHistory = {
-      id: Date.now(),
-      tags: [...selectedTags],
-      condition: searchCondition,
-      timestamp: new Date(),
-    };
-
-    const updatedHistory = [newHistoryItem, ...searchHistory].slice(0, 10);
-    setSearchHistory(updatedHistory);
   };
 
   // Apply history item
   const applyHistoryItem = (historyItem: SearchHistory) => {
     setSelectedTags(historyItem.tags);
     setSearchCondition(historyItem.condition);
+    setIsHistoryDropdownOpen(false);
   };
 
   // Format timestamp for display
   const formatTimestamp = (date: Date) => {
-    return date.toLocaleString();
+    return new Date(date).toLocaleString();
   };
 
   // Toggle item selection
@@ -262,7 +328,7 @@ export default function TagsSearcher() {
   // Confirm move operation
   const confirmMove = async () => {
     try {
-      // Mock invoke to Rust backend
+      // Invoke to Rust backend
       await invoke("move_files", {
         fileIds: selectedItems,
         targetFolder: targetFolder,
@@ -285,7 +351,7 @@ export default function TagsSearcher() {
   const confirmDelete = async () => {
     setIsDeleting(true);
     try {
-      // Mock invoke to Rust backend
+      // Invoke to Rust backend
       await invoke("delete_files", {
         fileIds: selectedItems,
       });
@@ -325,6 +391,16 @@ export default function TagsSearcher() {
   // Filter available tags
   const filteredTags = availableTags.filter((tag) =>
     tag.tag.toLowerCase().includes(tagFilter.toLowerCase())
+  );
+
+  // Filter available characters
+  const filteredCharacters = availableCharacters.filter((character) =>
+    character.toLowerCase().includes(characterFilter.toLowerCase())
+  );
+
+  // Filter available authors
+  const filteredAuthors = availableAuthors.filter((author) =>
+    author.author_name.toLowerCase().includes(authorFilter.toLowerCase())
   );
 
   const openImage = async (fileId: number, filePath: string) => {
@@ -394,6 +470,142 @@ export default function TagsSearcher() {
           )}
         </div>
 
+        {/* Character Dropdown */}
+        <div className="relative">
+          <Button
+            variant="secondary"
+            size="sm"
+            className="h-9 bg-white dark:bg-gray-800 border shadow-sm"
+            onClick={() => setIsCharacterDropdownOpen(!isCharacterDropdownOpen)}
+          >
+            <Users className="h-4 w-4 mr-1 text-purple-500" />
+            {selectedCharacter || "Character"}
+            <ChevronDown className="h-4 w-4 ml-1" />
+          </Button>
+
+          {isCharacterDropdownOpen && (
+            <div
+              ref={characterDropdownRef}
+              className="absolute z-50 mt-1 w-64 bg-white dark:bg-gray-800 rounded-md shadow-lg border overflow-hidden"
+            >
+              <div className="p-2 border-b">
+                <Input
+                  placeholder="Filter characters..."
+                  value={characterFilter}
+                  onChange={(e) => setCharacterFilter(e.target.value)}
+                  className="h-8"
+                />
+              </div>
+              <div className="max-h-64 overflow-auto">
+                {selectedCharacter && (
+                  <button
+                    className="w-full px-3 py-2 text-left bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 flex justify-between items-center"
+                    onClick={() => {
+                      setSelectedCharacter(null);
+                      setIsCharacterDropdownOpen(false);
+                    }}
+                  >
+                    <span className="flex items-center text-red-600 dark:text-red-400">
+                      <X className="h-4 w-4 mr-1" />
+                      Clear selection
+                    </span>
+                  </button>
+                )}
+                {filteredCharacters.length > 0 ? (
+                  filteredCharacters.map((character) => (
+                    <button
+                      key={character}
+                      className={`w-full px-3 py-2 text-left hover:bg-purple-50 dark:hover:bg-purple-900/20 flex justify-between items-center ${
+                        selectedCharacter === character
+                          ? "bg-purple-100 dark:bg-purple-900/30"
+                          : ""
+                      }`}
+                      onClick={() => {
+                        setSelectedCharacter(character);
+                        setIsCharacterDropdownOpen(false);
+                      }}
+                    >
+                      <span className="truncate">{character}</span>
+                    </button>
+                  ))
+                ) : (
+                  <div className="p-3 text-center text-gray-500">
+                    No characters found
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Author Dropdown */}
+        <div className="relative">
+          <Button
+            variant="secondary"
+            size="sm"
+            className="h-9 bg-white dark:bg-gray-800 border shadow-sm"
+            onClick={() => setIsAuthorDropdownOpen(!isAuthorDropdownOpen)}
+          >
+            <User className="h-4 w-4 mr-1 text-green-500" />
+            {selectedAuthor?.author_name || "Author"}
+            <ChevronDown className="h-4 w-4 ml-1" />
+          </Button>
+
+          {isAuthorDropdownOpen && (
+            <div
+              ref={authorDropdownRef}
+              className="absolute z-50 mt-1 w-64 bg-white dark:bg-gray-800 rounded-md shadow-lg border overflow-hidden"
+            >
+              <div className="p-2 border-b">
+                <Input
+                  placeholder="Filter authors..."
+                  value={authorFilter}
+                  onChange={(e) => setAuthorFilter(e.target.value)}
+                  className="h-8"
+                />
+              </div>
+              <div className="max-h-64 overflow-auto">
+                {selectedAuthor && (
+                  <button
+                    className="w-full px-3 py-2 text-left bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 flex justify-between items-center"
+                    onClick={() => {
+                      setSelectedAuthor(null);
+                      setIsAuthorDropdownOpen(false);
+                    }}
+                  >
+                    <span className="flex items-center text-red-600 dark:text-red-400">
+                      <X className="h-4 w-4 mr-1" />
+                      Clear selection
+                    </span>
+                  </button>
+                )}
+                {filteredAuthors.length > 0 ? (
+                  filteredAuthors.map((author) => (
+                    <button
+                      key={author.author_id}
+                      className={`w-full px-3 py-2 text-left hover:bg-green-50 dark:hover:bg-green-900/20 flex justify-between items-center ${
+                        selectedAuthor?.author_id === author.author_id
+                          ? "bg-green-100 dark:bg-green-900/30"
+                          : ""
+                      }`}
+                      onClick={() => {
+                        setSelectedAuthor(author);
+                        setIsAuthorDropdownOpen(false);
+                      }}
+                    >
+                      <span className="truncate">{author.author_name}</span>
+                    </button>
+                  ))
+                ) : (
+                  <div className="p-3 text-center text-gray-500">
+                    No authors found
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="flex items-center space-x-2 px-3 py-1.5 bg-white dark:bg-gray-800 rounded-md border shadow-sm w-[100px] justify-center">
           <Switch
             id="search-condition"
@@ -418,7 +630,9 @@ export default function TagsSearcher() {
           size="sm"
           className="h-9 bg-white dark:bg-gray-800"
           onClick={clearSearchConditions}
-          disabled={selectedTags.length === 0}
+          disabled={
+            selectedTags.length === 0 && !selectedCharacter && !selectedAuthor
+          }
         >
           <Trash2 className="h-4 w-4 mr-1 text-red-500" />
           Clear
@@ -429,7 +643,9 @@ export default function TagsSearcher() {
           size="sm"
           className="h-9 bg-blue-600 hover:bg-blue-700 text-white"
           onClick={handleSearch}
-          disabled={selectedTags.length === 0}
+          disabled={
+            selectedTags.length === 0 && !selectedCharacter && !selectedAuthor
+          }
         >
           <Search className="h-4 w-4 mr-1" />
           Search
@@ -475,7 +691,7 @@ export default function TagsSearcher() {
                     </div>
                     <div className="flex justify-between items-center text-xs text-gray-500 w-full">
                       <span className="font-medium text-blue-600 dark:text-blue-400">
-                        Condition: {item.condition}
+                        {item.condition} • {item.result_count} results
                       </span>
                       <span>{formatTimestamp(item.timestamp)}</span>
                     </div>
@@ -550,7 +766,7 @@ export default function TagsSearcher() {
       </div>
 
       {/* Selected Tags */}
-      {selectedTags.length > 0 && (
+      {(selectedTags.length > 0 || selectedCharacter || selectedAuthor) && (
         <div className="flex flex-wrap gap-1 mb-3 p-2 bg-gray-50 dark:bg-gray-800/50 rounded-md border">
           {selectedTags.map((tag) => (
             <Badge
@@ -568,6 +784,36 @@ export default function TagsSearcher() {
               </Button>
             </Badge>
           ))}
+
+          {selectedCharacter && (
+            <Badge className="pl-2 h-6 flex items-center gap-1 bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 hover:bg-purple-200">
+              <Users className="h-3 w-3 mr-1" />
+              {selectedCharacter}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-4 w-4 p-0 ml-1 hover:bg-purple-200 dark:hover:bg-purple-800 rounded-full"
+                onClick={() => setSelectedCharacter(null)}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </Badge>
+          )}
+
+          {selectedAuthor && (
+            <Badge className="pl-2 h-6 flex items-center gap-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 hover:bg-green-200">
+              <User className="h-3 w-3 mr-1" />
+              {selectedAuthor.author_name}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-4 w-4 p-0 ml-1 hover:bg-green-200 dark:hover:bg-green-800 rounded-full"
+                onClick={() => setSelectedAuthor(null)}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </Badge>
+          )}
         </div>
       )}
 
@@ -687,7 +933,7 @@ export default function TagsSearcher() {
                           {result.save_dir}
                         </td>
                         <td className="p-2 text-sm text-gray-600 dark:text-gray-300">
-                          {result.author || "-"}
+                          {result.author.author_name || "-"}
                         </td>
                         <td className="p-2 text-sm text-gray-600 dark:text-gray-300">
                           {result.character || "-"}

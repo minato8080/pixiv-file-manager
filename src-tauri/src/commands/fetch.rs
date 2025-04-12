@@ -110,13 +110,12 @@ fn process_image_ids_detail(
                 println!("{:?}", target_file_detail.unwrap());
                 if let Some(file_detail) = target_file_detail {
                     conn.execute(
-                        "INSERT OR REPLACE INTO ID_DETAIL (id, suffix, extension, author_name, author_account, character, save_dir) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                        "INSERT OR REPLACE INTO ID_DETAIL (id, suffix, extension, author_id, character, save_dir) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                         params![
                             resp.illust.id(),
                             file_detail.suffix,
                             file_detail.extension,
-                            resp.illust.user().name(),
-                            resp.illust.user().account(),
+                            resp.illust.user().id(),
                             None::<String>,
                             file_detail.save_dir
                         ],
@@ -130,6 +129,16 @@ fn process_image_ids_detail(
                         params![id_info.id, tag.name()],
                     )?;
                 }
+
+                // AUTHOR_INFOテーブルに著者情報をINSERT
+                conn.execute(
+                    "INSERT OR REPLACE INTO AUTHOR_INFO (author_id, author_name, author_account) VALUES (?1, ?2, ?3)",
+                    params![
+                        resp.illust.user().id(),
+                        resp.illust.user().name(),
+                        resp.illust.user().account()
+                    ],
+                )?;
 
                 success_count += 1;
             } else {

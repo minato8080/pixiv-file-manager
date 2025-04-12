@@ -2,9 +2,9 @@ use std::path::Path;
 
 use crate::models::{
     global::AppState,
-    search::{GetUniqueTagListResp, SearchHistoryItem, SearchResult},
+    search::{AuthorInfo, GetUniqueTagListResp, SearchHistoryItem, SearchResult},
 };
-use rusqlite::{params, Result};
+use rusqlite::{params, params_from_iter, Result, ToSql};
 use tauri::State;
 
 #[tauri::command]
@@ -33,113 +33,175 @@ pub fn get_unique_tag_list(state: State<AppState>) -> Result<Vec<GetUniqueTagLis
 }
 
 #[tauri::command]
-pub fn search_by_tags(
+pub fn get_unique_characters(state: State<AppState>) -> Result<Vec<String>, String> {
+    let conn = state.db.lock().unwrap();
+
+    let mut stmt = conn
+        .prepare("SELECT DISTINCT character FROM CHARACTER_INFO")
+        .map_err(|e| e.to_string())?;
+
+    let character_iter = stmt
+        .query_map([], |row| {
+            let character: String = row.get(0)?;
+            Ok(character)
+        })
+        .map_err(|e| e.to_string())?;
+
+    let mut characters = Vec::new();
+    for character in character_iter {
+        characters.push(character.map_err(|e| e.to_string())?);
+    }
+
+    Ok(characters)
+}
+
+#[tauri::command]
+pub fn get_unique_authors(state: State<AppState>) -> Result<Vec<AuthorInfo>, String> {
+    let conn = state.db.lock().unwrap();
+
+    let mut stmt = conn
+        .prepare("SELECT DISTINCT author_id, author_name, author_account FROM AUTHOR_INFO")
+        .map_err(|e| e.to_string())?;
+
+    let author_iter = stmt
+        .query_map([], |row| {
+            let author_id: i32 = row.get(0)?;
+            let author_name: String = row.get(1)?;
+            let author_account: String = row.get(2)?;
+            Ok(AuthorInfo {
+                author_id,
+                author_name,
+                author_account,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+
+    let mut authors = Vec::new();
+    for author in author_iter {
+        authors.push(author.map_err(|e| e.to_string())?);
+    }
+
+    Ok(authors)
+}
+
+#[tauri::command]
+pub fn search_by_criteria(
     state: State<AppState>,
     tags: Vec<String>,
     condition: String,
+    character: Option<String>,
+    author: Option<i32>,
 ) -> Result<Vec<SearchResult>, String> {
-    if tags.is_empty() {
-        return Ok(Vec::new());
+    let conn = state.db.lock().unwrap();
+    let mut query = String::from(
+        "SELECT ID_DETAIL.id, suffix, extension, ID_DETAIL.author_id, character, save_dir, author_name, author_account \
+         FROM ID_DETAIL \
+         JOIN AUTHOR_INFO ON ID_DETAIL.author_id = AUTHOR_INFO.author_id",
+    );
+
+    let mut params: Vec<Box<dyn ToSql>> = Vec::new();
+    let mut where_clauses: Vec<String> = Vec::new();
+
+    if !tags.is_empty() {
+        query.push_str(" JOIN TAG_INFO ON ID_DETAIL.id = TAG_INFO.id");
+
+        let placeholders = std::iter::repeat("?")
+            .take(tags.len())
+            .collect::<Vec<_>>()
+            .join(", ");
+        where_clauses.push(format!("TAG_INFO.tag IN ({})", placeholders));
+        for tag in &tags {
+            params.push(Box::new(tag.clone()));
+        }
     }
 
-    let conn = state.db.lock().unwrap();
+    if let Some(character) = character.clone() {
+        where_clauses.push("ID_DETAIL.character = ?".to_string());
+        params.push(Box::new(character));
+    }
 
-    // クエリを条件に基づいて構築
-    let query = match condition.as_str() {
-        "AND" => {
-            let placeholders = (0..tags.len()).map(|_| "?").collect::<Vec<_>>().join(",");
+    if let Some(author) = author {
+        where_clauses.push("ID_DETAIL.author_id = ?".to_string());
+        params.push(Box::new(author));
+    }
 
-            format!(
-                "SELECT id 
-                FROM TAG_INFO 
-                WHERE tag IN ({})
-                GROUP BY id
-                HAVING COUNT(DISTINCT tag) = ?",
-                placeholders
-            )
-        }
-        "OR" => {
-            let placeholders = (0..tags.len()).map(|_| "?").collect::<Vec<_>>().join(",");
-
-            format!(
-                "SELECT DISTINCT id 
-                FROM TAG_INFO 
-                WHERE tag IN ({})",
-                placeholders
-            )
-        }
-        _ => return Err("Invalid condition".to_string()),
-    };
+    if !where_clauses.is_empty() {
+        query.push_str(" WHERE ");
+        query.push_str(&where_clauses.join(&format!(" {} ", condition)));
+    }
 
     let mut stmt = conn.prepare(&query).map_err(|e| e.to_string())?;
 
-    let mut params: Vec<&dyn rusqlite::ToSql> =
-        tags.iter().map(|tag| tag as &dyn rusqlite::ToSql).collect();
+    // Convert params to Vec<&dyn ToSql>
+    let param_refs: Vec<&dyn ToSql> = params.iter().map(|p| p.as_ref()).collect();
 
-    // AND条件の場合、タグの数を追加
-    let tag_count = tags.len() as i64;
-    if condition == "AND" {
-        params.push(&tag_count);
-    }
-
-    let id_iter = stmt
-        .query_map(params.as_slice(), |row| {
+    let detail_iter = stmt
+        .query_map(&*param_refs, |row| {
             let id: i64 = row.get(0)?;
-            Ok(id)
+            let suffix: Option<i64> = row.get(1)?;
+            let extension: String = row.get(2)?;
+            let author_id: i32 = row.get(3)?;
+            let author_name: String = row.get(6)?;
+            let author_account: String = row.get(7)?;
+            let character: Option<String> = row.get(4)?;
+            let save_dir: String = row.get(5)?;
+            let file_name = match suffix {
+                Some(s) => format!("{}_p{}.{}", id, s, extension),
+                None => format!("{}.{}", id, extension),
+            };
+            let pathbuf = Path::new(&save_dir).join(&file_name);
+            let path = pathbuf.to_str().unwrap().to_string();
+
+            let update_time: String = {
+                let metadata = std::fs::metadata(&path)
+                    .map_err(|_e| rusqlite::Error::InvalidPath(pathbuf.clone()))?;
+                let modified_time = metadata.modified().unwrap();
+                let datetime: chrono::DateTime<chrono::Local> = modified_time.into();
+                datetime.format("%Y-%m-%d %H:%M:%S").to_string()
+            };
+
+            let author_info = AuthorInfo {
+                author_id,
+                author_name: author_name.clone(),
+                author_account: author_account.clone(),
+            };
+
+            Ok(SearchResult {
+                id,
+                file_name,
+                author: author_info,
+                character,
+                save_dir,
+                update_time,
+                thumbnail_url: path,
+            })
         })
         .map_err(|e| e.to_string())?;
 
     let mut results = Vec::new();
-    for id in id_iter {
-        let id = id.map_err(|e| e.to_string())?;
-        let mut detail_stmt = conn
-            .prepare(
-                "SELECT id, suffix, extension, author_name, character, save_dir
-            FROM ID_DETAIL 
-            WHERE id = ?",
-            )
-            .map_err(|e| e.to_string())?;
-
-        let detail_iter = detail_stmt
-            .query_map(params![id], |row| {
-                println!("{:?}", row);
-                let id: i64 = row.get(0)?;
-                let suffix: Option<i64> = row.get(1)?;
-                let extension: String = row.get(2)?;
-                let author: String = row.get(3)?;
-                let character: Option<String> = row.get(4)?;
-                let save_dir: String = row.get(5)?;
-                let file_name = match suffix {
-                    Some(s) => format!("{}_p{}.{}", id, s, extension),
-                    None => format!("{}.{}", id, extension),
-                };
-                let pathbuf = Path::new(&save_dir).join(&file_name);
-                let path = pathbuf.to_str().unwrap().to_string();
-
-                let update_time: String = {
-                    let metadata = std::fs::metadata(&path)
-                        .map_err(|_e| rusqlite::Error::InvalidPath(pathbuf.clone()))?;
-                    let modified_time = metadata.modified().unwrap();
-                    let datetime: chrono::DateTime<chrono::Local> = modified_time.into();
-                    datetime.format("%Y-%m-%d %H:%M:%S").to_string()
-                };
-
-                Ok(SearchResult {
-                    id,
-                    file_name,
-                    author,
-                    character,
-                    save_dir,
-                    update_time,
-                    thumbnail_url: path,
-                })
-            })
-            .map_err(|e| e.to_string())?;
-
-        for detail in detail_iter {
-            results.push(detail.map_err(|e| e.to_string())?);
-        }
+    for detail in detail_iter {
+        results.push(detail.map_err(|e| e.to_string())?);
     }
+
+    let author_info = author.and_then(|author_id| {
+        results
+            .iter()
+            .find(|result| result.author.author_id == author_id)
+            .map(|result| result.author.clone())
+    });
+
+    save_search_history(
+        &conn,
+        SearchHistoryItem {
+            tags,
+            condition: condition.clone(),
+            timestamp: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+            result_count: results.len() as i32,
+            character,
+            author: author_info,
+        },
+    )
+    .map_err(|e| e.to_string())?;
 
     Ok(results)
 }
@@ -149,23 +211,33 @@ pub fn get_search_history(state: State<AppState>) -> Result<Vec<SearchHistoryIte
     let conn = state.db.lock().unwrap();
 
     let mut stmt = conn.prepare(
-        "SELECT id, history_data, timestamp FROM SEARCH_HISTORY ORDER BY timestamp DESC LIMIT 10"
+        "SELECT tags, character, author, condition, timestamp, result_count FROM SEARCH_HISTORY ORDER BY timestamp DESC LIMIT 10"
     ).map_err(|e| e.to_string())?;
 
     let history_iter = stmt
         .query_map([], |row| {
-            let id: i64 = row.get(0)?;
-            let history_data: String = row.get(1)?;
-            let timestamp: String = row.get(2)?;
+            let tags_json: String = row.get(0)?;
+            let character: Option<String> = row.get(1)?;
+            let author_json: Option<String> = row.get(2)?;
+            let author: Option<AuthorInfo> = match author_json {
+                Some(json) => serde_json::from_str(&json)
+                    .map_err(|e| rusqlite::Error::UserFunctionError(Box::new(e)))?,
+                None => None,
+            };
+            let condition: String = row.get(3)?;
+            let timestamp: String = row.get(4)?;
+            let result_count: i32 = row.get(5)?;
 
-            let history_item: SearchHistoryItem = serde_json::from_str(&history_data)
-                .map_err(|e| rusqlite::Error::InvalidParameterName(e.to_string()))?;
+            let tags: Vec<String> = serde_json::from_str(&tags_json)
+                .map_err(|e| rusqlite::Error::UserFunctionError(Box::new(e)))?;
 
             Ok(SearchHistoryItem {
-                id,
-                tags: history_item.tags,
-                condition: history_item.condition,
+                tags,
+                character,
+                author,
+                condition,
                 timestamp,
+                result_count,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -178,27 +250,23 @@ pub fn get_search_history(state: State<AppState>) -> Result<Vec<SearchHistoryIte
     Ok(history)
 }
 
-#[tauri::command]
-pub fn save_search_history(
-    state: State<AppState>,
-    history: Vec<SearchHistoryItem>,
-) -> Result<(), String> {
-    let conn = state.db.lock().unwrap();
+fn save_search_history(conn: &std::sync::MutexGuard<'_, rusqlite::Connection>, history: SearchHistoryItem) -> Result<(), String> {
+    let tags_json = serde_json::to_string(&history.tags).map_err(|e| e.to_string())?;
+    let author_json = serde_json::to_string(&history.author).map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT INTO SEARCH_HISTORY (tags, character, author, condition, timestamp, result_count) VALUES (?, ?, ?, ?, ?, ?)",
+        params![tags_json, history.character, author_json, history.condition, history.timestamp, history.result_count],
+    )
+    .map_err(|e| e.to_string())?;
 
-    // Clear existing history
-    // conn.execute("DELETE FROM SEARCH_HISTORY", [])
-    //     .map_err(|e| e.to_string())?;
-
-    // Insert new history items
-    for item in history {
-        let history_data = serde_json::to_string(&item).map_err(|e| e.to_string())?;
-
-        conn.execute(
-            "INSERT INTO SEARCH_HISTORY (id, history_data, timestamp) VALUES (?, ?, ?)",
-            params![item.id, history_data, item.timestamp],
-        )
-        .map_err(|e| e.to_string())?;
-    }
+    // 履歴は10件まで保存
+    conn.execute(
+        "DELETE FROM SEARCH_HISTORY WHERE ROWID NOT IN ( \
+            SELECT ROWID FROM SEARCH_HISTORY ORDER BY timestamp DESC LIMIT 10 \
+            )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
 
     Ok(())
 }

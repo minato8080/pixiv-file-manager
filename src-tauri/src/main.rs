@@ -15,21 +15,14 @@ use tauri::Manager;
 
 use commands::fetch::process_capture_illust_detail;
 use commands::search::{
-    get_search_history, get_unique_tag_list, save_search_history, search_by_tags,
+    get_search_history, get_unique_authors, get_unique_characters, get_unique_tag_list,
+    search_by_criteria,
 };
 use constants::DB_PATH;
 use models::global::AppState;
 use models::pixiv::{PixivApi, RealPixivApi};
 
 fn main() {
-    // COMの初期化
-    // unsafe {
-    //     if let Err(e) = CoInitializeEx(None, COINIT_MULTITHREADED).ok() {
-    //         eprintln!("COM initialization failed: {:?}", e);
-    //         return;
-    //     }
-    // }
-
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app: &mut tauri::App| {
@@ -56,18 +49,14 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             get_unique_tag_list,
-            search_by_tags,
+            search_by_criteria,
             get_search_history,
-            save_search_history,
-            process_capture_illust_detail
+            process_capture_illust_detail,
+            get_unique_characters,
+            get_unique_authors,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
-
-    // COMの終了処理
-    // unsafe {
-    //     CoUninitialize();
-    // }
 }
 fn initialize_db(conn: &Connection) -> Result<()> {
     // テーブルが存在しない場合は作成
@@ -76,10 +65,9 @@ fn initialize_db(conn: &Connection) -> Result<()> {
             id INTEGER NOT NULL,
             suffix INTEGER,
             extension TEXT NOT NULL,
-            author_name TEXT NOT NULL,
-            author_account TEXT NOT NULL,
+            author_id INTEGER NOT NULL,
             character TEXT,
-            save_dir TEXT NOT NULL,
+            save_dir TEXT,
             PRIMARY KEY (id, suffix)
         )",
         [],
@@ -90,6 +78,37 @@ fn initialize_db(conn: &Connection) -> Result<()> {
             id INTEGER NOT NULL,
             tag TEXT NOT NULL,
             PRIMARY KEY (id, tag)
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS CHARACTER_INFO (
+            character TEXT NOT NULL,
+            save_dir TEXT,
+            PRIMARY KEY (character)
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS AUTHOR_INFO (
+            author_id INTEGER NOT NULL,
+            author_name TEXT NOT NULL,
+            author_account TEXT NOT NULL,
+            PRIMARY KEY (author_id)
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS SEARCH_HISTORY (
+            tags TEXT NOT NULL,
+            character TEXT,
+            author TEXT,
+            condition TEXT NOT NULL,
+            timestamp TEXT NOT NULL,
+            result_count INTEGER NOT NULL
         )",
         [],
     )?;

@@ -1,5 +1,6 @@
 import type React from "react";
 
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -53,7 +54,6 @@ interface SearchResult {
   author: string;
   character: string | null;
   save_dir: string;
-  path: string;
   update_time: string;
   thumbnail_url: string;
 }
@@ -271,7 +271,13 @@ export default function TagsSearcher() {
           tags: selectedTags.map((tag) => tag.tag),
           condition: searchCondition,
         });
-        setSearchResults(results);
+        setSearchResults(
+          results.map((r) => {
+            const url = convertFileSrc(r.thumbnail_url);
+            r.thumbnail_url = url;
+            return r;
+          })
+        );
         setSelectedItems([]);
       } catch (error) {
         console.error("検索エラー:", error);

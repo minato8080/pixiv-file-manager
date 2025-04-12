@@ -4,11 +4,10 @@ use serde::{Deserialize, Serialize};
 pub struct SearchResult {
     pub id: i64,
     pub file_name: String,
-    pub thumbnail_path: String,
+    pub thumbnail_url: String,
     pub author: String,
     pub character: Option<String>,
     pub save_dir: String,
-    pub path: String,
     pub update_time: String,
 }
 

@@ -1,11 +1,8 @@
 use std::path::Path;
 
-use crate::{
-    api::windows::generate_thumbnail,
-    models::{
-        global::AppState,
-        search::{GetUniqueTagListResp, SearchHistoryItem, SearchResult},
-    },
+use crate::models::{
+    global::AppState,
+    search::{GetUniqueTagListResp, SearchHistoryItem, SearchResult},
 };
 use rusqlite::{params, Result};
 use tauri::State;
@@ -118,7 +115,7 @@ pub fn search_by_tags(
                 };
                 let pathbuf = Path::new(&save_dir).join(&file_name);
                 let path = pathbuf.to_str().unwrap().to_string();
-                println!("{}", path);
+
                 let update_time: String = {
                     let metadata = std::fs::metadata(&path)
                         .map_err(|_e| rusqlite::Error::InvalidPath(pathbuf.clone()))?;
@@ -126,9 +123,6 @@ pub fn search_by_tags(
                     let datetime: chrono::DateTime<chrono::Local> = modified_time.into();
                     datetime.format("%Y-%m-%d %H:%M:%S").to_string()
                 };
-                // ここでサムネイルを取得する処理を書く
-                let thumbnail_path = generate_thumbnail(pathbuf.clone())
-                    .map_err(|_e| rusqlite::Error::InvalidPath(pathbuf))?;
 
                 Ok(SearchResult {
                     id,
@@ -136,9 +130,8 @@ pub fn search_by_tags(
                     author,
                     character,
                     save_dir,
-                    path,
                     update_time,
-                    thumbnail_path,
+                    thumbnail_url: path,
                 })
             })
             .map_err(|e| e.to_string())?;

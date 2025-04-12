@@ -1,3 +1,4 @@
+use anyhow::Ok;
 use image::{ImageBuffer, ImageEncoder, Rgba};
 use sha2::{Digest, Sha256};
 use std::{
@@ -5,6 +6,7 @@ use std::{
     fs::File,
     path::{Path, PathBuf},
 };
+use std::path::PathBuf;
 use windows::{
     core::{Interface, PCWSTR},
     Win32::{
@@ -18,8 +20,7 @@ use windows::{
         },
     },
 };
-
-pub fn generate_thumbnail(path: PathBuf) -> Result<String, windows::core::Error> {
+pub fn generate_thumbnail(path: PathBuf) -> Result<String, Box<dyn std::error::Error>> {
     unsafe {
         let wide: Vec<u16> = path
             .to_str()
@@ -53,8 +54,11 @@ pub fn generate_thumbnail(path: PathBuf) -> Result<String, windows::core::Error>
                 .to_string_lossy()
                 .replace(std::path::MAIN_SEPARATOR, "/")
         );
+        let buf =
+            std::fs::read(path).map_err(|e| windows::core::Error::from(std::io::Error::from(e)))?;
 
-        Ok(url)
+        let data = std::fs::read(path).unwrap();
+        Ok(format!("data:image/png;base64,{}", base64::encode(&data)))
     }
 }
 

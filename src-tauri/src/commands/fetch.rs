@@ -38,12 +38,12 @@ fn extract_dir_detail<P: AsRef<Path>>(folder: P) -> DirDetail {
                                 .unwrap_or("")
                                 .to_string();
                             ids.push(IdInfo {
-                                id: id.to_string(),
+                                id: id.parse::<u32>().unwrap_or_default(),
                                 save_path: save_path.clone(),
                             });
                             details.push(FileDetail {
-                                id: id.to_string(),
-                                suffix,
+                                id: id.parse::<u32>().unwrap_or_default(),
+                                suffix: suffix.parse::<u8>().unwrap_or_default(),
                                 save_path,
                                 extension,
                                 save_dir,
@@ -97,7 +97,7 @@ fn process_image_ids_detail(
     for dir_detail in &dir_details {
         for id_info in &dir_detail.id_info {
             if let Ok(resp) =
-                RealPixivApi::fetch_detail(&state, id_info.id.parse::<usize>().unwrap_or_default())
+                RealPixivApi::fetch_detail(&state, id_info.id)
             {
                 let mut target_file_detail = None;
                 // ID_DETAILにデータをINSERT

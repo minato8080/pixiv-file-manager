@@ -2,13 +2,13 @@ use std::path::Path;
 
 use crate::models::{
     global::AppState,
-    search::{AuthorInfo, GetUniqueTagListResp, SearchHistoryItem, SearchResult},
+    search::{AuthorInfo, UniqueTagList, SearchHistory, SearchResult},
 };
-use rusqlite::{params, params_from_iter, Result, ToSql};
+use rusqlite::{params, Result, ToSql};
 use tauri::State;
 
 #[tauri::command]
-pub fn get_unique_tag_list(state: State<AppState>) -> Result<Vec<GetUniqueTagListResp>, String> {
+pub fn get_unique_tag_list(state: State<AppState>) -> Result<Vec<UniqueTagList>, String> {
     let conn = state.db.lock().unwrap();
 
     let mut stmt = conn
@@ -17,7 +17,7 @@ pub fn get_unique_tag_list(state: State<AppState>) -> Result<Vec<GetUniqueTagLis
 
     let tag_iter = stmt
         .query_map([], |row| {
-            Ok(GetUniqueTagListResp {
+            Ok(UniqueTagList {
                 tag: row.get(0)?,
                 count: row.get(1)?,
             })
@@ -65,7 +65,7 @@ pub fn get_unique_authors(state: State<AppState>) -> Result<Vec<AuthorInfo>, Str
 
     let author_iter = stmt
         .query_map([], |row| {
-            let author_id: i32 = row.get(0)?;
+            let author_id: u32 = row.get(0)?;
             let author_name: String = row.get(1)?;
             let author_account: String = row.get(2)?;
             Ok(AuthorInfo {
@@ -90,7 +90,7 @@ pub fn search_by_criteria(
     tags: Vec<String>,
     condition: String,
     character: Option<String>,
-    author: Option<i32>,
+    author: Option<u32>,
 ) -> Result<Vec<SearchResult>, String> {
     let conn = state.db.lock().unwrap();
     let mut query = String::from(
@@ -137,10 +137,10 @@ pub fn search_by_criteria(
 
     let detail_iter = stmt
         .query_map(&*param_refs, |row| {
-            let id: i64 = row.get(0)?;
-            let suffix: Option<i64> = row.get(1)?;
+            let id: u32 = row.get(0)?;
+            let suffix: Option<u8> = row.get(1)?;
             let extension: String = row.get(2)?;
-            let author_id: i32 = row.get(3)?;
+            let author_id: u32 = row.get(3)?;
             let author_name: String = row.get(6)?;
             let author_account: String = row.get(7)?;
             let character: Option<String> = row.get(4)?;
@@ -192,11 +192,11 @@ pub fn search_by_criteria(
 
     save_search_history(
         &conn,
-        SearchHistoryItem {
+        SearchHistory {
             tags,
             condition: condition.clone(),
             timestamp: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-            result_count: results.len() as i32,
+            result_count: results.len() as u8,
             character,
             author: author_info,
         },
@@ -207,7 +207,7 @@ pub fn search_by_criteria(
 }
 
 #[tauri::command]
-pub fn get_search_history(state: State<AppState>) -> Result<Vec<SearchHistoryItem>, String> {
+pub fn get_search_history(state: State<AppState>) -> Result<Vec<SearchHistory>, String> {
     let conn = state.db.lock().unwrap();
 
     let mut stmt = conn.prepare(
@@ -226,12 +226,12 @@ pub fn get_search_history(state: State<AppState>) -> Result<Vec<SearchHistoryIte
             };
             let condition: String = row.get(3)?;
             let timestamp: String = row.get(4)?;
-            let result_count: i32 = row.get(5)?;
+            let result_count: u8 = row.get(5)?;
 
             let tags: Vec<String> = serde_json::from_str(&tags_json)
                 .map_err(|e| rusqlite::Error::UserFunctionError(Box::new(e)))?;
 
-            Ok(SearchHistoryItem {
+            Ok(SearchHistory {
                 tags,
                 character,
                 author,
@@ -250,7 +250,7 @@ pub fn get_search_history(state: State<AppState>) -> Result<Vec<SearchHistoryIte
     Ok(history)
 }
 
-fn save_search_history(conn: &std::sync::MutexGuard<'_, rusqlite::Connection>, history: SearchHistoryItem) -> Result<(), String> {
+fn save_search_history(conn: &std::sync::MutexGuard<'_, rusqlite::Connection>, history: SearchHistory) -> Result<(), String> {
     let tags_json = serde_json::to_string(&history.tags).map_err(|e| e.to_string())?;
     let author_json = serde_json::to_string(&history.author).map_err(|e| e.to_string())?;
     conn.execute(

@@ -21,9 +21,10 @@ impl PixivApi for RealPixivApi {
 
     fn fetch_detail(
         state: &State<'_,AppState>,
-        image_id: usize,
+        image_id: u32,
     ) -> Result<IllustrationProxy, anyhow::Error> {
-        let request = PixivRequestBuilder::request_illustration(image_id);
+        let illust_id = image_id.try_into().unwrap();
+        let request = PixivRequestBuilder::request_illustration(illust_id);
 
         let illustration = state.app_pixiv_api
             .execute_with_auth(request)?

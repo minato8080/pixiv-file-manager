@@ -32,19 +32,15 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { VIEW_MODES, type ViewMode } from "./constants";
-import type {
-  AuthorInfo,
-  GetUniqueTagListResp,
-  SearchHistory,
-  SearchResult,
-} from "./types";
+import { UniqueTagList } from "@/bindings/UniqueTagList";
+import { SearchResult } from "@/bindings/SearchResult";
+import { SearchHistory } from "@/bindings/SearchHistory";
+import { AuthorInfo } from "@/bindings/AuthorInfo";
 
 export default function TagsSearcher() {
   // State
-  const [availableTags, setAvailableTags] = useState<GetUniqueTagListResp[]>(
-    []
-  );
-  const [selectedTags, setSelectedTags] = useState<GetUniqueTagListResp[]>([]);
+  const [availableTags, setAvailableTags] = useState<UniqueTagList[]>([]);
+  const [selectedTags, setSelectedTags] = useState<UniqueTagList[]>([]);
   const [searchCondition, setSearchCondition] = useState<"AND" | "OR">("AND");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
@@ -146,9 +142,7 @@ export default function TagsSearcher() {
     const fetchData = async () => {
       try {
         // Fetch tags
-        const tags = await invoke<GetUniqueTagListResp[]>(
-          "get_unique_tag_list"
-        );
+        const tags = await invoke<UniqueTagList[]>("get_unique_tag_list");
         setAvailableTags(tags);
 
         // Fetch characters
@@ -222,7 +216,7 @@ export default function TagsSearcher() {
   }, [currentViewMode, VIEW_MODES]);
 
   // Add tag to selected tags
-  const addTag = (tag: GetUniqueTagListResp) => {
+  const addTag = (tag: UniqueTagList) => {
     if (!selectedTags.some((t) => t.tag === tag.tag)) {
       setSelectedTags([...selectedTags, tag]);
     }
@@ -268,11 +262,12 @@ export default function TagsSearcher() {
         // Save search history to DB
         if (results.length > 0) {
           const newHistoryItem: SearchHistory = {
-            id: Date.now(),
-            tags: [...selectedTags],
+            tags: selectedTags.map((tags) => tags.tag),
             condition: searchCondition,
-            timestamp: new Date(),
+            timestamp: new Date().toLocaleString(),
             result_count: results.length,
+            character: selectedCharacter,
+            author: selectedAuthor,
           };
 
           const updatedHistory = [newHistoryItem, ...searchHistory].slice(
@@ -291,14 +286,9 @@ export default function TagsSearcher() {
 
   // Apply history item
   const applyHistoryItem = (historyItem: SearchHistory) => {
-    setSelectedTags(historyItem.tags);
-    setSearchCondition(historyItem.condition);
+    setSelectedTags(historyItem.tags.map((tag) => ({ tag, count: 0 })));
+    setSearchCondition(historyItem.condition as "AND" | "OR");
     setIsHistoryDropdownOpen(false);
-  };
-
-  // Format timestamp for display
-  const formatTimestamp = (date: Date) => {
-    return new Date(date).toLocaleString();
   };
 
   // Toggle item selection
@@ -674,7 +664,7 @@ export default function TagsSearcher() {
               {searchHistory.length > 0 ? (
                 searchHistory.map((item) => (
                   <button
-                    key={item.id}
+                    key={item.timestamp}
                     className="w-full flex flex-col items-start p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer"
                     onClick={() => {
                       applyHistoryItem(item);
@@ -684,11 +674,11 @@ export default function TagsSearcher() {
                     <div className="flex flex-wrap gap-1 mb-1 w-full">
                       {item.tags.map((tag) => (
                         <Badge
-                          key={tag.tag}
+                          key={tag}
                           variant="outline"
                           className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-200 dark:border-blue-800"
                         >
-                          {tag.tag}
+                          {tag}
                         </Badge>
                       ))}
                     </div>
@@ -696,7 +686,7 @@ export default function TagsSearcher() {
                       <span className="font-medium text-blue-600 dark:text-blue-400">
                         {item.condition} • {item.result_count} results
                       </span>
-                      <span>{formatTimestamp(item.timestamp)}</span>
+                      <span>{item.timestamp}</span>
                     </div>
                   </button>
                 ))

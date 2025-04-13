@@ -32,7 +32,12 @@ export default defineConfig(async () => ({
   },
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./"),
+      "@/components": path.resolve(__dirname, "./components"),
+      "@/utils": path.resolve(__dirname, "./utils"),
+      "@/lib": path.resolve(__dirname, "./lib"),
+      "@/src": path.resolve(__dirname, "./src"),
+      "@/styles": path.resolve(__dirname, "./styles"),
+      "@/bindings": path.resolve(__dirname, "./src-tauri/bindings"),
     },
   },
 }));

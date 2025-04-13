@@ -32,3 +32,4 @@ chrono = "0.4.40"
 image = "0.25.6"
 pixieve-rs = { git = "https://github.com/minato8080/rustpixiv", branch = "dev-blocking" }
 dotenv = "0.15.0"
+ts-rs = "10.1.0"

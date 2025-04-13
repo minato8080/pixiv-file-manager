@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { ProcessStats } from "./types";
+import { ProcessStats } from "@/bindings/ProcessStats";
 
 export default function TagsFetcher() {
   const [selectedFolders, setSelectedFolders] = useState<string[]>([]);
@@ -250,7 +250,7 @@ export default function TagsFetcher() {
             </div>
             <div className="p-2 rounded-md bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800">
               <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
-                {(stats.processing_time_ms / 1000).toFixed(1)}s
+                {(Number(stats.processing_time_ms) / 1000).toFixed(1)}s
               </div>
               <div className="text-xs text-blue-600 dark:text-blue-400">
                 Processing Time

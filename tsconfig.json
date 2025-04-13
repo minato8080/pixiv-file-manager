@@ -23,8 +23,13 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "paths": {
-      "@/*": ["./*"]
-    },
+      "@/components/*": ["./components/*"],
+      "@/utils/*": ["./utils/*"],
+      "@/lib/*": ["./lib/*"],
+      "@/src/*": ["./src/*"],
+      "@/styles/*": ["./styles/*"],
+      "@/bindings/*": ["./src-tauri/bindings/*"]
+    }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules"],

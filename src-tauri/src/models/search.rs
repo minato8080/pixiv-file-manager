@@ -1,8 +1,10 @@
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, TS)]
+#[ts(export)]
 pub struct SearchResult {
-    pub id: i64,
+    pub id: u32,
     pub file_name: String,
     pub thumbnail_url: String,
     pub author: AuthorInfo,
@@ -11,31 +13,35 @@ pub struct SearchResult {
     pub update_time: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct SearchHistoryItem {
+#[derive(Debug, Serialize, Deserialize, Clone, TS)]
+#[ts(export)]
+pub struct SearchHistory {
     pub tags: Vec<String>,
     pub character: Option<String>,
     pub author: Option<AuthorInfo>,
     pub condition: String,
     pub timestamp: String,
-    pub result_count: i32,
+    pub result_count: u8,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, TS)]
+#[ts(export)]
 pub struct TagInfo {
-    pub id: i64,
+    pub id: u32,
     pub tag: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct GetUniqueTagListResp {
+#[derive(Debug, Serialize, Deserialize, Clone, TS)]
+#[ts(export)]
+pub struct UniqueTagList {
     pub tag: String,
-    pub count: i32,
+    pub count: u8,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, TS)]
+#[ts(export)]
 pub struct AuthorInfo {
-    pub author_id: i32,
+    pub author_id: u32,
     pub author_name: String,
     pub author_account: String,
 }

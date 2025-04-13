@@ -53,23 +53,23 @@ fn main() {
 fn initialize_db(conn: &Connection) -> Result<()> {
     // テーブルが存在しない場合は作成
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS ID_DETAIL (
-            id INTEGER NOT NULL,
+        "CREATE TABLE IF NOT EXISTS ILLUST_INFO (
+            illust_id INTEGER NOT NULL,
             suffix INTEGER,
             extension TEXT NOT NULL,
             author_id INTEGER NOT NULL,
             character TEXT,
             save_dir TEXT,
-            PRIMARY KEY (id, suffix)
+            PRIMARY KEY (illust_id, suffix)
         )",
         [],
     )?;
 
     conn.execute(
         "CREATE TABLE IF NOT EXISTS TAG_INFO (
-            id INTEGER NOT NULL,
+            illust_id INTEGER NOT NULL,
             tag TEXT NOT NULL,
-            PRIMARY KEY (id, tag)
+            PRIMARY KEY (illust_id, tag)
         )",
         [],
     )?;
@@ -97,7 +97,7 @@ fn initialize_db(conn: &Connection) -> Result<()> {
         "CREATE TABLE IF NOT EXISTS SEARCH_HISTORY (
             tags TEXT NOT NULL,
             character TEXT,
-            author TEXT,
+            author_info TEXT,
             condition TEXT NOT NULL,
             timestamp TEXT NOT NULL,
             result_count INTEGER NOT NULL

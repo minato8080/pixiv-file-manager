@@ -100,7 +100,7 @@ fn process_image_ids_detail(
                 RealPixivApi::fetch_detail(&state, id_info.id)
             {
                 let mut target_file_detail = None;
-                // ID_DETAILにデータをINSERT
+                // ILLUST_INFOにデータをINSERT
                 for file_detail in &dir_detail.file_details {
                     if file_detail.id == id_info.id {
                         target_file_detail = Some(file_detail);
@@ -110,7 +110,7 @@ fn process_image_ids_detail(
                 println!("{:?}", target_file_detail.unwrap());
                 if let Some(file_detail) = target_file_detail {
                     conn.execute(
-                        "INSERT OR REPLACE INTO ID_DETAIL (id, suffix, extension, author_id, character, save_dir) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                        "INSERT OR REPLACE INTO ILLUST_INFO (illust_id, suffix, extension, author_id, character, save_dir) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                         params![
                             resp.illust.id(),
                             file_detail.suffix,
@@ -125,7 +125,7 @@ fn process_image_ids_detail(
                 // TAG_INFOにタグをINSERT
                 for tag in resp.illust.tags() {
                     conn.execute(
-                        "INSERT OR REPLACE INTO TAG_INFO (id, tag) VALUES (?1, ?2)",
+                        "INSERT OR REPLACE INTO TAG_INFO (illust_id, tag) VALUES (?1, ?2)",
                         params![id_info.id, tag.name()],
                     )?;
                 }

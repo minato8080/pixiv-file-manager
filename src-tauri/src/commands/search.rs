@@ -94,16 +94,16 @@ pub fn search_by_criteria(
 ) -> Result<Vec<SearchResult>, String> {
     let conn = state.db.lock().unwrap();
     let mut query = String::from(
-        "SELECT ID_DETAIL.id, suffix, extension, ID_DETAIL.author_id, character, save_dir, author_name, author_account \
-         FROM ID_DETAIL \
-         JOIN AUTHOR_INFO ON ID_DETAIL.author_id = AUTHOR_INFO.author_id",
+        "SELECT ILLUST_INFO.illust_id, suffix, extension, ILLUST_INFO.author_id, character, save_dir, author_name, author_account \
+         FROM ILLUST_INFO \
+         JOIN AUTHOR_INFO ON ILLUST_INFO.author_id = AUTHOR_INFO.author_id",
     );
 
     let mut params: Vec<Box<dyn ToSql>> = Vec::new();
     let mut where_clauses: Vec<String> = Vec::new();
 
     if !tags.is_empty() {
-        query.push_str(" JOIN TAG_INFO ON ID_DETAIL.id = TAG_INFO.id");
+        query.push_str(" JOIN TAG_INFO ON ILLUST_INFO.illust_id = TAG_INFO.illust_id");
 
         let placeholders = std::iter::repeat("?")
             .take(tags.len())
@@ -116,12 +116,12 @@ pub fn search_by_criteria(
     }
 
     if let Some(character) = character.clone() {
-        where_clauses.push("ID_DETAIL.character = ?".to_string());
+        where_clauses.push("ILLUST_INFO.character = ?".to_string());
         params.push(Box::new(character));
     }
 
     if let Some(author) = author {
-        where_clauses.push("ID_DETAIL.author_id = ?".to_string());
+        where_clauses.push("ILLUST_INFO.author_id = ?".to_string());
         params.push(Box::new(author));
     }
 
@@ -254,7 +254,7 @@ fn save_search_history(conn: &std::sync::MutexGuard<'_, rusqlite::Connection>, h
     let tags_json = serde_json::to_string(&history.tags).map_err(|e| e.to_string())?;
     let author_json = serde_json::to_string(&history.author).map_err(|e| e.to_string())?;
     conn.execute(
-        "INSERT INTO SEARCH_HISTORY (tags, character, author, condition, timestamp, result_count) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO SEARCH_HISTORY (tags, character, author_info, condition, timestamp, result_count) VALUES (?, ?, ?, ?, ?, ?)",
         params![tags_json, history.character, author_json, history.condition, history.timestamp, history.result_count],
     )
     .map_err(|e| e.to_string())?;

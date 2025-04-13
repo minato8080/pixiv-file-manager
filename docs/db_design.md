@@ -1,18 +1,18 @@
 # DB定義
 
-- **ID_DETAIL**
-  - `id`: INTEGER
+- **ILLUST_INFO**
+  - `illust_id`: INTEGER
   - `suffix`: INTEGER
   - `extension`: TEXT
   - `author_id`: INTEGER
   - `character`: TEXT
   - `save_dir`: TEXT
-  - **PRIMARY KEY**: (`id`, `suffix`)
+  - **PRIMARY KEY**: (`illust_id`, `suffix`)
 
 - **TAG_INFO**
-  - `id`: INTEGER
+  - `illust_id`: INTEGER
   - `tag`: TEXT
-  - **PRIMARY KEY**: (`id`, `tag`)
+  - **PRIMARY KEY**: (`illust_id`, `tag`)
 
   **CHARACTER_INFO**
   - `character`: TEXT
@@ -28,7 +28,7 @@
 - **SEARCH_HISTORY**
   - `tags`: TEXT
   - `character`: TEXT
-  - `author`: TEXT
+  - `author_info`: TEXT
   - `condition`: TEXT
   - `timestamp`: TEXT
   - `result_count`: INTEGER

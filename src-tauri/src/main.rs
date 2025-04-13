@@ -11,14 +11,13 @@ mod models;
 use rusqlite::{Connection, Result};
 use std::sync::Mutex;
 use tauri::Manager;
-// use windows::Win32::System::Com::*;
 
 use commands::fetch::process_capture_illust_detail;
 use commands::search::{
     get_search_history, get_unique_authors, get_unique_characters, get_unique_tag_list,
     search_by_criteria,
 };
-use constants::DB_PATH;
+use constants::DB_NAME;
 use models::global::AppState;
 use models::pixiv::{PixivApi, RealPixivApi};
 
@@ -26,15 +25,8 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app: &mut tauri::App| {
-            // DB_PATH = app.path().app_data_dir().unwrap().join("pixiv.db");
-            // let db_path = DB_PATH;
-
-            // Create directory if it doesn't exist
-            if let Some(parent) = DB_PATH.parent() {
-                std::fs::create_dir_all(parent).unwrap();
-            }
-
-            let conn = Connection::open(DB_PATH.clone()).unwrap();
+            let db_path = app.path().app_data_dir().unwrap().join(DB_NAME);
+            let conn = Connection::open(db_path).unwrap();
             let app_pixiv_api = RealPixivApi::create_api().unwrap();
 
             // Initialize database

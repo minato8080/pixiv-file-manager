@@ -255,7 +255,7 @@ export default function TagsSearcher() {
           character: selectedCharacter,
           author: selectedAuthor?.author_id,
         });
-        
+
         setSearchResults(
           results.map((r) => {
             const url = convertFileSrc(r.thumbnail_url);
@@ -275,7 +275,10 @@ export default function TagsSearcher() {
             result_count: results.length,
           };
 
-          const updatedHistory = [newHistoryItem, ...searchHistory].slice(0, 10);
+          const updatedHistory = [newHistoryItem, ...searchHistory].slice(
+            0,
+            10
+          );
           setSearchHistory(updatedHistory);
         }
       } catch (error) {
@@ -429,7 +432,7 @@ export default function TagsSearcher() {
             onClick={() => setIsTagDropdownOpen(!isTagDropdownOpen)}
           >
             <Filter className="h-4 w-4 mr-1 text-blue-500" />
-            Select Tags
+            Tag
             <ChevronDown className="h-4 w-4 ml-1" />
           </Button>
 

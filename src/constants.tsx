@@ -1,12 +1,12 @@
 import { Grid, List, LayoutGrid, Maximize2 } from "lucide-react";
 
-export interface ViewMode {
+export type ViewMode = {
   id: string;
   name: string;
   icon: React.ReactNode;
   gridCols: string;
   size: string;
-}
+};
 
 // View mode state
 export const VIEW_MODES: ViewMode[] = [

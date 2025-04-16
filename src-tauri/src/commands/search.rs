@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::models::{
     global::AppState,
-    search::{AuthorInfo, UniqueTagList, SearchHistory, SearchResult},
+    search::{AuthorInfo, SearchHistory, SearchResult, UniqueTagList},
 };
 use rusqlite::{params, Result, ToSql};
 use tauri::State;
@@ -94,22 +94,39 @@ pub fn search_by_criteria(
 ) -> Result<Vec<SearchResult>, String> {
     let conn = state.db.lock().unwrap();
     let mut query = String::from(
-        "SELECT ILLUST_INFO.illust_id, suffix, extension, ILLUST_INFO.author_id, character, save_dir, author_name, author_account \
+        "SELECT DISTINCT ILLUST_INFO.illust_id, suffix, extension, ILLUST_INFO.author_id, character, save_dir, author_name, author_account \
          FROM ILLUST_INFO \
          JOIN AUTHOR_INFO ON ILLUST_INFO.author_id = AUTHOR_INFO.author_id",
     );
 
     let mut params: Vec<Box<dyn ToSql>> = Vec::new();
     let mut where_clauses: Vec<String> = Vec::new();
+    let mut group_by = String::new();
+    let mut having = String::new();
 
     if !tags.is_empty() {
         query.push_str(" JOIN TAG_INFO ON ILLUST_INFO.illust_id = TAG_INFO.illust_id");
 
+        // タグの絞り込み
         let placeholders = std::iter::repeat("?")
             .take(tags.len())
             .collect::<Vec<_>>()
             .join(", ");
         where_clauses.push(format!("TAG_INFO.tag IN ({})", placeholders));
+
+        match condition.as_str() {
+            "AND" => {
+                // GROUP BY と HAVING を追加
+                group_by = " GROUP BY ILLUST_INFO.illust_id".to_string();
+                having = format!(" HAVING COUNT(DISTINCT TAG_INFO.tag) = {}", tags.len());
+            }
+            "OR" => {
+            }
+            _ => {
+                panic!("Unknown condition: {}", condition);
+            }
+        }
+
         for tag in &tags {
             params.push(Box::new(tag.clone()));
         }
@@ -127,8 +144,16 @@ pub fn search_by_criteria(
 
     if !where_clauses.is_empty() {
         query.push_str(" WHERE ");
-        query.push_str(&where_clauses.join(&format!(" {} ", condition)));
+        query.push_str(&where_clauses.join(" AND "));
     }
+
+    if !group_by.is_empty() {
+        query.push_str(&group_by);
+    }
+    if !having.is_empty() {
+        query.push_str(&having);
+    }
+    println!("SQL:{}", query);
 
     let mut stmt = conn.prepare(&query).map_err(|e| e.to_string())?;
 
@@ -211,7 +236,7 @@ pub fn get_search_history(state: State<AppState>) -> Result<Vec<SearchHistory>, 
     let conn = state.db.lock().unwrap();
 
     let mut stmt = conn.prepare(
-        "SELECT tags, character, author, condition, timestamp, result_count FROM SEARCH_HISTORY ORDER BY timestamp DESC LIMIT 10"
+        "SELECT tags, character, author_info, condition, timestamp, result_count FROM SEARCH_HISTORY ORDER BY timestamp DESC LIMIT 10"
     ).map_err(|e| e.to_string())?;
 
     let history_iter = stmt
@@ -250,7 +275,10 @@ pub fn get_search_history(state: State<AppState>) -> Result<Vec<SearchHistory>, 
     Ok(history)
 }
 
-fn save_search_history(conn: &std::sync::MutexGuard<'_, rusqlite::Connection>, history: SearchHistory) -> Result<(), String> {
+fn save_search_history(
+    conn: &std::sync::MutexGuard<'_, rusqlite::Connection>,
+    history: SearchHistory,
+) -> Result<(), String> {
     let tags_json = serde_json::to_string(&history.tags).map_err(|e| e.to_string())?;
     let author_json = serde_json::to_string(&history.author).map_err(|e| e.to_string())?;
     conn.execute(

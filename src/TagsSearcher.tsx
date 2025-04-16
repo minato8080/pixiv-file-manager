@@ -36,106 +36,44 @@ import { UniqueTagList } from "@/bindings/UniqueTagList";
 import { SearchResult } from "@/bindings/SearchResult";
 import { SearchHistory } from "@/bindings/SearchHistory";
 import { AuthorInfo } from "@/bindings/AuthorInfo";
+import { DropdownHandle, ForwardedFilterDropdown, Item } from "./dropdown";
+import { AuthorDropdown, CharacterDropdown } from "./types/app-types";
 
 export default function TagsSearcher() {
   // State
-  const [availableTags, setAvailableTags] = useState<UniqueTagList[]>([]);
-  const [selectedTags, setSelectedTags] = useState<UniqueTagList[]>([]);
   const [searchCondition, setSearchCondition] = useState<"AND" | "OR">("AND");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
-  const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false);
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
   const [operationMode, setOperationMode] = useState(false);
   const [showMoveDialog, setShowMoveDialog] = useState(false);
   const [targetFolder, setTargetFolder] = useState("");
-  const [tagFilter, setTagFilter] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isHistoryDropdownOpen, setIsHistoryDropdownOpen] = useState(false);
-  const [isViewModeDropdownOpen, setIsViewModeDropdownOpen] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [availableCharacters, setAvailableCharacters] = useState<string[]>([]);
-  const [availableAuthors, setAvailableAuthors] = useState<AuthorInfo[]>([]);
-  const [selectedCharacter, setSelectedCharacter] = useState<string | null>(
+  // State for dropdown
+  const [selectedTags, setSelectedTags] = useState<UniqueTagList[]>([]);
+  const [selectedCharacter, setSelectedCharacter] =
+    useState<CharacterDropdown | null>(null);
+  const [selectedAuthor, setSelectedAuthor] = useState<AuthorDropdown | null>(
     null
   );
-  const [selectedAuthor, setSelectedAuthor] = useState<AuthorInfo | null>(null);
-  const [isCharacterDropdownOpen, setIsCharacterDropdownOpen] = useState(false);
-  const [isAuthorDropdownOpen, setIsAuthorDropdownOpen] = useState(false);
-  const [characterFilter, setCharacterFilter] = useState("");
-  const [authorFilter, setAuthorFilter] = useState("");
+  const [isHistoryDropdownOpen, setIsHistoryDropdownOpen] = useState(false);
+  const [isViewModeDropdownOpen, setIsViewModeDropdownOpen] = useState(false);
 
   // Refs for dropdown
-  const tagDropdownRef = useRef<HTMLDivElement>(null);
   const historyDropdownRef = useRef<HTMLDivElement>(null);
   const viewModeDropdownRef = useRef<HTMLDivElement>(null);
-  const characterDropdownRef = useRef<HTMLDivElement>(null);
-  const authorDropdownRef = useRef<HTMLDivElement>(null);
 
   const [currentViewMode, setCurrentViewMode] = useState<ViewMode>(
     VIEW_MODES[0]
   );
 
-  // Handle click outside for dropdowns
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      // Tag dropdown
-      if (
-        isTagDropdownOpen &&
-        tagDropdownRef.current &&
-        !tagDropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsTagDropdownOpen(false);
-      }
-
-      // History dropdown
-      if (
-        isHistoryDropdownOpen &&
-        historyDropdownRef.current &&
-        !historyDropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsHistoryDropdownOpen(false);
-      }
-
-      // View mode dropdown
-      if (
-        isViewModeDropdownOpen &&
-        viewModeDropdownRef.current &&
-        !viewModeDropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsViewModeDropdownOpen(false);
-      }
-
-      // Character dropdown
-      if (
-        isCharacterDropdownOpen &&
-        characterDropdownRef.current &&
-        !characterDropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsCharacterDropdownOpen(false);
-      }
-
-      // Author dropdown
-      if (
-        isAuthorDropdownOpen &&
-        authorDropdownRef.current &&
-        !authorDropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsAuthorDropdownOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [
-    isTagDropdownOpen,
-    isHistoryDropdownOpen,
-    isViewModeDropdownOpen,
-    isCharacterDropdownOpen,
-    isAuthorDropdownOpen,
-  ]);
+  const tagDropdownHandlerRef =
+    useRef<DropdownHandle<UniqueTagList & Item>>(null);
+  const charaDropdownHandlerRef =
+    useRef<DropdownHandle<CharacterDropdown>>(null);
+  const authorDropdownHandlerRef =
+    useRef<DropdownHandle<AuthorInfo & Item>>(null);
 
   // Fetch tags, characters, authors, and search history from database
   useEffect(() => {
@@ -143,15 +81,29 @@ export default function TagsSearcher() {
       try {
         // Fetch tags
         const tags = await invoke<UniqueTagList[]>("get_unique_tag_list");
-        setAvailableTags(tags);
+        tagDropdownHandlerRef.current?.setAvailableItems(
+          tags.map((t) => ({ id: t.tag, label: t.tag, ...t }))
+        );
 
         // Fetch characters
         const characters = await invoke<string[]>("get_unique_characters");
-        setAvailableCharacters(characters);
+        charaDropdownHandlerRef.current?.setAvailableItems(
+          characters.map((character) => ({
+            id: character,
+            label: character,
+            character,
+          }))
+        );
 
         // Fetch authors
         const authors = await invoke<AuthorInfo[]>("get_unique_authors");
-        setAvailableAuthors(authors);
+        authorDropdownHandlerRef.current?.setAvailableItems(
+          authors.map((a) => ({
+            id: a.author_id.toString(),
+            label: a.author_name,
+            ...a,
+          }))
+        );
 
         // Fetch search history
         const history = await invoke<SearchHistory[]>("get_search_history");
@@ -215,22 +167,10 @@ export default function TagsSearcher() {
     };
   }, [currentViewMode, VIEW_MODES]);
 
-  // Add tag to selected tags
-  const addTag = (tag: UniqueTagList) => {
-    if (!selectedTags.some((t) => t.tag === tag.tag)) {
-      setSelectedTags([...selectedTags, tag]);
-    }
-    setIsTagDropdownOpen(false);
-  };
-
-  // Remove tag from selected tags
-  const removeTag = (tag: string) => {
-    setSelectedTags(selectedTags.filter((param) => param.tag !== tag));
-  };
-
   // Clear all search conditions
   const clearSearchConditions = () => {
     setSelectedTags([]);
+    // tagDropdownHandler.current?.setSelectedItems([]);
     setSearchCondition("AND");
     setSelectedCharacter(null);
     setSelectedAuthor(null);
@@ -238,55 +178,56 @@ export default function TagsSearcher() {
 
   // Perform search
   const handleSearch = () => {
-    if (selectedTags.length === 0 && !selectedCharacter && !selectedAuthor)
+    if (!selectedTags) return;
+    if (selectedTags.length === 0 && !selectedCharacter && !selectedAuthor) {
       return;
-
-    const performSearch = async () => {
-      try {
-        const results: SearchResult[] = await invoke("search_by_criteria", {
-          tags: selectedTags.map((tag) => tag.tag),
-          condition: searchCondition,
-          character: selectedCharacter,
-          author: selectedAuthor?.author_id,
-        });
-
-        setSearchResults(
-          results.map((r) => {
-            const url = convertFileSrc(r.thumbnail_url);
-            r.thumbnail_url = url;
-            return r;
-          })
-        );
-        setSelectedItems([]);
-
-        // Save search history to DB
-        if (results.length > 0) {
-          const newHistoryItem: SearchHistory = {
-            tags: selectedTags.map((tags) => tags.tag),
+    } else {
+      const performSearch = async () => {
+        try {
+          const results: SearchResult[] = await invoke("search_by_criteria", {
+            tags: selectedTags.map((iter) => iter.tag),
             condition: searchCondition,
-            timestamp: new Date().toLocaleString(),
-            result_count: results.length,
             character: selectedCharacter,
-            author: selectedAuthor,
-          };
+            author: selectedAuthor?.author_id,
+          });
 
-          const updatedHistory = [newHistoryItem, ...searchHistory].slice(
-            0,
-            10
+          setSearchResults(
+            results.map((r) => {
+              const url = convertFileSrc(r.thumbnail_url);
+              r.thumbnail_url = url;
+              return r;
+            })
           );
-          setSearchHistory(updatedHistory);
-        }
-      } catch (error) {
-        console.error("検索エラー:", error);
-      }
-    };
+          setSelectedItems([]);
 
-    performSearch();
+          // Save search history to DB
+          if (results.length > 0) {
+            const newHistoryItem: SearchHistory = {
+              tags: selectedTags.map((tags) => tags.tag),
+              condition: searchCondition,
+              timestamp: new Date().toLocaleString(),
+              result_count: results.length,
+              character: selectedCharacter?.character ?? "",
+              author: selectedAuthor,
+            };
+
+            const updatedHistory = [newHistoryItem, ...searchHistory].slice(
+              0,
+              10
+            );
+            setSearchHistory(updatedHistory);
+          }
+        } catch (error) {
+          console.error("検索エラー:", error);
+        }
+      };
+      performSearch();
+    }
   };
 
   // Apply history item
   const applyHistoryItem = (historyItem: SearchHistory) => {
-    setSelectedTags(historyItem.tags.map((tag) => ({ tag, count: 0 })));
+    // setSelectedItems(historyItem.tags.map((tag) => ({ tag, count: 0 })));
     setSearchCondition(historyItem.condition as "AND" | "OR");
     setIsHistoryDropdownOpen(false);
   };
@@ -381,21 +322,6 @@ export default function TagsSearcher() {
     }
   };
 
-  // Filter available tags
-  const filteredTags = availableTags.filter((tag) =>
-    tag.tag.toLowerCase().includes(tagFilter.toLowerCase())
-  );
-
-  // Filter available characters
-  const filteredCharacters = availableCharacters.filter((character) =>
-    character.toLowerCase().includes(characterFilter.toLowerCase())
-  );
-
-  // Filter available authors
-  const filteredAuthors = availableAuthors.filter((author) =>
-    author.author_name.toLowerCase().includes(authorFilter.toLowerCase())
-  );
-
   const openImage = async (fileId: number, filePath: string) => {
     if (operationMode) return; // 選択モード中は画像を開かない
 
@@ -414,190 +340,41 @@ export default function TagsSearcher() {
     <div className="flex flex-col h-full">
       {/* Compact search controls with more color */}
       <div className="flex flex-wrap items-center gap-2 mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md">
-        <div className="relative">
-          <Button
-            variant="secondary"
-            size="sm"
-            className="h-9 bg-white dark:bg-gray-800 border shadow-sm"
-            onClick={() => setIsTagDropdownOpen(!isTagDropdownOpen)}
-          >
-            <Filter className="h-4 w-4 mr-1 text-blue-500" />
-            Tag
-            <ChevronDown className="h-4 w-4 ml-1" />
-          </Button>
-
-          {isTagDropdownOpen && (
-            <div
-              ref={tagDropdownRef}
-              className="absolute z-50 mt-1 w-64 bg-white dark:bg-gray-800 rounded-md shadow-lg border overflow-hidden"
-            >
-              <div className="p-2 border-b">
-                <Input
-                  placeholder="Filter tags..."
-                  value={tagFilter}
-                  onChange={(e) => setTagFilter(e.target.value)}
-                  className="h-8"
-                />
-              </div>
-              <div className="max-h-64 overflow-auto">
-                {filteredTags.length > 0 ? (
-                  filteredTags.map((tag) => (
-                    <button
-                      key={tag.tag}
-                      className="w-full px-3 py-2 text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 flex justify-between items-center"
-                      onClick={() => addTag(tag)}
-                    >
-                      <span className="truncate">{tag.tag}</span>
-                      <Badge className="ml-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                        +{tag.count}
-                      </Badge>
-                    </button>
-                  ))
-                ) : (
-                  <div className="p-3 text-center text-gray-500">
-                    No tags found
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
+        {/* Tags Dropdown */}
+        <ForwardedFilterDropdown
+          mode="multiple"
+          ButtonIcon={<Filter className="h-4 w-4 mr-1 text-blue-500" />}
+          buttonText={"Tag"}
+          selectedItem={selectedTags.map((tag) => ({
+            id: tag.tag,
+            label: tag.tag,
+            ...tag,
+          }))}
+          setSelectedItem={(items) => {
+            setSelectedTags(items.map((item) => ({ ...item })));
+          }}
+          ref={tagDropdownHandlerRef}
+        />
 
         {/* Character Dropdown */}
-        <div className="relative">
-          <Button
-            variant="secondary"
-            size="sm"
-            className="h-9 bg-white dark:bg-gray-800 border shadow-sm"
-            onClick={() => setIsCharacterDropdownOpen(!isCharacterDropdownOpen)}
-          >
-            <Users className="h-4 w-4 mr-1 text-purple-500" />
-            {selectedCharacter || "Character"}
-            <ChevronDown className="h-4 w-4 ml-1" />
-          </Button>
-
-          {isCharacterDropdownOpen && (
-            <div
-              ref={characterDropdownRef}
-              className="absolute z-50 mt-1 w-64 bg-white dark:bg-gray-800 rounded-md shadow-lg border overflow-hidden"
-            >
-              <div className="p-2 border-b">
-                <Input
-                  placeholder="Filter characters..."
-                  value={characterFilter}
-                  onChange={(e) => setCharacterFilter(e.target.value)}
-                  className="h-8"
-                />
-              </div>
-              <div className="max-h-64 overflow-auto">
-                {selectedCharacter && (
-                  <button
-                    className="w-full px-3 py-2 text-left bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 flex justify-between items-center"
-                    onClick={() => {
-                      setSelectedCharacter(null);
-                      setIsCharacterDropdownOpen(false);
-                    }}
-                  >
-                    <span className="flex items-center text-red-600 dark:text-red-400">
-                      <X className="h-4 w-4 mr-1" />
-                      Clear selection
-                    </span>
-                  </button>
-                )}
-                {filteredCharacters.length > 0 ? (
-                  filteredCharacters.map((character) => (
-                    <button
-                      key={character}
-                      className={`w-full px-3 py-2 text-left hover:bg-purple-50 dark:hover:bg-purple-900/20 flex justify-between items-center ${
-                        selectedCharacter === character
-                          ? "bg-purple-100 dark:bg-purple-900/30"
-                          : ""
-                      }`}
-                      onClick={() => {
-                        setSelectedCharacter(character);
-                        setIsCharacterDropdownOpen(false);
-                      }}
-                    >
-                      <span className="truncate">{character}</span>
-                    </button>
-                  ))
-                ) : (
-                  <div className="p-3 text-center text-gray-500">
-                    No characters found
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
+        <ForwardedFilterDropdown
+          mode="single"
+          ButtonIcon={<Users className="h-4 w-4 mr-1 text-purple-500" />}
+          buttonText={"Chara"}
+          selectedItem={selectedCharacter}
+          setSelectedItem={setSelectedCharacter}
+          ref={charaDropdownHandlerRef}
+        />
 
         {/* Author Dropdown */}
-        <div className="relative">
-          <Button
-            variant="secondary"
-            size="sm"
-            className="h-9 bg-white dark:bg-gray-800 border shadow-sm"
-            onClick={() => setIsAuthorDropdownOpen(!isAuthorDropdownOpen)}
-          >
-            <User className="h-4 w-4 mr-1 text-green-500" />
-            {selectedAuthor?.author_name || "Author"}
-            <ChevronDown className="h-4 w-4 ml-1" />
-          </Button>
-
-          {isAuthorDropdownOpen && (
-            <div
-              ref={authorDropdownRef}
-              className="absolute z-50 mt-1 w-64 bg-white dark:bg-gray-800 rounded-md shadow-lg border overflow-hidden"
-            >
-              <div className="p-2 border-b">
-                <Input
-                  placeholder="Filter authors..."
-                  value={authorFilter}
-                  onChange={(e) => setAuthorFilter(e.target.value)}
-                  className="h-8"
-                />
-              </div>
-              <div className="max-h-64 overflow-auto">
-                {selectedAuthor && (
-                  <button
-                    className="w-full px-3 py-2 text-left bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 flex justify-between items-center"
-                    onClick={() => {
-                      setSelectedAuthor(null);
-                      setIsAuthorDropdownOpen(false);
-                    }}
-                  >
-                    <span className="flex items-center text-red-600 dark:text-red-400">
-                      <X className="h-4 w-4 mr-1" />
-                      Clear selection
-                    </span>
-                  </button>
-                )}
-                {filteredAuthors.length > 0 ? (
-                  filteredAuthors.map((author) => (
-                    <button
-                      key={author.author_id}
-                      className={`w-full px-3 py-2 text-left hover:bg-green-50 dark:hover:bg-green-900/20 flex justify-between items-center ${
-                        selectedAuthor?.author_id === author.author_id
-                          ? "bg-green-100 dark:bg-green-900/30"
-                          : ""
-                      }`}
-                      onClick={() => {
-                        setSelectedAuthor(author);
-                        setIsAuthorDropdownOpen(false);
-                      }}
-                    >
-                      <span className="truncate">{author.author_name}</span>
-                    </button>
-                  ))
-                ) : (
-                  <div className="p-3 text-center text-gray-500">
-                    No authors found
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
+        <ForwardedFilterDropdown
+          mode="single"
+          ButtonIcon={<User className="h-4 w-4 mr-1 text-green-500" />}
+          buttonText={"Author"}
+          selectedItem={selectedAuthor}
+          setSelectedItem={setSelectedAuthor}
+          ref={authorDropdownHandlerRef}
+        />
 
         <div className="flex items-center space-x-2 px-3 py-1.5 bg-white dark:bg-gray-800 rounded-md border shadow-sm w-[100px] justify-center">
           <Switch
@@ -659,7 +436,7 @@ export default function TagsSearcher() {
           {isHistoryDropdownOpen && (
             <div
               ref={historyDropdownRef}
-              className="absolute z-50 mt-1 w-80 bg-white dark:bg-gray-800 rounded-md shadow-lg border overflow-hidden"
+              className="absolute z-50 mt-1 w-80 max-h-64 overflow-auto bg-white dark:bg-gray-800 rounded-md shadow-lg border"
             >
               {searchHistory.length > 0 ? (
                 searchHistory.map((item) => (
@@ -671,7 +448,7 @@ export default function TagsSearcher() {
                       setIsHistoryDropdownOpen(false);
                     }}
                   >
-                    <div className="flex flex-wrap gap-1 mb-1 w-full">
+                    <div className="flex flex-wrap gap-1 mb-1 w-full ">
                       {item.tags.map((tag) => (
                         <Badge
                           key={tag}
@@ -771,7 +548,9 @@ export default function TagsSearcher() {
                 variant="ghost"
                 size="sm"
                 className="h-4 w-4 p-0 ml-1 hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full"
-                onClick={() => removeTag(tag.tag)}
+                onClick={() =>
+                  tagDropdownHandlerRef.current?.removeItem(tag.tag)
+                }
               >
                 <X className="h-3 w-3" />
               </Button>
@@ -781,7 +560,7 @@ export default function TagsSearcher() {
           {selectedCharacter && (
             <Badge className="pl-2 h-6 flex items-center gap-1 bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 hover:bg-purple-200">
               <Users className="h-3 w-3 mr-1" />
-              {selectedCharacter}
+              {selectedCharacter.character}
               <Button
                 variant="ghost"
                 size="sm"

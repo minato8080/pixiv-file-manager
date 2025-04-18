@@ -3309,7 +3309,7 @@ dependencies = [
 [[package]]
 name = "pixieve-rs"
 version = "0.5.0"
-source = "git+https://github.com/minato8080/rustpixiv?branch=dev-blocking#4b6786bf132571d0c4f1321b1bdd61f79d7128d3"
+source = "git+https://github.com/minato8080/rustpixiv#4b6786bf132571d0c4f1321b1bdd61f79d7128d3"
 dependencies = [
  "bytes",
  "chrono",

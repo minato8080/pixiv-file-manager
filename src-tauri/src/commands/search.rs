@@ -153,7 +153,6 @@ pub fn search_by_criteria(
     if !having.is_empty() {
         query.push_str(&having);
     }
-    println!("SQL:{}", query);
 
     let mut stmt = conn.prepare(&query).map_err(|e| e.to_string())?;
 

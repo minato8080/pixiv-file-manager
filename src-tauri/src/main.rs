@@ -8,14 +8,14 @@ mod commands;
 mod constants;
 mod models;
 
+use commands::catalog::{label_character_name, move_files};
 use rusqlite::{Connection, Result};
 use std::sync::Mutex;
 use tauri::Manager;
 
 use commands::fetch::process_capture_illust_detail;
 use commands::search::{
-    get_search_history, get_unique_authors, get_unique_characters, get_unique_tag_list,
-    search_by_criteria,
+    get_search_history, get_unique_authors, get_unique_characters, get_unique_tag_list, search_by_criteria
 };
 use constants::DB_NAME;
 use models::global::AppState;
@@ -46,6 +46,8 @@ fn main() {
             process_capture_illust_detail,
             get_unique_characters,
             get_unique_authors,
+            move_files,
+            label_character_name,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

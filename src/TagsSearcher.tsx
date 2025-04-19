@@ -38,18 +38,25 @@ import { SearchHistory } from "@/bindings/SearchHistory";
 import { AuthorInfo } from "@/bindings/AuthorInfo";
 import { DropdownHandle, ForwardedFilterDropdown, Item } from "./dropdown";
 import { AuthorDropdown, CharacterDropdown } from "./types/app-types";
+import {
+  CharacterNameDialog,
+  CharacterNameDialogHandle,
+} from "./CharacterNameDialog";
 
 export default function TagsSearcher() {
   // State
   const [searchCondition, setSearchCondition] = useState<"AND" | "OR">("AND");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
-  const [selectedItems, setSelectedItems] = useState<number[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [operationMode, setOperationMode] = useState(false);
   const [showMoveDialog, setShowMoveDialog] = useState(false);
   const [targetFolder, setTargetFolder] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  const characterNameDialogRef = useRef<CharacterNameDialogHandle>(null);
+
   // State for dropdown
   const [selectedTags, setSelectedTags] = useState<UniqueTagList[]>([]);
   const [selectedCharacter, setSelectedCharacter] =
@@ -75,45 +82,63 @@ export default function TagsSearcher() {
   const authorDropdownHandlerRef =
     useRef<DropdownHandle<AuthorInfo & Item>>(null);
 
-  // Fetch tags, characters, authors, and search history from database
+  // データベースからタグ、キャラクター、著者、検索履歴を取得するハンドラ
+  const fetchTags = async () => {
+    try {
+      const tags = await invoke<UniqueTagList[]>("get_unique_tag_list");
+      tagDropdownHandlerRef.current?.setAvailableItems(
+        tags.map((t) => ({ id: t.tag, label: t.tag, ...t }))
+      );
+    } catch (error) {
+      console.error("Error fetching tags:", error);
+    }
+  };
+
+  const fetchCharacters = async () => {
+    try {
+      const characters = await invoke<string[]>("get_unique_characters");
+      charaDropdownHandlerRef.current?.setAvailableItems(
+        characters.map((character) => ({
+          id: character,
+          label: character,
+          character,
+        }))
+      );
+    } catch (error) {
+      console.error("Error fetching characters:", error);
+    }
+  };
+
+  const fetchAuthors = async () => {
+    try {
+      const authors = await invoke<AuthorInfo[]>("get_unique_authors");
+      authorDropdownHandlerRef.current?.setAvailableItems(
+        authors.map((a) => ({
+          id: a.author_id.toString(),
+          label: a.author_name,
+          ...a,
+        }))
+      );
+    } catch (error) {
+      console.error("Error fetching authors:", error);
+    }
+  };
+
+  const fetchSearchHistory = async () => {
+    try {
+      const history = await invoke<SearchHistory[]>("get_search_history");
+      setSearchHistory(history);
+    } catch (error) {
+      console.error("Error fetching search history:", error);
+    }
+  };
+
+  // useEffectでハンドラを呼び出す
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch tags
-        const tags = await invoke<UniqueTagList[]>("get_unique_tag_list");
-        tagDropdownHandlerRef.current?.setAvailableItems(
-          tags.map((t) => ({ id: t.tag, label: t.tag, ...t }))
-        );
-
-        // Fetch characters
-        const characters = await invoke<string[]>("get_unique_characters");
-        charaDropdownHandlerRef.current?.setAvailableItems(
-          characters.map((character) => ({
-            id: character,
-            label: character,
-            character,
-          }))
-        );
-
-        // Fetch authors
-        const authors = await invoke<AuthorInfo[]>("get_unique_authors");
-        authorDropdownHandlerRef.current?.setAvailableItems(
-          authors.map((a) => ({
-            id: a.author_id.toString(),
-            label: a.author_name,
-            ...a,
-          }))
-        );
-
-        // Fetch search history
-        const history = await invoke<SearchHistory[]>("get_search_history");
-        setSearchHistory(history);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      }
-    };
-
-    fetchData();
+    fetchTags();
+    fetchCharacters();
+    fetchAuthors();
+    fetchSearchHistory();
   }, []);
 
   // Add keyboard and mouse wheel event listeners for view mode switching
@@ -170,7 +195,6 @@ export default function TagsSearcher() {
   // Clear all search conditions
   const clearSearchConditions = () => {
     setSelectedTags([]);
-    // tagDropdownHandler.current?.setSelectedItems([]);
     setSearchCondition("AND");
     setSelectedCharacter(null);
     setSelectedAuthor(null);
@@ -187,7 +211,7 @@ export default function TagsSearcher() {
           const results: SearchResult[] = await invoke("search_by_criteria", {
             tags: selectedTags.map((iter) => iter.tag),
             condition: searchCondition,
-            character: selectedCharacter,
+            character: selectedCharacter?.character,
             author: selectedAuthor?.author_id,
           });
 
@@ -198,7 +222,7 @@ export default function TagsSearcher() {
               return r;
             })
           );
-          setSelectedItems([]);
+          setSelectedFiles([]);
 
           // Save search history to DB
           if (results.length > 0) {
@@ -226,36 +250,54 @@ export default function TagsSearcher() {
   };
 
   // Apply history item
-  const applyHistoryItem = (historyItem: SearchHistory) => {
-    // setSelectedItems(historyItem.tags.map((tag) => ({ tag, count: 0 })));
-    setSearchCondition(historyItem.condition as "AND" | "OR");
+  const applyHistoryItem = (history: SearchHistory) => {
+    setSelectedTags(history.tags.map((tag) => ({ tag, count: 0 })));
+    setSelectedCharacter(
+      history.character
+        ? {
+            id: history.character,
+            label: history.character,
+            character: history.character,
+          }
+        : null
+    );
+    setSelectedAuthor(
+      history.author
+        ? {
+            id: history.author.author_id.toString(),
+            label: history.author.author_name,
+            ...history.author,
+          }
+        : null
+    );
+    setSearchCondition(history.condition as "AND" | "OR");
     setIsHistoryDropdownOpen(false);
   };
 
   // Toggle item selection
-  const toggleItemSelection = (id: number) => {
+  const toggleItemSelection = (fileName: string) => {
     if (operationMode) {
-      setSelectedItems((prev) =>
-        prev.includes(id)
-          ? prev.filter((itemId) => itemId !== id)
-          : [...prev, id]
+      setSelectedFiles((prev) =>
+        prev.includes(fileName)
+          ? prev.filter((p) => p !== fileName)
+          : [...prev, fileName]
       );
     }
   };
 
   // Select all items
   const selectAllItems = () => {
-    setSelectedItems(searchResults.map((item) => item.id));
+    setSelectedFiles(searchResults.map((item) => item.file_name));
   };
 
   // Deselect all items
   const deselectAllItems = () => {
-    setSelectedItems([]);
+    setSelectedFiles([]);
   };
 
   // Handle move operation
   const handleMove = () => {
-    if (selectedItems.length === 0) return;
+    if (selectedFiles.length === 0) return;
     setShowMoveDialog(true);
   };
 
@@ -264,21 +306,36 @@ export default function TagsSearcher() {
     try {
       // Invoke to Rust backend
       await invoke("move_files", {
-        fileIds: selectedItems,
+        fileNames: selectedFiles,
         targetFolder: targetFolder,
       });
-      console.log(`Moving ${selectedItems.length} files to ${targetFolder}`);
+      console.log(`Moving ${selectedFiles.length} files to ${targetFolder}`);
     } catch (error) {
       console.error("Error moving files:", error);
+      return;
     } finally {
       setShowMoveDialog(false);
-      setSelectedItems([]);
     }
+
+    const folderName = targetFolder.split("\\").pop() ?? "";
+    // open dialog
+    characterNameDialogRef.current?.open(selectedFiles, folderName);
+
+    handleSearch();
+  };
+
+  const handleLabel = async (name: string, selectedFiles: string[]) => {
+    await invoke("label_character_name", {
+      fileNames: selectedFiles,
+      characterName: name,
+    });
+    await fetchCharacters();
+    handleSearch();
   };
 
   // Handle delete operation
   const handleDelete = () => {
-    if (selectedItems.length === 0) return;
+    if (selectedFiles.length === 0) return;
     setShowDeleteDialog(true);
   };
 
@@ -287,15 +344,17 @@ export default function TagsSearcher() {
     try {
       // Invoke to Rust backend
       await invoke("delete_files", {
-        fileIds: selectedItems,
+        fileIds: selectedFiles,
       });
-      console.log(`Deleting ${selectedItems.length} files`);
+      console.log(`Deleting ${selectedFiles.length} files`);
 
       // Remove deleted items from search results
       setSearchResults(
-        searchResults.filter((result) => !selectedItems.includes(result.id))
+        searchResults.filter(
+          (result) => !selectedFiles.includes(result.file_name)
+        )
       );
-      setSelectedItems([]);
+      setSelectedFiles([]);
     } catch (error) {
       console.error("Error deleting files:", error);
     } finally {
@@ -458,6 +517,24 @@ export default function TagsSearcher() {
                           {tag}
                         </Badge>
                       ))}
+                      {item.character && (
+                        <Badge
+                          key={item.character}
+                          variant="outline"
+                          className="text-xs bg-purple-50 text-purple-500 border-purple-200 dark:bg-purple-900/30 dark:text-purple-200 dark:border-purple-800"
+                        >
+                          {item.character}
+                        </Badge>
+                      )}
+                      {item.author && (
+                        <Badge
+                          key={item.author?.author_id}
+                          variant="outline"
+                          className="text-xs bg-green-50 text-green-500 border-green-200 dark:bg-green-900/30 dark:text-green-200 dark:border-green-800"
+                        >
+                          {item.author?.author_name}
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex justify-between items-center text-xs text-gray-500 w-full">
                       <span className="font-medium text-blue-600 dark:text-blue-400">
@@ -617,10 +694,10 @@ export default function TagsSearcher() {
             size="sm"
             className="h-8 bg-white dark:bg-gray-800"
             onClick={handleMove}
-            disabled={selectedItems.length === 0}
+            disabled={selectedFiles.length === 0}
           >
             <FolderInput className="h-3.5 w-3.5 mr-1 text-blue-500" />
-            Move ({selectedItems.length})
+            Move ({selectedFiles.length})
           </Button>
 
           <Button
@@ -628,14 +705,14 @@ export default function TagsSearcher() {
             size="sm"
             className="h-8 bg-white dark:bg-gray-800"
             onClick={handleDelete}
-            disabled={selectedItems.length === 0 || isDeleting}
+            disabled={selectedFiles.length === 0 || isDeleting}
           >
             <Trash2 className="h-3.5 w-3.5 mr-1 text-red-500" />
-            {isDeleting ? "Deleting..." : `Delete (${selectedItems.length})`}
+            {isDeleting ? "Deleting..." : `Delete (${selectedFiles.length})`}
           </Button>
 
           <div className="ml-auto text-sm font-medium text-blue-700 dark:text-blue-300">
-            {selectedItems.length} of {searchResults.length} selected
+            {selectedFiles.length} of {searchResults.length} selected
           </div>
         </div>
       )}
@@ -671,12 +748,12 @@ export default function TagsSearcher() {
                         className={cn(
                           "hover:bg-blue-50 dark:hover:bg-blue-900/20 border-b border-gray-200 dark:border-gray-700",
                           operationMode &&
-                            selectedItems.includes(result.id) &&
+                            selectedFiles.includes(result.file_name) &&
                             "bg-blue-100 dark:bg-blue-900/30"
                         )}
                         onClick={() => {
                           if (operationMode) {
-                            toggleItemSelection(result.id);
+                            toggleItemSelection(result.file_name);
                           } else {
                             openImage(result.id, result.file_name);
                           }
@@ -684,7 +761,7 @@ export default function TagsSearcher() {
                       >
                         {operationMode && (
                           <td className="p-2">
-                            {selectedItems.includes(result.id) ? (
+                            {selectedFiles.includes(result.file_name) ? (
                               <CheckSquare className="h-4 w-4 text-blue-600" />
                             ) : (
                               <Square className="h-4 w-4 text-gray-400" />
@@ -723,14 +800,14 @@ export default function TagsSearcher() {
                     className={cn(
                       "flex flex-col items-center p-2 rounded-md border hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer",
                       operationMode &&
-                        selectedItems.includes(result.id) &&
+                        selectedFiles.includes(result.file_name) &&
                         "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700",
-                      !selectedItems.includes(result.id) &&
+                      !selectedFiles.includes(result.file_name) &&
                         "border-gray-200 dark:border-gray-700"
                     )}
                     onClick={() => {
                       if (operationMode) {
-                        toggleItemSelection(result.id);
+                        toggleItemSelection(result.file_name);
                       } else {
                         openImage(result.id, result.file_name);
                       }
@@ -738,7 +815,7 @@ export default function TagsSearcher() {
                   >
                     {operationMode && (
                       <div className="self-start mb-1">
-                        {selectedItems.includes(result.id) ? (
+                        {selectedFiles.includes(result.file_name) ? (
                           <CheckSquare className="h-4 w-4 text-blue-600" />
                         ) : (
                           <Square className="h-4 w-4 text-gray-400" />
@@ -768,13 +845,8 @@ export default function TagsSearcher() {
 
       {/* Add status bar at the bottom */}
       {searchResults.length > 0 && (
-        <div className="flex items-center justify-between text-xs text-gray-500 p-2 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+        <div className="flex items-center justify-between text-xs text-gray-500 p-1 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
           <div>{searchResults.length} items</div>
-          <div className="flex items-center gap-2">
-            <span>View: {currentViewMode.name}</span>
-            <span className="text-gray-400">|</span>
-            <span>Ctrl+Mouse wheel or Ctrl+/- to change view</span>
-          </div>
         </div>
       )}
 
@@ -782,7 +854,7 @@ export default function TagsSearcher() {
       <Dialog open={showMoveDialog} onOpenChange={setShowMoveDialog}>
         <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900">
           <DialogHeader>
-            <DialogTitle>Move {selectedItems.length} files</DialogTitle>
+            <DialogTitle>Move {selectedFiles.length} files</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
@@ -829,7 +901,7 @@ export default function TagsSearcher() {
           </DialogHeader>
           <div className="py-4">
             <p>
-              Are you sure you want to delete {selectedItems.length} file(s)?
+              Are you sure you want to delete {selectedFiles.length} file(s)?
               This action cannot be undone.
             </p>
           </div>
@@ -850,6 +922,12 @@ export default function TagsSearcher() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Character Name Input Dialog */}
+      <CharacterNameDialog
+        onSubmit={handleLabel}
+        ref={characterNameDialogRef}
+      />
     </div>
   );
 }

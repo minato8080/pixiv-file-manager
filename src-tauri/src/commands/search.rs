@@ -37,19 +37,21 @@ pub fn get_unique_characters(state: State<AppState>) -> Result<Vec<String>, Stri
     let conn = state.db.lock().unwrap();
 
     let mut stmt = conn
-        .prepare("SELECT DISTINCT character FROM CHARACTER_INFO")
+        .prepare("SELECT DISTINCT character FROM ILLUST_INFO")
         .map_err(|e| e.to_string())?;
 
     let character_iter = stmt
         .query_map([], |row| {
-            let character: String = row.get(0)?;
+            let character: Option<String> = row.get(0)?;
             Ok(character)
         })
         .map_err(|e| e.to_string())?;
 
     let mut characters = Vec::new();
     for character in character_iter {
-        characters.push(character.map_err(|e| e.to_string())?);
+        if let Some(c) = character.map_err(|e| e.to_string())? {
+            characters.push(c);
+        }
     }
 
     Ok(characters)
@@ -120,8 +122,7 @@ pub fn search_by_criteria(
                 group_by = " GROUP BY ILLUST_INFO.illust_id".to_string();
                 having = format!(" HAVING COUNT(DISTINCT TAG_INFO.tag) = {}", tags.len());
             }
-            "OR" => {
-            }
+            "OR" => {}
             _ => {
                 panic!("Unknown condition: {}", condition);
             }

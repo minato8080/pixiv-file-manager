@@ -660,6 +660,9 @@ export default function TagsSearcher() {
                       <th className="text-left p-2 text-xs font-medium">
                         Character
                       </th>
+                      <th className="text-left p-2 text-xs font-medium">
+                        Tags
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -707,6 +710,9 @@ export default function TagsSearcher() {
                         </td>
                         <td className="p-2 text-sm text-gray-600 dark:text-gray-300">
                           {result.character || "-"}
+                        </td>
+                        <td className="p-2 text-sm text-gray-600 dark:text-gray-300">
+                          {result.tags || "-"}
                         </td>
                       </tr>
                     ))}

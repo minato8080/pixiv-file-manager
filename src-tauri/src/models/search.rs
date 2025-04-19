@@ -11,6 +11,7 @@ pub struct SearchResult {
     pub character: Option<String>,
     pub save_dir: String,
     pub update_time: String,
+    pub tags: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, TS)]

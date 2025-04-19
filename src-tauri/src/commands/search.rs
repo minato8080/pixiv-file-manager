@@ -96,51 +96,58 @@ pub fn search_by_criteria(
 ) -> Result<Vec<SearchResult>, String> {
     let conn = state.db.lock().unwrap();
     let mut query = String::from(
-        "SELECT DISTINCT ILLUST_INFO.illust_id, suffix, extension, ILLUST_INFO.author_id, character, save_dir, author_name, author_account \
-         FROM ILLUST_INFO \
-         JOIN AUTHOR_INFO ON ILLUST_INFO.author_id = AUTHOR_INFO.author_id",
-    );
+    "SELECT ILLUST_INFO.illust_id, suffix, extension, ILLUST_INFO.author_id, character, save_dir, author_name, author_account, GROUP_CONCAT(TAG_INFO.tag, ',') AS tags \
+     FROM ILLUST_INFO \
+     JOIN AUTHOR_INFO ON ILLUST_INFO.author_id = AUTHOR_INFO.author_id \
+     JOIN TAG_INFO ON ILLUST_INFO.illust_id = TAG_INFO.illust_id",
+);
 
     let mut params: Vec<Box<dyn ToSql>> = Vec::new();
     let mut where_clauses: Vec<String> = Vec::new();
-    let mut group_by = String::new();
-    let mut having = String::new();
 
     if !tags.is_empty() {
-        query.push_str(" JOIN TAG_INFO ON ILLUST_INFO.illust_id = TAG_INFO.illust_id");
-
-        // タグの絞り込み
+        // タグで対象のイラストIDを絞る
         let placeholders = std::iter::repeat("?")
             .take(tags.len())
             .collect::<Vec<_>>()
             .join(", ");
-        where_clauses.push(format!("TAG_INFO.tag IN ({})", placeholders));
 
+        query = format!(
+        "SELECT filtered.illust_id, suffix, extension, filtered.author_id, character, save_dir, author_name, author_account, GROUP_CONCAT(TAG_INFO.tag, ',') AS tags \
+         FROM ( \
+             SELECT ILLUST_INFO.illust_id, suffix, extension, ILLUST_INFO.author_id, character, save_dir, author_name, author_account \
+             FROM ILLUST_INFO \
+             JOIN AUTHOR_INFO ON ILLUST_INFO.author_id = AUTHOR_INFO.author_id \
+             JOIN TAG_INFO ON ILLUST_INFO.illust_id = TAG_INFO.illust_id \
+             WHERE TAG_INFO.tag IN ({}) \
+             GROUP BY ILLUST_INFO.illust_id \
+             {} \
+         ) AS filtered \
+         JOIN TAG_INFO ON filtered.illust_id = TAG_INFO.illust_id",
+        placeholders,
         match condition.as_str() {
-            "AND" => {
-                // GROUP BY と HAVING を追加
-                group_by = " GROUP BY ILLUST_INFO.illust_id".to_string();
-                having = format!(" HAVING COUNT(DISTINCT TAG_INFO.tag) = {}", tags.len());
-            }
-            "OR" => {}
-            _ => {
-                panic!("Unknown condition: {}", condition);
-            }
+            "AND" => format!("HAVING COUNT(DISTINCT TAG_INFO.tag) = {}", tags.len()),
+            "OR" => "".to_string(),
+            _ => panic!("Unknown condition: {}", condition),
         }
+    );
 
         for tag in &tags {
             params.push(Box::new(tag.clone()));
         }
     }
 
-    if let Some(character) = character.clone() {
-        where_clauses.push("ILLUST_INFO.character = ?".to_string());
-        params.push(Box::new(character));
-    }
-
-    if let Some(author) = author {
-        where_clauses.push("ILLUST_INFO.author_id = ?".to_string());
-        params.push(Box::new(author));
+    // character, author 条件
+    if character.is_some() || author.is_some() {
+        where_clauses.clear(); // 新しい外側クエリ用
+        if let Some(c) = character.clone() {
+            where_clauses.push("filtered.character = ?".to_string());
+            params.push(Box::new(c));
+        }
+        if let Some(a) = author {
+            where_clauses.push("filtered.author_id = ?".to_string());
+            params.push(Box::new(a));
+        }
     }
 
     if !where_clauses.is_empty() {
@@ -148,12 +155,7 @@ pub fn search_by_criteria(
         query.push_str(&where_clauses.join(" AND "));
     }
 
-    if !group_by.is_empty() {
-        query.push_str(&group_by);
-    }
-    if !having.is_empty() {
-        query.push_str(&having);
-    }
+    query.push_str(" GROUP BY filtered.illust_id");
 
     let mut stmt = conn.prepare(&query).map_err(|e| e.to_string())?;
 
@@ -166,10 +168,11 @@ pub fn search_by_criteria(
             let suffix: Option<u8> = row.get(1)?;
             let extension: String = row.get(2)?;
             let author_id: u32 = row.get(3)?;
-            let author_name: String = row.get(6)?;
-            let author_account: String = row.get(7)?;
             let character: Option<String> = row.get(4)?;
             let save_dir: String = row.get(5)?;
+            let author_name: String = row.get(6)?;
+            let author_account: String = row.get(7)?;
+            let tags: Option<String> = row.get(8)?;
             let file_name = match suffix {
                 Some(s) => format!("{}_p{}.{}", id, s, extension),
                 None => format!("{}.{}", id, extension),
@@ -199,6 +202,7 @@ pub fn search_by_criteria(
                 save_dir,
                 update_time,
                 thumbnail_url: path,
+                tags,
             })
         })
         .map_err(|e| e.to_string())?;

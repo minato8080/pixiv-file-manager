@@ -2,7 +2,13 @@ import { SearchHistory } from "@/bindings/SearchHistory";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ChevronDown, History } from "lucide-react";
-import { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 
 export type DropdownHistoryHandle = {
   setHistory: (history: SearchHistory[]) => void;
@@ -17,7 +23,22 @@ export const DropdownHistory = forwardRef<DropdownHistoryHandle, Props>(
   (props, ref) => {
     const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
     const [isOpen, setIsOpen] = useState(false);
-    const historyDropdownRef = useRef<HTMLDivElement>(null);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // Handle click outside for dropdowns
+    useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+        // Tag dropdown
+        if (isOpen && !dropdownRef.current?.contains(event.target as Node)) {
+          setIsOpen(false);
+        }
+      };
+
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
+    }, [isOpen]);
 
     useImperativeHandle(ref, () => ({
       setHistory: (history) => setSearchHistory(history),
@@ -28,7 +49,7 @@ export const DropdownHistory = forwardRef<DropdownHistoryHandle, Props>(
     }));
 
     return (
-      <div className="relative">
+      <div className="relative" ref={dropdownRef}>
         <Button
           variant="outline"
           size="sm"
@@ -41,10 +62,7 @@ export const DropdownHistory = forwardRef<DropdownHistoryHandle, Props>(
         </Button>
 
         {isOpen && (
-          <div
-            ref={historyDropdownRef}
-            className="absolute z-50 mt-1 w-80 max-h-64 overflow-auto bg-white dark:bg-gray-800 rounded-md shadow-lg border"
-          >
+          <div className="absolute z-50 mt-1 w-80 max-h-64 overflow-auto bg-white dark:bg-gray-800 rounded-md shadow-lg border">
             {searchHistory.length > 0 ? (
               searchHistory.map((item) => (
                 <button

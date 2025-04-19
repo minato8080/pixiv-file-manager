@@ -10,7 +10,6 @@ import {
   CheckSquare,
   Square,
   X,
-  History,
   ChevronDown,
   User,
   Users,
@@ -38,21 +37,19 @@ import {
   DialogDeleteFiles,
   DialogDeleteFilesHandle,
 } from "./dialog-delete-confirm";
+import { DropdownHistory, DropdownHistoryHandle } from "./dropdown-history";
 
 export default function TagsSearcher() {
-  // State
+  // State for buissiness
   const [searchCondition, setSearchCondition] = useState<"AND" | "OR">("AND");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [operationMode, setOperationMode] = useState(false);
   const [targetFolder, setTargetFolder] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
-
-  // Refs for Dialog
-  const dialogCharacterLabelHandleRef = useRef<DialogCharaLabelHandle>(null);
-  const dialogMoveLabelHandleRef = useRef<DialogMoveFilesHandle>(null);
-  const dialogDeleteFilesHandleRef = useRef<DialogDeleteFilesHandle>(null);
+  const [currentViewMode, setCurrentViewMode] = useState<ViewMode>(
+    VIEW_MODES[0]
+  );
 
   // State for dropdown
   const [selectedTags, setSelectedTags] = useState<UniqueTagList[]>([]);
@@ -61,17 +58,16 @@ export default function TagsSearcher() {
   const [selectedAuthor, setSelectedAuthor] = useState<AuthorDropdown | null>(
     null
   );
-  const [isHistoryDropdownOpen, setIsHistoryDropdownOpen] = useState(false);
   const [isViewModeDropdownOpen, setIsViewModeDropdownOpen] = useState(false);
 
+  // Refs for Dialog
+  const dialogCharacterLabelHandleRef = useRef<DialogCharaLabelHandle>(null);
+  const dialogMoveLabelHandleRef = useRef<DialogMoveFilesHandle>(null);
+  const dialogDeleteFilesHandleRef = useRef<DialogDeleteFilesHandle>(null);
+
   // Refs for dropdown
-  const historyDropdownRef = useRef<HTMLDivElement>(null);
   const viewModeDropdownRef = useRef<HTMLDivElement>(null);
-
-  const [currentViewMode, setCurrentViewMode] = useState<ViewMode>(
-    VIEW_MODES[0]
-  );
-
+  const historyDropdownHandlerRef = useRef<DropdownHistoryHandle>(null);
   const tagDropdownHandlerRef =
     useRef<DropdownHandle<UniqueTagList & Item>>(null);
   const charaDropdownHandlerRef =
@@ -79,7 +75,7 @@ export default function TagsSearcher() {
   const authorDropdownHandlerRef =
     useRef<DropdownHandle<AuthorInfo & Item>>(null);
 
-  // データベースからタグ、キャラクター、著者、検索履歴を取得するハンドラ
+  // Handlers to fetch tags, characters, authors, and search history from the database
   const fetchTags = async () => {
     try {
       const tags = await invoke<UniqueTagList[]>("get_unique_tag_list");
@@ -124,13 +120,12 @@ export default function TagsSearcher() {
   const fetchSearchHistory = async () => {
     try {
       const history = await invoke<SearchHistory[]>("get_search_history");
-      setSearchHistory(history);
+      historyDropdownHandlerRef.current?.setHistory(history);
     } catch (error) {
       console.error("Error fetching search history:", error);
     }
   };
-
-  // useEffectでハンドラを呼び出す
+  // Call handlers to fetch data using useEffect
   useEffect(() => {
     fetchTags();
     fetchCharacters();
@@ -231,15 +226,10 @@ export default function TagsSearcher() {
               character: selectedCharacter?.character ?? "",
               author: selectedAuthor,
             };
-
-            const updatedHistory = [newHistoryItem, ...searchHistory].slice(
-              0,
-              10
-            );
-            setSearchHistory(updatedHistory);
+            historyDropdownHandlerRef.current?.addHistory(newHistoryItem);
           }
         } catch (error) {
-          console.error("検索エラー:", error);
+          console.error("Error search illusts:", error);
         }
       };
       performSearch();
@@ -268,7 +258,6 @@ export default function TagsSearcher() {
         : null
     );
     setSearchCondition(history.condition as "AND" | "OR");
-    setIsHistoryDropdownOpen(false);
   };
 
   // Toggle item selection
@@ -479,78 +468,11 @@ export default function TagsSearcher() {
           Search
         </Button>
 
-        <div className="relative">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-9 bg-white dark:bg-gray-800"
-            onClick={() => setIsHistoryDropdownOpen(!isHistoryDropdownOpen)}
-          >
-            <History className="h-4 w-4 mr-1 text-purple-500" />
-            History
-            <ChevronDown className="h-4 w-4 ml-1" />
-          </Button>
-
-          {isHistoryDropdownOpen && (
-            <div
-              ref={historyDropdownRef}
-              className="absolute z-50 mt-1 w-80 max-h-64 overflow-auto bg-white dark:bg-gray-800 rounded-md shadow-lg border"
-            >
-              {searchHistory.length > 0 ? (
-                searchHistory.map((item) => (
-                  <button
-                    key={item.timestamp}
-                    className="w-full flex flex-col items-start p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer"
-                    onClick={() => {
-                      applyHistoryItem(item);
-                      setIsHistoryDropdownOpen(false);
-                    }}
-                  >
-                    <div className="flex flex-wrap gap-1 mb-1 w-full ">
-                      {item.tags.map((tag) => (
-                        <Badge
-                          key={tag}
-                          variant="outline"
-                          className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-200 dark:border-blue-800"
-                        >
-                          {tag}
-                        </Badge>
-                      ))}
-                      {item.character && (
-                        <Badge
-                          key={item.character}
-                          variant="outline"
-                          className="text-xs bg-purple-50 text-purple-500 border-purple-200 dark:bg-purple-900/30 dark:text-purple-200 dark:border-purple-800"
-                        >
-                          {item.character}
-                        </Badge>
-                      )}
-                      {item.author && (
-                        <Badge
-                          key={item.author?.author_id}
-                          variant="outline"
-                          className="text-xs bg-green-50 text-green-500 border-green-200 dark:bg-green-900/30 dark:text-green-200 dark:border-green-800"
-                        >
-                          {item.author?.author_name}
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex justify-between items-center text-xs text-gray-500 w-full">
-                      <span className="font-medium text-blue-600 dark:text-blue-400">
-                        {item.condition} • {item.result_count} results
-                      </span>
-                      <span>{item.timestamp}</span>
-                    </div>
-                  </button>
-                ))
-              ) : (
-                <div className="p-3 text-center text-gray-500">
-                  No search history available
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        {/* History dropdown */}
+        <DropdownHistory
+          applyHistoryItem={applyHistoryItem}
+          ref={historyDropdownHandlerRef}
+        />
 
         <div className="ml-auto flex items-center gap-1">
           {/* View Mode Selector */}
@@ -792,12 +714,12 @@ export default function TagsSearcher() {
                 </table>
               </div>
             ) : (
-              <div className={`grid ${currentViewMode.gridCols} gap-3 p-3`}>
+              <div className={`grid ${currentViewMode.gridCols} gap-1 p-2`}>
                 {searchResults.map((result) => (
                   <div
                     key={result.id}
                     className={cn(
-                      "flex flex-col items-center p-2 rounded-md border hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer",
+                      "flex flex-col items-center p-1 rounded-md border hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer",
                       operationMode &&
                         selectedFiles.includes(result.file_name) &&
                         "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700",

@@ -60,7 +60,7 @@ function FilterDropdown<T extends Item>(
 ) {
   // State
   const [availableItems, setAvailableItems] = useState<T[]>([]);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState("");
 
   // Refs for dropdown
@@ -70,12 +70,8 @@ function FilterDropdown<T extends Item>(
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       // Tag dropdown
-      if (
-        isDropdownOpen &&
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsDropdownOpen(false);
+      if (isOpen && !dropdownRef.current?.contains(event.target as Node)) {
+        setIsOpen(false);
       }
     };
 
@@ -83,7 +79,7 @@ function FilterDropdown<T extends Item>(
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [isDropdownOpen]);
+  }, [isOpen]);
 
   const addItem = (item: T) => {
     if (mode === "multiple") {
@@ -91,7 +87,7 @@ function FilterDropdown<T extends Item>(
     } else {
       setSelectedItem(item);
     }
-    setIsDropdownOpen(false);
+    setIsOpen(false);
   };
 
   // Remove tag from selected tags
@@ -103,9 +99,6 @@ function FilterDropdown<T extends Item>(
     }
   };
 
-  // Filter available tags
-  const filteredTags = availableItems.filter((tag) => tag.id.includes(filter));
-
   // Expose handlers to parent component
   useImperativeHandle(ref, () => ({
     addItem,
@@ -113,24 +106,24 @@ function FilterDropdown<T extends Item>(
     setAvailableItems,
   }));
 
+  // Filter available tags
+  const filteredTags = availableItems.filter((tag) => tag.id.includes(filter));
+
   return (
-    <div className="relative">
+    <div className="relative" ref={dropdownRef}>
       <Button
         variant="secondary"
         size="sm"
         className="h-9 bg-white dark:bg-gray-800 border shadow-sm"
-        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+        onClick={() => setIsOpen(!isOpen)}
       >
         {ButtonIcon}
         {buttonText}
         <ChevronDown className="h-4 w-4 ml-1" />
       </Button>
 
-      {isDropdownOpen && (
-        <div
-          ref={dropdownRef}
-          className="absolute z-50 mt-1 w-64 bg-white dark:bg-gray-800 rounded-md shadow-lg border overflow-hidden"
-        >
+      {isOpen && (
+        <div className="absolute z-50 mt-1 w-64 bg-white dark:bg-gray-800 rounded-md shadow-lg border overflow-hidden">
           <div className="p-2 border-b">
             <Input
               placeholder={placeholderText}

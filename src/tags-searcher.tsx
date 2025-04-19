@@ -9,7 +9,6 @@ import {
   FolderInput,
   CheckSquare,
   Square,
-  Folder,
   X,
   History,
   ChevronDown,
@@ -17,19 +16,11 @@ import {
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { VIEW_MODES, type ViewMode } from "./constants";
 import { UniqueTagList } from "@/bindings/UniqueTagList";
@@ -39,9 +30,14 @@ import { AuthorInfo } from "@/bindings/AuthorInfo";
 import { DropdownHandle, ForwardedFilterDropdown, Item } from "./dropdown";
 import { AuthorDropdown, CharacterDropdown } from "./types/app-types";
 import {
-  CharacterNameDialog,
-  CharacterNameDialogHandle,
-} from "./CharacterNameDialog";
+  DialogCharaLabel,
+  DialogCharaLabelHandle,
+} from "./dialog-character-label";
+import { DialogMoveFiles, DialogMoveFilesHandle } from "./dialog-move-files";
+import {
+  DialogDeleteFiles,
+  DialogDeleteFilesHandle,
+} from "./dialog-delete-confirm";
 
 export default function TagsSearcher() {
   // State
@@ -50,12 +46,13 @@ export default function TagsSearcher() {
   const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [operationMode, setOperationMode] = useState(false);
-  const [showMoveDialog, setShowMoveDialog] = useState(false);
   const [targetFolder, setTargetFolder] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
-  const characterNameDialogRef = useRef<CharacterNameDialogHandle>(null);
+  // Refs for Dialog
+  const dialogCharacterLabelHandleRef = useRef<DialogCharaLabelHandle>(null);
+  const dialogMoveLabelHandleRef = useRef<DialogMoveFilesHandle>(null);
+  const dialogDeleteFilesHandleRef = useRef<DialogDeleteFilesHandle>(null);
 
   // State for dropdown
   const [selectedTags, setSelectedTags] = useState<UniqueTagList[]>([]);
@@ -298,7 +295,7 @@ export default function TagsSearcher() {
   // Handle move operation
   const handleMove = () => {
     if (selectedFiles.length === 0) return;
-    setShowMoveDialog(true);
+    dialogMoveLabelHandleRef.current?.open(selectedFiles, targetFolder);
   };
 
   // Confirm move operation
@@ -309,22 +306,24 @@ export default function TagsSearcher() {
         fileNames: selectedFiles,
         targetFolder: targetFolder,
       });
-      console.log(`Moving ${selectedFiles.length} files to ${targetFolder}`);
     } catch (error) {
       console.error("Error moving files:", error);
       return;
     } finally {
-      setShowMoveDialog(false);
+      // close Move Files dialog
+      dialogMoveLabelHandleRef.current?.close();
     }
 
+    // initial name for input area
     const folderName = targetFolder.split("\\").pop() ?? "";
-    // open dialog
-    characterNameDialogRef.current?.open(selectedFiles, folderName);
+    // open Chara Name dialog
+    dialogCharacterLabelHandleRef.current?.open(selectedFiles, folderName);
 
+    // refresh
     handleSearch();
   };
 
-  const handleLabel = async (name: string, selectedFiles: string[]) => {
+  const confirmLabel = async (name: string, selectedFiles: string[]) => {
     await invoke("label_character_name", {
       fileNames: selectedFiles,
       characterName: name,
@@ -336,7 +335,7 @@ export default function TagsSearcher() {
   // Handle delete operation
   const handleDelete = () => {
     if (selectedFiles.length === 0) return;
-    setShowDeleteDialog(true);
+    dialogDeleteFilesHandleRef.current?.open(selectedFiles);
   };
 
   const confirmDelete = async () => {
@@ -359,7 +358,7 @@ export default function TagsSearcher() {
       console.error("Error deleting files:", error);
     } finally {
       setIsDeleting(false);
-      setShowDeleteDialog(false);
+      dialogDeleteFilesHandleRef.current?.close();
     }
   };
 
@@ -851,82 +850,22 @@ export default function TagsSearcher() {
       )}
 
       {/* Move Dialog */}
-      <Dialog open={showMoveDialog} onOpenChange={setShowMoveDialog}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900">
-          <DialogHeader>
-            <DialogTitle>Move {selectedFiles.length} files</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Destination Folder</Label>
-              <div className="flex gap-2">
-                <Input
-                  value={targetFolder}
-                  onChange={(e) => setTargetFolder(e.target.value)}
-                  placeholder="C:/Path/To/Destination"
-                  className="flex-1"
-                />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
-                  onClick={handleSelectFolder}
-                >
-                  <Folder className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowMoveDialog(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={confirmMove}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              Move Files
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DialogMoveFiles
+        onClick={handleSelectFolder}
+        onSubmit={confirmMove}
+        ref={dialogMoveLabelHandleRef}
+      />
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900">
-          <DialogHeader>
-            <DialogTitle className="text-red-600">
-              Delete Confirmation
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p>
-              Are you sure you want to delete {selectedFiles.length} file(s)?
-              This action cannot be undone.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowDeleteDialog(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="outline"
-              onClick={confirmDelete}
-              disabled={isDeleting}
-            >
-              {isDeleting ? "Deleting..." : "Delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DialogDeleteFiles
+        onSubmit={confirmDelete}
+        ref={dialogDeleteFilesHandleRef}
+      />
 
       {/* Character Name Input Dialog */}
-      <CharacterNameDialog
-        onSubmit={handleLabel}
-        ref={characterNameDialogRef}
+      <DialogCharaLabel
+        onSubmit={confirmLabel}
+        ref={dialogCharacterLabelHandleRef}
       />
     </div>
   );

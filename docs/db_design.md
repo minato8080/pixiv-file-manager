@@ -7,7 +7,16 @@
   - `author_id`: INTEGER
   - `character`: TEXT
   - `save_dir`: TEXT
+  - `update_time`: INTEGER
   - **PRIMARY KEY**: (`illust_id`, `suffix`)
+
+- **ILLUST_INFO_WORK**
+  - `illust_id`: INTEGER
+  - `suffix`: INTEGER
+  - `extension`: TEXT
+  - `save_dir`: TEXT
+  - `update_time`: TEXT
+  - **PRIMARY KEY**: (`illust_id`, `suffix`, `extension`, `save_dir`)
 
 - **TAG_INFO**
   - `illust_id`: INTEGER
@@ -34,4 +43,4 @@
   - `result_count`: INTEGER
 
 - **DB_INFO**
-  - `update_time`: TEXT
+  - `update_time`: INTEGER

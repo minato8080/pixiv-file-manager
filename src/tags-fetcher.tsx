@@ -1,3 +1,4 @@
+import { listen } from "@tauri-apps/api/event";
 import { useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
@@ -7,13 +8,29 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { ProcessStats } from "@/bindings/ProcessStats";
+import { TagProgress } from "@/bindings/TagProgress";
+import { FileCounts } from "@/bindings/FileCounts";
 
 export default function TagsFetcher() {
   const [selectedFolders, setSelectedFolders] = useState<string[]>([]);
+  const [fileCounts, setFileCounts] = useState<FileCounts>({
+    folders: [],
+    total: 0,
+    processing_time: "",
+  });
   const [isProcessing, setIsProcessing] = useState(false);
-  const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const [progress, setProgress] = useState<TagProgress>({
+    success: 0,
+    fail: 0,
+    current: 0,
+    total: 0,
+  });
   const [stats, setStats] = useState<ProcessStats | null>(null);
   const [showFailedDetails, setShowFailedDetails] = useState(false);
+
+  listen<TagProgress>("tag_progress", (event) => {
+    setProgress(event.payload);
+  });
 
   // Function to select folders
   const selectFolders = async () => {
@@ -23,6 +40,12 @@ export default function TagsFetcher() {
         multiple: true,
         title: "Select folders containing images",
       });
+      if (!selected) return;
+
+      const filesCounts: FileCounts = await invoke("count_files_in_dir", {
+        dirPaths: selected,
+      });
+      setFileCounts(filesCounts);
 
       if (Array.isArray(selected)) {
         setSelectedFolders(selected);
@@ -45,7 +68,12 @@ export default function TagsFetcher() {
     if (selectedFolders.length === 0) return;
 
     setIsProcessing(true);
-    setProgress({ current: 0, total: 0 });
+    setProgress({
+      success: 0,
+      fail: 0,
+      current: 0,
+      total: 0,
+    });
     setStats(null);
 
     try {
@@ -63,45 +91,6 @@ export default function TagsFetcher() {
       setIsProcessing(false);
     }
   };
-
-  // Calculate estimated time based on file count
-  const getEstimatedTime = (fileCount: number) => {
-    // Mock calculation - in real app this would come from Rust
-    const estimatedSecondsPerFile = 0.05;
-    const totalSeconds = fileCount * estimatedSecondsPerFile;
-
-    if (totalSeconds < 60) {
-      return `${Math.ceil(totalSeconds)} seconds`;
-    } else {
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = Math.ceil(totalSeconds % 60);
-      return `${minutes} min ${seconds} sec`;
-    }
-  };
-
-  // Count files in selected folders (mock implementation)
-  const fileCountInfo = () => {
-    if (selectedFolders.length === 0) return null;
-
-    // In a real app, this data would come from Rust
-    const folderCounts = selectedFolders.map((folder, index) => {
-      const baseCount = 50 + index * 25;
-      const subDirCount = 20 + index * 10;
-      return { folder, baseCount, subDirCount };
-    });
-
-    const totalFiles = folderCounts.reduce(
-      (sum, item) => sum + item.baseCount + item.subDirCount,
-      0
-    );
-
-    return {
-      folders: folderCounts,
-      total: totalFiles,
-    };
-  };
-
-  const counts = fileCountInfo();
 
   return (
     <div className="flex flex-col h-full">
@@ -154,19 +143,20 @@ export default function TagsFetcher() {
                     >
                       {folder}
                     </p>
-                    {counts && (
+                    {fileCounts && (
                       <div className="flex items-center gap-2 mt-1 text-xs">
                         <Badge
                           variant="outline"
                           className="h-5 bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800"
                         >
-                          {counts.folders[index].baseCount} files
+                          {fileCounts.folders[index].base_count} files
                         </Badge>
                         <Badge
                           variant="outline"
                           className="h-5 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800"
                         >
-                          {counts.folders[index].subDirCount} in subdirectories
+                          {fileCounts.folders[index].sub_dir_count} in
+                          subdirectories
                         </Badge>
                       </div>
                     )}
@@ -174,7 +164,7 @@ export default function TagsFetcher() {
                 </div>
               ))}
 
-              {counts && (
+              {fileCounts && (
                 <div className="flex items-center justify-between pt-2 border-t mt-2 border-gray-200 dark:border-gray-700">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">Total:</span>
@@ -182,11 +172,11 @@ export default function TagsFetcher() {
                       variant="secondary"
                       className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
                     >
-                      {counts.total} files
+                      {fileCounts.total} files
                     </Badge>
                   </div>
                   <div className="text-xs font-medium text-blue-700 dark:text-blue-300">
-                    Est. processing time: {getEstimatedTime(counts.total)}
+                    Est. processing time: {fileCounts.processing_time}
                   </div>
                 </div>
               )}

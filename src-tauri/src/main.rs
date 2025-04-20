@@ -13,7 +13,7 @@ use rusqlite::{Connection, Result};
 use std::sync::Mutex;
 use tauri::Manager;
 
-use commands::fetch::process_capture_illust_detail;
+use commands::fetch::{count_files_in_dir, process_capture_illust_detail};
 use commands::search::{
     get_search_history, get_unique_authors, get_unique_characters, get_unique_tag_list, search_by_criteria
 };
@@ -50,21 +50,34 @@ fn main() {
             label_character_name,
             edit_tags,
             delete_files,
+            count_files_in_dir,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
 fn initialize_db(conn: &Connection) -> Result<()> {
-    // テーブルが存在しない場合は作成
     conn.execute(
         "CREATE TABLE IF NOT EXISTS ILLUST_INFO (
             illust_id INTEGER NOT NULL,
-            suffix INTEGER,
+            suffix INTEGER NOT NULL,
             extension TEXT NOT NULL,
             author_id INTEGER NOT NULL,
             character TEXT,
             save_dir TEXT,
+            update_time INTEGER NOT NULL,
             PRIMARY KEY (illust_id, suffix)
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS ILLUST_INFO_WORK (
+            illust_id INTEGER NOT NULL,
+            suffix INTEGER NOT NULL,
+            extension TEXT NOT NULL,
+            save_dir TEXT NOT NULL,
+            update_time INTEGER NOT NULL,
+            PRIMARY KEY (illust_id, suffix, extension, save_dir)
         )",
         [],
     )?;
@@ -72,6 +85,7 @@ fn initialize_db(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS TAG_INFO (
             illust_id INTEGER NOT NULL,
+            suffix INTEGER,
             tag TEXT NOT NULL,
             PRIMARY KEY (illust_id, tag)
         )",
@@ -111,7 +125,7 @@ fn initialize_db(conn: &Connection) -> Result<()> {
 
     conn.execute(
         "CREATE TABLE IF NOT EXISTS DB_INFO (
-            update_time TEXT NOT NULL
+            update_time INTEGER NOT NULL
         )",
         [],
     )?;

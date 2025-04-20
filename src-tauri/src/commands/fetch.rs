@@ -1,13 +1,68 @@
-use rusqlite::{params, Result};
+use rusqlite::{params, OptionalExtension, Result};
 use std::fs;
 use std::path::Path;
 use std::time::Instant;
 use std::vec::Vec;
 use tauri::{Emitter, State};
+use walkdir::WalkDir;
 
-use crate::models::fetch::{DirDetail, FileDetail, IdInfo, ProcessStats};
+use crate::models::fetch::{DirDetail, FileCounts, FileDetail, IdInfo, ProcessStats, TagProgress};
 use crate::models::global::AppState;
 use crate::models::pixiv::{PixivApi, RealPixivApi};
+
+use crate::models::fetch::FolderCount;
+
+// Start of Selection
+#[tauri::command]
+pub fn count_files_in_dir(_state: State<AppState>, dir_paths: Vec<String>) -> FileCounts {
+    let folder_counts: Vec<FolderCount> = dir_paths
+        .iter()
+        .map(|dir_path| {
+            let path = Path::new(dir_path);
+            let base_count = WalkDir::new(path)
+                .max_depth(1)
+                .into_iter()
+                .filter_map(|e| e.ok())
+                .filter(|e| e.file_type().is_file())
+                .count() as i32;
+
+            let sub_dir_count = WalkDir::new(path)
+                .min_depth(2)
+                .into_iter()
+                .filter_map(|e| e.ok())
+                .filter(|e| e.file_type().is_file())
+                .count() as i32;
+
+            FolderCount {
+                base_count,
+                sub_dir_count,
+            }
+        })
+        .collect();
+
+    let total_files = folder_counts
+        .iter()
+        .map(|fc| fc.base_count + fc.sub_dir_count)
+        .sum();
+
+    let interval = std::env::var("INTERVAL_MILL_SEC")
+        .ok()
+        .and_then(|val| val.parse::<i32>().ok())
+        .unwrap_or(1000);
+
+    let total_processing_time_secs = (interval + 200) * total_files / 1000;
+    let hours = total_processing_time_secs / 3600;
+    let minutes = (total_processing_time_secs % 3600) / 60;
+    let seconds = total_processing_time_secs % 60;
+
+    let processing_time = format!("{:02}:{:02}:{:02}", hours, minutes, seconds);
+
+    FileCounts {
+        folders: folder_counts,
+        total: total_files,
+        processing_time,
+    }
+}
 
 fn extract_dir_detail<P: AsRef<Path>>(folder: P) -> DirDetail {
     let mut ids = Vec::new();
@@ -41,12 +96,20 @@ fn extract_dir_detail<P: AsRef<Path>>(folder: P) -> DirDetail {
                                 id: id.parse::<u32>().unwrap_or_default(),
                                 save_path: save_path.clone(),
                             });
+                            let update_time = {
+                                let metadata = fs::metadata(&path).unwrap();
+                                let modified_time = metadata.modified().unwrap();
+                                let duration_since_epoch =
+                                    modified_time.duration_since(std::time::UNIX_EPOCH).unwrap();
+                                duration_since_epoch.as_secs() as i64
+                            };
                             details.push(FileDetail {
                                 id: id.parse::<u32>().unwrap_or_default(),
                                 suffix: suffix.parse::<u8>().unwrap_or_default(),
                                 save_path,
                                 extension,
                                 save_dir,
+                                update_time,
                             });
                         }
                     }
@@ -96,42 +159,66 @@ fn process_image_ids_detail(
 
     for dir_detail in &dir_details {
         for id_info in &dir_detail.id_info {
-            if let Ok(resp) =
-                RealPixivApi::fetch_detail(&state, id_info.id)
-            {
-                let mut target_file_detail = None;
-                // ILLUST_INFOにデータをINSERT
-                for file_detail in &dir_detail.file_details {
-                    if file_detail.id == id_info.id {
-                        target_file_detail = Some(file_detail);
-                        break;
+            let mut target_file_detail = None;
+            for file_detail in &dir_detail.file_details {
+                if file_detail.id == id_info.id {
+                    target_file_detail = Some(file_detail);
+                    break;
+                }
+            }
+
+            if let Some(file_detail) = target_file_detail {
+                let mut stmt = conn.prepare("SELECT update_time FROM ILLUST_INFO WHERE illust_id = ?1 AND suffix = ?2 AND extension = ?3")?;
+                let existing_time: Option<i64> = stmt
+                    .query_row(
+                        params![id_info.id, file_detail.suffix, file_detail.extension],
+                        |row| row.get(0),
+                    )
+                    .optional()?; // ← rusqlite 0.27以降のAPIで Option を返せる
+
+                if let Some(existing_time) = existing_time {
+                    if existing_time == file_detail.update_time {
+                        // 同じ更新時刻ならスキップ
+                        println!("Skip: No update needed for {}", id_info.id);
+                        let progress = TagProgress {
+                            success: success_count,
+                            fail: fail_count,
+                            current: success_count + fail_count,
+                            total,
+                        };
+                        if let Err(e) = window.emit("tag_progress", serde_json::json!(progress)) {
+                            eprintln!("Failed to emit event: {}", e);
+                        }
+                        continue;
                     }
                 }
-                println!("{:?}", target_file_detail.unwrap());
-                if let Some(file_detail) = target_file_detail {
+
+                if let Ok(resp) = RealPixivApi::fetch_detail(&state, id_info.id) {
+                    println!("{:?}", target_file_detail.unwrap());
+
                     conn.execute(
-                        "INSERT OR REPLACE INTO ILLUST_INFO (illust_id, suffix, extension, author_id, character, save_dir) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                        "INSERT OR REPLACE INTO ILLUST_INFO (illust_id, suffix, extension, author_id, character, save_dir, update_time) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                         params![
                             resp.illust.id(),
                             file_detail.suffix,
                             file_detail.extension,
                             resp.illust.user().id(),
                             None::<String>,
-                            file_detail.save_dir
+                            file_detail.save_dir,
+                            file_detail.update_time,
                         ],
                     )?;
-                }
 
-                // TAG_INFOにタグをINSERT
-                for tag in resp.illust.tags() {
+                    // TAG_INFOにタグをINSERT
+                    for tag in resp.illust.tags() {
+                        conn.execute(
+                            "INSERT OR REPLACE INTO TAG_INFO (illust_id, tag) VALUES (?1, ?2)",
+                            params![id_info.id, tag.name()],
+                        )?;
+                    }
+
+                    // AUTHOR_INFOテーブルに著者情報をINSERT
                     conn.execute(
-                        "INSERT OR REPLACE INTO TAG_INFO (illust_id, tag) VALUES (?1, ?2)",
-                        params![id_info.id, tag.name()],
-                    )?;
-                }
-
-                // AUTHOR_INFOテーブルに著者情報をINSERT
-                conn.execute(
                     "INSERT OR REPLACE INTO AUTHOR_INFO (author_id, author_name, author_account) VALUES (?1, ?2, ?3)",
                     params![
                         resp.illust.user().id(),
@@ -140,29 +227,32 @@ fn process_image_ids_detail(
                     ],
                 )?;
 
-                success_count += 1;
-            } else {
-                fail_count += 1;
-                failed_file_paths.push(id_info.save_path.clone());
-            }
+                    success_count += 1;
+                } else {
+                    fail_count += 1;
+                    failed_file_paths.push(id_info.save_path.clone());
+                }
 
-            // emit でフロントに通知（イベント名: tag-progress）
-            if let Err(e) = window.emit(
-                "tag-progress",
-                serde_json::json!({
-                    "type": "progress",
-                    "success": success_count,
-                    "fail": fail_count,
-                    "current": success_count + fail_count,
-                    "total": total,
-                }),
-            ) {
-                eprintln!("Failed to emit event: {}", e);
+                let progress = TagProgress {
+                    success: success_count,
+                    fail: fail_count,
+                    current: success_count + fail_count,
+                    total,
+                };
+                if let Err(e) = window.emit("tag_progress", serde_json::json!(progress)) {
+                    eprintln!("Failed to emit event: {}", e);
+                }
+                let interval = std::env::var("INTERVAL_MILL_SEC")
+                    .ok()
+                    .and_then(|val| val.parse::<u64>().ok())
+                    .unwrap_or(1000);
+
+                std::thread::sleep(std::time::Duration::from_millis(interval));
             }
-            std::thread::sleep(std::time::Duration::from_secs(1));
         }
     }
     let duration = start.elapsed();
+    window.emit("update_db", ()).unwrap();
 
     Ok(ProcessStats {
         total_files: total,

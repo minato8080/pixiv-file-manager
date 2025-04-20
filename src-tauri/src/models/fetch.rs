@@ -19,6 +19,7 @@ pub struct FileDetail {
     #[allow(dead_code)]
     pub save_path: String,
     pub extension: String,
+    pub update_time: i64,
 }
 
 #[derive(Debug, Clone, TS)]
@@ -33,4 +34,28 @@ pub struct IdInfo {
 pub struct DirDetail {
     pub id_info: Vec<IdInfo>,
     pub file_details: Vec<FileDetail>,
+}
+
+#[derive(Serialize, Debug, Clone, TS)]
+#[ts(export)]
+pub struct TagProgress {
+    pub success: usize,
+    pub fail: usize,
+    pub current: usize,
+    pub total: usize,
+}
+
+#[derive(Serialize, Debug, Clone, TS)]
+#[ts(export)]
+pub struct FolderCount {
+    pub base_count: i32,
+    pub sub_dir_count: i32,
+}
+
+#[derive(Serialize, Debug, Clone, TS)]
+#[ts(export)]
+pub struct FileCounts {
+    pub folders: Vec<FolderCount>,
+    pub total: i32,
+    pub processing_time: String,
 }

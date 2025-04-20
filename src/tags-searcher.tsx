@@ -1,3 +1,4 @@
+import { listen } from "@tauri-apps/api/event";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { useState, useEffect, useRef } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -43,10 +44,7 @@ import {
   DialogDeleteFilesHandle,
 } from "./dialog-delete-confirm";
 import { DropdownHistory, DropdownHistoryHandle } from "./dropdown-history";
-import {
-  DialogTagEditor,
-  DialogTagEditorHandle,
-} from "./dialog-tag-editor";
+import { DialogTagEditor, DialogTagEditorHandle } from "./dialog-tag-editor";
 import { EditTagReq } from "@/bindings/EditTagReq";
 // import { DialogLabelEdit, DialogLabelEditHandle } from "./dialog-label-edit";
 
@@ -136,6 +134,7 @@ export default function TagsSearcher() {
       console.error("Error fetching search history:", error);
     }
   };
+
   // Call handlers to fetch data using useEffect
   useEffect(() => {
     fetchTags();
@@ -143,6 +142,12 @@ export default function TagsSearcher() {
     fetchAuthors();
     fetchSearchHistory();
   }, []);
+
+  listen<null>("update_db", () => {
+    fetchTags();
+    fetchCharacters();
+    fetchAuthors();
+  });
 
   // Add keyboard and mouse wheel event listeners for view mode switching
   useEffect(() => {
@@ -381,7 +386,7 @@ export default function TagsSearcher() {
     try {
       // Invoke to Rust backend
       await invoke("delete_files", {
-        fileNames: selectedFiles.map((p)=>p.file_name),
+        fileNames: selectedFiles.map((p) => p.file_name),
       });
       console.log(`Deleting ${selectedFiles.length} files`);
 

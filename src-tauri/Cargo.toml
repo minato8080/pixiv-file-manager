@@ -33,3 +33,4 @@ image = "0.25.6"
 pixieve-rs = { git = "https://github.com/minato8080/rustpixiv" }
 dotenv = "0.15.0"
 ts-rs = "10.1.0"
+trash = "5.2.2"

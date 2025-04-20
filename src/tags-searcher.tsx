@@ -381,7 +381,7 @@ export default function TagsSearcher() {
     try {
       // Invoke to Rust backend
       await invoke("delete_files", {
-        fileIds: selectedFiles,
+        fileNames: selectedFiles.map((p)=>p.file_name),
       });
       console.log(`Deleting ${selectedFiles.length} files`);
 
@@ -390,6 +390,9 @@ export default function TagsSearcher() {
         searchResults.filter((result) => !selectedFiles.includes(result))
       );
       setSelectedFiles([]);
+      fetchTags();
+      fetchCharacters();
+      fetchAuthors();
     } catch (error) {
       console.error("Error deleting files:", error);
     } finally {

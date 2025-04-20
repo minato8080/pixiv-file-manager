@@ -1,7 +1,7 @@
 use rusqlite::params;
 use tauri::State;
 
-use crate::models::global::AppState;
+use crate::models::{catalog::EditTagReq, global::AppState};
 
 #[tauri::command]
 pub fn move_files(
@@ -77,6 +77,38 @@ pub fn label_character_name(
             params![character_name, id, suffix, extension],
         )
         .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn edit_tags(state: State<AppState>, edit_tag_req: Vec<EditTagReq>) -> Result<(), String> {
+    let conn = state.db.lock().unwrap();
+    for edit_tag in edit_tag_req {
+        let parts: Vec<&str> = edit_tag.file_name.split("_p").collect();
+        if parts.len() != 2 {
+            return Err("Invalid file name format".to_string());
+        }
+        let id = parts[0];
+        let suffix_and_extension: Vec<&str> = parts[1].split('.').collect();
+        if suffix_and_extension.len() != 2 {
+            return Err("Invalid file name format".to_string());
+        }
+        let _suffix = suffix_and_extension[0];
+        let _extension = suffix_and_extension[1];
+
+        // 既存のタグを削除
+        conn.execute("DELETE FROM TAG_INFO WHERE illust_id = ?", params![id])
+            .map_err(|e| e.to_string())?;
+
+        // 新しいタグを挿入
+        for tag in &edit_tag.tags {
+            conn.execute(
+                "INSERT INTO TAG_INFO (illust_id, tag) VALUES (?, ?)",
+                params![id, tag],
+            )
+            .map_err(|e| e.to_string())?;
+        }
     }
     Ok(())
 }

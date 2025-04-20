@@ -43,6 +43,11 @@ import {
   DialogDeleteFilesHandle,
 } from "./dialog-delete-confirm";
 import { DropdownHistory, DropdownHistoryHandle } from "./dropdown-history";
+import {
+  DialogTagEditor,
+  DialogTagEditorHandle,
+} from "./dialog-tag-editor";
+import { EditTagReq } from "@/bindings/EditTagReq";
 // import { DialogLabelEdit, DialogLabelEditHandle } from "./dialog-label-edit";
 
 export default function TagsSearcher() {
@@ -69,7 +74,7 @@ export default function TagsSearcher() {
   const dialogCharacterLabelHandleRef = useRef<DialogCharaLabelHandle>(null);
   const dialogMoveLabelHandleRef = useRef<DialogMoveFilesHandle>(null);
   const dialogDeleteFilesHandleRef = useRef<DialogDeleteFilesHandle>(null);
-  // const dialogLabelEditHandleRef = useRef<DialogLabelEditHandle>(null);
+  const dialogLabelEditHandleRef = useRef<DialogTagEditorHandle>(null);
 
   // Refs for dropdown
   const viewModeDropdownRef = useRef<HTMLDivElement>(null);
@@ -363,14 +368,13 @@ export default function TagsSearcher() {
     handleSearch();
   };
 
-  // const confirmTags = async (tags: string[], selectedFiles: string[]) => {
-  //   await invoke("edit_tags", {
-  //     fileNames: selectedFiles,
-  //     tags: tags,
-  //   });
-  //   await fetchCharacters();
-  //   handleSearch();
-  // };
+  const confirmTags = async (form: EditTagReq[]) => {
+    await invoke("edit_tags", {
+      editTagReq: form,
+    });
+    await fetchTags();
+    handleSearch();
+  };
 
   const confirmDelete = async () => {
     setIsDeleting(true);
@@ -409,6 +413,12 @@ export default function TagsSearcher() {
       }
     } catch (error) {
       console.error("Error selecting folders:", error);
+    }
+  };
+
+  const handleTagEditor = () => {
+    if (selectedFiles.length > 0 && dialogLabelEditHandleRef.current) {
+      dialogLabelEditHandleRef.current.open(selectedFiles);
     }
   };
 
@@ -682,8 +692,19 @@ export default function TagsSearcher() {
             onClick={() => handleLabel()}
             disabled={selectedFiles.length === 0 || isDeleting}
           >
+            <User className="h-3.5 w-3.5 mr-1 text-purple-500" />
+            {isDeleting ? "Labeling..." : `Who is`}
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 bg-white dark:bg-gray-800"
+            onClick={handleTagEditor}
+            disabled={selectedFiles.length === 0 || isDeleting}
+          >
             <Tag className="h-3.5 w-3.5 mr-1 text-green-500" />
-            {isDeleting ? "Labeling..." : `Label`}
+            {isDeleting ? "Tagging..." : `Edit Tag`}
           </Button>
 
           <div className="ml-auto text-sm font-medium text-blue-700 dark:text-blue-300">
@@ -850,7 +871,7 @@ export default function TagsSearcher() {
         ref={dialogCharacterLabelHandleRef}
       />
 
-      {/* <DialogLabelEdit onSubmit={confirmTags} ref={dialogLabelEditHandleRef} /> */}
+      <DialogTagEditor onSubmit={confirmTags} ref={dialogLabelEditHandleRef} />
     </div>
   );
 }

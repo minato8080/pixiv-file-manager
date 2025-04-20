@@ -14,11 +14,13 @@ import { Folder } from "lucide-react";
 export type DialogMoveFilesHandle = {
   open: (items: string[], initialName: string) => void;
   close: () => void;
+  targetFolder: string;
+  setTargetFolder: (folder: string) => void;
 };
 
 type Props = {
   onSubmit: () => Promise<void>;
-  onClick: () => Promise<void>;
+  onClick: (targetFolder: string) => Promise<void>;
 };
 
 export const DialogMoveFiles = forwardRef<DialogMoveFilesHandle, Props>(
@@ -34,6 +36,8 @@ export const DialogMoveFiles = forwardRef<DialogMoveFilesHandle, Props>(
         setIsOpen(true);
       },
       close: () => setIsOpen(false),
+      targetFolder,
+      setTargetFolder,
     }));
 
     const handleSubmit = async () => {
@@ -66,7 +70,7 @@ export const DialogMoveFiles = forwardRef<DialogMoveFilesHandle, Props>(
                   variant="outline"
                   size="icon"
                   className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
-                  onClick={props.onClick}
+                  onClick={() => props.onClick(targetFolder)}
                 >
                   <Folder className="h-4 w-4" />
                 </Button>

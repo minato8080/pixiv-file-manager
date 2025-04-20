@@ -43,6 +43,7 @@ export type DropdownHandle<T> = {
   addItem: (tag: T) => void;
   removeItem: (id: string) => void;
   setAvailableItems: React.Dispatch<React.SetStateAction<T[]>>;
+  availableItems: T[];
 };
 
 function FilterDropdown<T extends Item>(
@@ -104,6 +105,7 @@ function FilterDropdown<T extends Item>(
     addItem,
     removeItem,
     setAvailableItems,
+    availableItems,
   }));
 
   // Filter available tags

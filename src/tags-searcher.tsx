@@ -13,6 +13,7 @@ import {
   ChevronDown,
   User,
   Users,
+  Tag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,20 +33,24 @@ import {
   DialogCharaLabel,
   DialogCharaLabelHandle,
 } from "./dialog-character-label";
+// import {
+//   DialogCharaLabel,
+//   DialogCharaLabelHandle,
+// } from "./dialog-label-edit";
 import { DialogMoveFiles, DialogMoveFilesHandle } from "./dialog-move-files";
 import {
   DialogDeleteFiles,
   DialogDeleteFilesHandle,
 } from "./dialog-delete-confirm";
 import { DropdownHistory, DropdownHistoryHandle } from "./dropdown-history";
+// import { DialogLabelEdit, DialogLabelEditHandle } from "./dialog-label-edit";
 
 export default function TagsSearcher() {
   // State for buissiness
   const [searchCondition, setSearchCondition] = useState<"AND" | "OR">("AND");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<SearchResult[]>([]);
   const [operationMode, setOperationMode] = useState(false);
-  const [targetFolder, setTargetFolder] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const [currentViewMode, setCurrentViewMode] = useState<ViewMode>(
     VIEW_MODES[0]
@@ -64,6 +69,7 @@ export default function TagsSearcher() {
   const dialogCharacterLabelHandleRef = useRef<DialogCharaLabelHandle>(null);
   const dialogMoveLabelHandleRef = useRef<DialogMoveFilesHandle>(null);
   const dialogDeleteFilesHandleRef = useRef<DialogDeleteFilesHandle>(null);
+  // const dialogLabelEditHandleRef = useRef<DialogLabelEditHandle>(null);
 
   // Refs for dropdown
   const viewModeDropdownRef = useRef<HTMLDivElement>(null);
@@ -261,7 +267,7 @@ export default function TagsSearcher() {
   };
 
   // Toggle item selection
-  const toggleItemSelection = (fileName: string) => {
+  const toggleItemSelection = (fileName: SearchResult) => {
     if (operationMode) {
       setSelectedFiles((prev) =>
         prev.includes(fileName)
@@ -273,7 +279,7 @@ export default function TagsSearcher() {
 
   // Select all items
   const selectAllItems = () => {
-    setSelectedFiles(searchResults.map((item) => item.file_name));
+    setSelectedFiles(searchResults);
   };
 
   // Deselect all items
@@ -284,16 +290,52 @@ export default function TagsSearcher() {
   // Handle move operation
   const handleMove = () => {
     if (selectedFiles.length === 0) return;
-    dialogMoveLabelHandleRef.current?.open(selectedFiles, targetFolder);
+    dialogMoveLabelHandleRef.current?.open(
+      selectedFiles.map((p) => p.file_name),
+      ""
+    );
+  };
+
+  // Handle delete operation
+  const handleDelete = () => {
+    if (selectedFiles.length === 0) return;
+    dialogDeleteFilesHandleRef.current?.open(
+      selectedFiles.map((p) => p.file_name)
+    );
+  };
+
+  // Handle label character name operation
+  const handleLabel = (initialName?: string) => {
+    if (selectedFiles.length === 0) return;
+
+    const combinedSet = new Set([
+      ...(charaDropdownHandlerRef.current?.availableItems?.map(
+        (iter) => iter.character
+      ) || []),
+      ...selectedFiles.flatMap((iter) => iter.tags?.split(",") || []),
+    ]);
+
+    const combinedArray: string[] = Array.from(combinedSet);
+
+    dialogCharacterLabelHandleRef.current?.open(
+      selectedFiles.map((p) => p.file_name),
+      initialName ?? "",
+      combinedArray
+    );
   };
 
   // Confirm move operation
   const confirmMove = async () => {
+    const targetFolder = dialogMoveLabelHandleRef.current?.targetFolder;
+    if (!targetFolder) return;
+
+    const fileNames = selectedFiles.map((p) => p.file_name);
+
     try {
       // Invoke to Rust backend
       await invoke("move_files", {
-        fileNames: selectedFiles,
-        targetFolder: targetFolder,
+        fileNames,
+        targetFolder,
       });
     } catch (error) {
       console.error("Error moving files:", error);
@@ -306,13 +348,13 @@ export default function TagsSearcher() {
     // initial name for input area
     const folderName = targetFolder.split("\\").pop() ?? "";
     // open Chara Name dialog
-    dialogCharacterLabelHandleRef.current?.open(selectedFiles, folderName);
+    handleLabel(folderName);
 
     // refresh
     handleSearch();
   };
 
-  const confirmLabel = async (name: string, selectedFiles: string[]) => {
+  const confirmName = async (name: string, selectedFiles: string[]) => {
     await invoke("label_character_name", {
       fileNames: selectedFiles,
       characterName: name,
@@ -321,11 +363,14 @@ export default function TagsSearcher() {
     handleSearch();
   };
 
-  // Handle delete operation
-  const handleDelete = () => {
-    if (selectedFiles.length === 0) return;
-    dialogDeleteFilesHandleRef.current?.open(selectedFiles);
-  };
+  // const confirmTags = async (tags: string[], selectedFiles: string[]) => {
+  //   await invoke("edit_tags", {
+  //     fileNames: selectedFiles,
+  //     tags: tags,
+  //   });
+  //   await fetchCharacters();
+  //   handleSearch();
+  // };
 
   const confirmDelete = async () => {
     setIsDeleting(true);
@@ -338,9 +383,7 @@ export default function TagsSearcher() {
 
       // Remove deleted items from search results
       setSearchResults(
-        searchResults.filter(
-          (result) => !selectedFiles.includes(result.file_name)
-        )
+        searchResults.filter((result) => !selectedFiles.includes(result))
       );
       setSelectedFiles([]);
     } catch (error) {
@@ -362,7 +405,7 @@ export default function TagsSearcher() {
       });
 
       if (selected) {
-        setTargetFolder(selected);
+        dialogMoveLabelHandleRef.current?.setTargetFolder(selected);
       }
     } catch (error) {
       console.error("Error selecting folders:", error);
@@ -618,7 +661,7 @@ export default function TagsSearcher() {
             disabled={selectedFiles.length === 0}
           >
             <FolderInput className="h-3.5 w-3.5 mr-1 text-blue-500" />
-            Move ({selectedFiles.length})
+            Move
           </Button>
 
           <Button
@@ -629,7 +672,18 @@ export default function TagsSearcher() {
             disabled={selectedFiles.length === 0 || isDeleting}
           >
             <Trash2 className="h-3.5 w-3.5 mr-1 text-red-500" />
-            {isDeleting ? "Deleting..." : `Delete (${selectedFiles.length})`}
+            {isDeleting ? "Deleting..." : `Delete`}
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 bg-white dark:bg-gray-800"
+            onClick={() => handleLabel()}
+            disabled={selectedFiles.length === 0 || isDeleting}
+          >
+            <Tag className="h-3.5 w-3.5 mr-1 text-green-500" />
+            {isDeleting ? "Labeling..." : `Label`}
           </Button>
 
           <div className="ml-auto text-sm font-medium text-blue-700 dark:text-blue-300">
@@ -672,12 +726,12 @@ export default function TagsSearcher() {
                         className={cn(
                           "hover:bg-blue-50 dark:hover:bg-blue-900/20 border-b border-gray-200 dark:border-gray-700",
                           operationMode &&
-                            selectedFiles.includes(result.file_name) &&
+                            selectedFiles.includes(result) &&
                             "bg-blue-100 dark:bg-blue-900/30"
                         )}
                         onClick={() => {
                           if (operationMode) {
-                            toggleItemSelection(result.file_name);
+                            toggleItemSelection(result);
                           } else {
                             openImage(result.id, result.file_name);
                           }
@@ -685,7 +739,7 @@ export default function TagsSearcher() {
                       >
                         {operationMode && (
                           <td className="p-2">
-                            {selectedFiles.includes(result.file_name) ? (
+                            {selectedFiles.includes(result) ? (
                               <CheckSquare className="h-4 w-4 text-blue-600" />
                             ) : (
                               <Square className="h-4 w-4 text-gray-400" />
@@ -727,14 +781,14 @@ export default function TagsSearcher() {
                     className={cn(
                       "flex flex-col items-center p-1 rounded-md border hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer",
                       operationMode &&
-                        selectedFiles.includes(result.file_name) &&
+                        selectedFiles.includes(result) &&
                         "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700",
-                      !selectedFiles.includes(result.file_name) &&
+                      !selectedFiles.includes(result) &&
                         "border-gray-200 dark:border-gray-700"
                     )}
                     onClick={() => {
                       if (operationMode) {
-                        toggleItemSelection(result.file_name);
+                        toggleItemSelection(result);
                       } else {
                         openImage(result.id, result.file_name);
                       }
@@ -742,7 +796,7 @@ export default function TagsSearcher() {
                   >
                     {operationMode && (
                       <div className="self-start mb-1">
-                        {selectedFiles.includes(result.file_name) ? (
+                        {selectedFiles.includes(result) ? (
                           <CheckSquare className="h-4 w-4 text-blue-600" />
                         ) : (
                           <Square className="h-4 w-4 text-gray-400" />
@@ -792,9 +846,11 @@ export default function TagsSearcher() {
 
       {/* Character Name Input Dialog */}
       <DialogCharaLabel
-        onSubmit={confirmLabel}
+        onSubmit={confirmName}
         ref={dialogCharacterLabelHandleRef}
       />
+
+      {/* <DialogLabelEdit onSubmit={confirmTags} ref={dialogLabelEditHandleRef} /> */}
     </div>
   );
 }

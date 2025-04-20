@@ -42,16 +42,13 @@ export default function TagsFetcher() {
       });
       if (!selected) return;
 
+      const nextState = [...selectedFolders, ...selected];
       const filesCounts: FileCounts = await invoke("count_files_in_dir", {
-        dirPaths: selected,
+        dirPaths: nextState,
       });
       setFileCounts(filesCounts);
 
-      if (Array.isArray(selected)) {
-        setSelectedFolders(selected);
-      } else if (selected !== null) {
-        setSelectedFolders([selected]);
-      }
+      setSelectedFolders(nextState);
     } catch (error) {
       console.error("Error selecting folders:", error);
     }

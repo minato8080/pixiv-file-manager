@@ -1,4 +1,4 @@
-import {
+import React, {
   forwardRef,
   useImperativeHandle,
   useState,
@@ -203,3 +203,4 @@ export const DialogCharaLabel = forwardRef<DialogCharaLabelHandle, Props>(
     );
   }
 );
+DialogCharaLabel.displayName = "DialogCharaLabel";

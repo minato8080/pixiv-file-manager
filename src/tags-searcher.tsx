@@ -1,8 +1,8 @@
 import { listen } from "@tauri-apps/api/event";
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { convertFileSrc , invoke } from "@tauri-apps/api/core";
 import { useState, useEffect, useRef } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
-import { invoke } from "@tauri-apps/api/core";
+
 import {
   Search,
   Filter,
@@ -34,10 +34,6 @@ import {
   DialogCharaLabel,
   DialogCharaLabelHandle,
 } from "./dialog-character-label";
-// import {
-//   DialogCharaLabel,
-//   DialogCharaLabelHandle,
-// } from "./dialog-label-edit";
 import { DialogMoveFiles, DialogMoveFilesHandle } from "./dialog-move-files";
 import {
   DialogDeleteFiles,
@@ -46,7 +42,6 @@ import {
 import { DropdownHistory, DropdownHistoryHandle } from "./dropdown-history";
 import { DialogTagEditor, DialogTagEditorHandle } from "./dialog-tag-editor";
 import { EditTagReq } from "@/bindings/EditTagReq";
-// import { DialogLabelEdit, DialogLabelEditHandle } from "./dialog-label-edit";
 
 export default function TagsSearcher() {
   // State for buissiness

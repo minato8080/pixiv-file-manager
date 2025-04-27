@@ -1,6 +1,3 @@
-import { SearchHistory } from "@/bindings/SearchHistory";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ChevronDown, History } from "lucide-react";
 import {
   forwardRef,
@@ -9,6 +6,9 @@ import {
   useRef,
   useState,
 } from "react";
+import { SearchHistory } from "@/bindings/SearchHistory";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 export type DropdownHistoryHandle = {
   setHistory: (history: SearchHistory[]) => void;
@@ -121,3 +121,4 @@ export const DropdownHistory = forwardRef<DropdownHistoryHandle, Props>(
     );
   }
 );
+DropdownHistory.displayName = "DropdownHistory";

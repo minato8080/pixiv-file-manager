@@ -1,4 +1,6 @@
 import { forwardRef, useImperativeHandle, useState } from "react";
+import { Label } from "@radix-ui/react-dropdown-menu";
+import { Folder } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -8,8 +10,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@radix-ui/react-dropdown-menu";
-import { Folder } from "lucide-react";
 
 export type DialogMoveFilesHandle = {
   open: (items: string[], initialName: string) => void;
@@ -94,3 +94,4 @@ export const DialogMoveFiles = forwardRef<DialogMoveFilesHandle, Props>(
     );
   }
 );
+DialogMoveFiles.displayName = "DialogMoveFiles";

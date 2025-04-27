@@ -184,7 +184,7 @@ export default function TagsFetcher() {
                 <FolderOpen className="h-12 w-12 mx-auto mb-2 opacity-50" />
                 <p>No folders selected</p>
                 <p className="text-sm text-gray-400 mt-1">
-                  Click "Add Folders" to begin
+                  Click Add Folders to begin
                 </p>
               </div>
             </div>

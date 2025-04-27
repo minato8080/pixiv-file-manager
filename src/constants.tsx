@@ -1,3 +1,4 @@
+import React from "react";
 import { Grid, List, LayoutGrid, Maximize2 } from "lucide-react";
 
 export type ViewMode = {

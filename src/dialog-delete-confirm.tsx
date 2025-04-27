@@ -75,3 +75,4 @@ export const DialogDeleteFiles = forwardRef<DialogDeleteFilesHandle, Props>(
     );
   }
 );
+DialogDeleteFiles.displayName = "DialogDeleteFiles";

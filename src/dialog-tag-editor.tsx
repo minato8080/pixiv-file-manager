@@ -1,10 +1,11 @@
-import {
+import React, {
   forwardRef,
   useImperativeHandle,
   useState,
   useRef,
   useEffect,
 } from "react";
+import { X, Plus, Edit, Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { X, Plus, Edit, Check } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SearchResult } from "@/bindings/SearchResult";
@@ -338,6 +338,7 @@ const OverwriteModeUI = forwardRef<
     </div>
   );
 });
+OverwriteModeUI.displayName = "OverwriteModeUI";
 
 const AddRemoveModeUI = forwardRef<
   AddRemoveModeHandle,
@@ -571,6 +572,7 @@ const AddRemoveModeUI = forwardRef<
     </div>
   );
 });
+AddRemoveModeUI.displayName = "AddRemoveModeUI";
 
 export const DialogTagEditor = forwardRef<DialogTagEditorHandle, Props>(
   (props, ref) => {
@@ -693,3 +695,4 @@ export const DialogTagEditor = forwardRef<DialogTagEditorHandle, Props>(
     );
   }
 );
+DialogTagEditor.displayName = "DialogTagEditor";

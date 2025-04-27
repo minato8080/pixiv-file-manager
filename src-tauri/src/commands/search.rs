@@ -115,7 +115,7 @@ pub fn search_by_criteria(
         query = format!(
         "SELECT filtered.illust_id, suffix, extension, filtered.author_id, character, save_dir, author_name, author_account, GROUP_CONCAT(TAG_INFO.tag, ',') AS tags \
          FROM ( \
-             SELECT ILLUST_INFO.illust_id, suffix, extension, ILLUST_INFO.author_id, character, save_dir, author_name, author_account \
+             SELECT ILLUST_INFO.illust_id, suffix, extension, ILLUST_INFO.author_id, character, save_dir, ILLUST_INFO.control_num, author_name, author_account \
              FROM ILLUST_INFO \
              JOIN AUTHOR_INFO ON ILLUST_INFO.author_id = AUTHOR_INFO.author_id \
              JOIN TAG_INFO ON ILLUST_INFO.illust_id = TAG_INFO.illust_id \
@@ -123,7 +123,8 @@ pub fn search_by_criteria(
              GROUP BY ILLUST_INFO.illust_id \
              {} \
          ) AS filtered \
-         JOIN TAG_INFO ON filtered.illust_id = TAG_INFO.illust_id",
+         LEFT JOIN TAG_INFO ON filtered.illust_id = TAG_INFO.illust_id \
+         AND filtered.control_num = TAG_INFO.control_num ",
         placeholders,
         match condition.as_str() {
             "AND" => format!("HAVING COUNT(DISTINCT TAG_INFO.tag) = {}", tags.len()),

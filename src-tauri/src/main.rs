@@ -64,6 +64,7 @@ fn initialize_db(conn: &Connection) -> Result<()> {
             author_id INTEGER NOT NULL,
             character TEXT,
             save_dir TEXT,
+            control_num INTEGER NOT NULL,
             update_time INTEGER NOT NULL,
             PRIMARY KEY (illust_id, suffix)
         )",
@@ -77,6 +78,9 @@ fn initialize_db(conn: &Connection) -> Result<()> {
             extension TEXT NOT NULL,
             save_dir TEXT NOT NULL,
             update_time INTEGER NOT NULL,
+            file_size INTEGER NOT NULL,
+            delete_flg INTEGER NOT NULL,
+            ignore_flg INTEGER NOT NULL,
             PRIMARY KEY (illust_id, suffix, extension, save_dir)
         )",
         [],
@@ -85,9 +89,9 @@ fn initialize_db(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS TAG_INFO (
             illust_id INTEGER NOT NULL,
-            suffix INTEGER,
+            control_num INTEGER NOT NULL,
             tag TEXT NOT NULL,
-            PRIMARY KEY (illust_id, tag)
+            PRIMARY KEY (illust_id, control_num, tag)
         )",
         [],
     )?;
@@ -95,7 +99,8 @@ fn initialize_db(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS CHARACTER_INFO (
             character TEXT NOT NULL,
-            save_dir TEXT,
+            collect_dir TEXT,
+            series TEXT,
             PRIMARY KEY (character)
         )",
         [],
@@ -125,7 +130,7 @@ fn initialize_db(conn: &Connection) -> Result<()> {
 
     conn.execute(
         "CREATE TABLE IF NOT EXISTS DB_INFO (
-            update_time INTEGER NOT NULL
+            root TEXT
         )",
         [],
     )?;

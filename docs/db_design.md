@@ -49,5 +49,4 @@
   - `result_count`: INTEGER NOT NULL - 結果数
 
 - **DB_INFO**
-  - `update_time`: INTEGER NOT NULL - 更新時刻
   - `root`: TEXT - ルートパス

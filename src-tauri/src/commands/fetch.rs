@@ -197,7 +197,7 @@ fn process_image_ids_detail(
                     println!("{:?}", target_file_detail.unwrap());
 
                     conn.execute(
-                        "INSERT OR REPLACE INTO ILLUST_INFO (illust_id, suffix, extension, author_id, character, save_dir, update_time) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                        "INSERT INTO ILLUST_INFO (illust_id, suffix, extension, author_id, character, save_dir, control_num, update_time) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
                         params![
                             resp.illust.id(),
                             file_detail.suffix,
@@ -205,6 +205,7 @@ fn process_image_ids_detail(
                             resp.illust.user().id(),
                             None::<String>,
                             file_detail.save_dir,
+                            0,
                             file_detail.update_time,
                         ],
                     )?;
@@ -212,8 +213,8 @@ fn process_image_ids_detail(
                     // TAG_INFOにタグをINSERT
                     for tag in resp.illust.tags() {
                         conn.execute(
-                            "INSERT OR REPLACE INTO TAG_INFO (illust_id, tag) VALUES (?1, ?2)",
-                            params![id_info.id, tag.name()],
+                            "INSERT OR REPLACE INTO TAG_INFO (illust_id, control_num, tag) VALUES (?1, ?2, ?3)",
+                            params![id_info.id, 0, tag.name()],
                         )?;
                     }
 

@@ -23,6 +23,7 @@ use models::global::AppState;
 use models::pixiv::{PixivApi, RealPixivApi};
 
 fn main() {
+    dotenv::dotenv().ok();
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app: &mut tauri::App| {

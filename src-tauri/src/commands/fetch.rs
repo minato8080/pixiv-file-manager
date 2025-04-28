@@ -147,28 +147,29 @@ fn process_image_ids_detail(
     file_details: Vec<FileDetail>,
 ) -> Result<ProcessStats, Box<dyn std::error::Error>> {
     let start = Instant::now();
-    let conn = state.db.lock().unwrap();
+    let mut conn = state.db.lock().unwrap();
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
 
     let mut success_count = 0;
     let mut fail_count = 0;
     let total: usize = file_details.len();
     let mut failed_file_paths = Vec::new();
 
-    prepare_work_table(&conn, &file_details)?;
+    prepare_work_table(&tx, &file_details)?;
 
-    let ids_info = extract_unique_ids_info(&conn)?;
+    let ids_info = extract_unique_ids_info(&tx)?;
 
     for id_info in ids_info {
         if let Some(first_info) = id_info.sequential_info.first() {
             if first_info.ignore_flag == 1 {
-                insert_suffixes_to_illust_info(&conn, id_info)?;
+                insert_suffixes_to_illust_info(&tx, id_info)?;
                 continue;
             }
         }
         if let Ok(resp) = RealPixivApi::fetch_detail(&state, id_info.illust_id as u32) {
-            insert_illust_info(&conn, &resp, &id_info)?;
-            insert_tags(&conn, &resp, &id_info)?;
-            insert_author_info(&conn, &resp)?;
+            insert_illust_info(&tx, &resp, &id_info)?;
+            insert_tags(&tx, &resp, &id_info)?;
+            insert_author_info(&tx, &resp)?;
             success_count += 1;
         } else {
             fail_count += 1;
@@ -186,7 +187,9 @@ fn process_image_ids_detail(
     let duration = start.elapsed();
     window.emit("update_db", ()).unwrap();
 
-    delete_duplicate_files(&conn)?;
+    delete_duplicate_files(&tx)?;
+
+    tx.commit().map_err(|e| e.to_string())?;
 
     Ok(ProcessStats {
         total_files: total,

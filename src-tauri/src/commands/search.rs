@@ -99,7 +99,8 @@ pub fn search_by_criteria(
     "SELECT ILLUST_INFO.illust_id, suffix, extension, ILLUST_INFO.author_id, character, save_dir, author_name, author_account, GROUP_CONCAT(TAG_INFO.tag, ',') AS tags \
      FROM ILLUST_INFO \
      JOIN AUTHOR_INFO ON ILLUST_INFO.author_id = AUTHOR_INFO.author_id \
-     JOIN TAG_INFO ON ILLUST_INFO.illust_id = TAG_INFO.illust_id",
+     JOIN TAG_INFO ON ILLUST_INFO.illust_id = TAG_INFO.illust_id \
+     AND ILLUST_INFO.control_num = TAG_INFO.control_num ",
 );
 
     let mut params: Vec<Box<dyn ToSql>> = Vec::new();

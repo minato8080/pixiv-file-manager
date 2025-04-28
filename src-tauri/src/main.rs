@@ -15,7 +15,8 @@ use tauri::Manager;
 
 use commands::fetch::{count_files_in_dir, process_capture_illust_detail};
 use commands::search::{
-    get_search_history, get_unique_authors, get_unique_characters, get_unique_tag_list, search_by_criteria
+    get_search_history, get_unique_authors, get_unique_characters, get_unique_tag_list,
+    search_by_criteria,
 };
 use constants::DB_NAME;
 use models::global::AppState;
@@ -25,7 +26,10 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app: &mut tauri::App| {
-            let db_path = app.path().app_data_dir().unwrap().join(DB_NAME);
+            let db_path = app.path().app_data_dir().unwrap().join(format!(
+                "{}.db",
+                std::env::var("DB_NAME").unwrap_or_else(|_| DB_NAME.to_string())
+            ));
             let conn = Connection::open(db_path).unwrap();
             let app_pixiv_api = RealPixivApi::create_api().unwrap();
 
@@ -34,7 +38,7 @@ fn main() {
 
             app.manage(AppState {
                 db: Mutex::new(conn),
-                app_pixiv_api: app_pixiv_api,
+                app_pixiv_api,
             });
 
             Ok(())
@@ -55,6 +59,7 @@ fn main() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
 fn initialize_db(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS ILLUST_INFO (

@@ -116,7 +116,9 @@ pub fn edit_tags(state: State<AppState>, edit_tag_req: Vec<EditTagReq>) -> Resul
 
 #[tauri::command]
 pub fn delete_files(state: State<AppState>, file_names: Vec<String>) -> Result<(), String> {
-    let conn = state.db.lock().unwrap();
+    let mut conn = state.db.lock().unwrap();
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+
     for file_name in file_names {
         let parts: Vec<&str> = file_name.split("_p").collect();
         if parts.len() != 2 {
@@ -128,28 +130,43 @@ pub fn delete_files(state: State<AppState>, file_names: Vec<String>) -> Result<(
             return Err("Invalid file name format".to_string());
         }
         let suffix = suffix_and_extension[0];
-        let extension = suffix_and_extension[1];
 
-        let save_dir: String = conn.query_row(
-            "SELECT save_dir FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ? AND extension = ?",
-            params![id, suffix, extension],
-            |row| row.get(0),
-        ).map_err(|e| e.to_string())?;
+        let (save_dir, control_num): (String, i32) = tx
+            .query_row(
+                "SELECT save_dir, control_num FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
+                params![id, suffix],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .map_err(|e| e.to_string())?;
 
         // ファイルを削除（ゴミ箱に移動）
         let source_path = std::path::Path::new(&save_dir).join(&file_name);
         delete(source_path).map_err(|e| e.to_string())?;
 
         // ILLUST_INFOテーブルからレコードを削除
-        conn.execute(
-            "DELETE FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ? AND extension = ?",
-            params![id, suffix, extension],
+        tx.execute(
+            "DELETE FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
+            params![id, suffix],
         )
         .map_err(|e| e.to_string())?;
 
-        // TAG_INFOテーブルから関連するタグを削除
-        conn.execute("DELETE FROM TAG_INFO WHERE illust_id = ?", params![id])
+        // control_numを取り出して0件の場合、TAG_INFOから削除する
+        let count: i32 = tx
+            .query_row(
+                "SELECT COUNT(*) FROM ILLUST_INFO WHERE illust_id = ? AND control_num = ?",
+                params![id, control_num],
+                |row| row.get(0),
+            )
             .map_err(|e| e.to_string())?;
+
+        if count == 0 {
+            tx.execute(
+                "DELETE FROM TAG_INFO WHERE illust_id = ? AND control_num = ?",
+                params![id, control_num],
+            )
+            .map_err(|e| e.to_string())?;
+        }
     }
+    tx.commit().map_err(|e| e.to_string())?;
     Ok(())
 }

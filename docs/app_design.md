@@ -28,7 +28,9 @@
       3. 上記が同じ場合、列インデックスが最も小さい
    5. 一意のidを取得して配列に格納する。
    6. 配列をループして以下処理を行う。
-      1. `igonre_flg`が1の場合、`ILLUST_INFO`から`control_num`が最小の`illust_id`をセレクトして`insert_flg`が1のものをインサート。
+      1. `igonre_flg`が1の場合、
+         1. `ILLUST_INFO`から`control_num`が最小のレコードを取得する。
+         2. `insert_flg`が1の`suffix`をインサート。
       2. `igonre_flg`が0の場合
          1. N秒待機する。
          2. API通信し、結果をパースする。

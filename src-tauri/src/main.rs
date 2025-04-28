@@ -65,7 +65,6 @@ fn initialize_db(conn: &Connection) -> Result<()> {
             character TEXT,
             save_dir TEXT,
             control_num INTEGER NOT NULL,
-            update_time INTEGER NOT NULL,
             PRIMARY KEY (illust_id, suffix)
         )",
         [],
@@ -77,9 +76,10 @@ fn initialize_db(conn: &Connection) -> Result<()> {
             suffix INTEGER NOT NULL,
             extension TEXT NOT NULL,
             save_dir TEXT NOT NULL,
-            update_time INTEGER NOT NULL,
+            created_time INTEGER NOT NULL,
             file_size INTEGER NOT NULL,
             delete_flg INTEGER NOT NULL,
+            insert_flg INTEGER NOT NULL,
             ignore_flg INTEGER NOT NULL,
             PRIMARY KEY (illust_id, suffix, extension, save_dir)
         )",

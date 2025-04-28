@@ -16,24 +16,9 @@ pub struct FileDetail {
     pub id: u32,
     pub suffix: u8,
     pub save_dir: String,
-    #[allow(dead_code)]
-    pub save_path: String,
     pub extension: String,
-    pub update_time: i64,
-}
-
-#[derive(Debug, Clone, TS)]
-#[ts(export)]
-pub struct IdInfo {
-    pub id: u32,
-    pub save_path: String,
-}
-
-#[derive(Debug, Clone, TS)]
-#[ts(export)]
-pub struct DirDetail {
-    pub id_info: Vec<IdInfo>,
-    pub file_details: Vec<FileDetail>,
+    pub created_time: i64,
+    pub file_size: i64,
 }
 
 #[derive(Serialize, Debug, Clone, TS)]
@@ -58,4 +43,31 @@ pub struct FileCounts {
     pub folders: Vec<FolderCount>,
     pub total: i32,
     pub processing_time: String,
+}
+
+#[derive(Debug)]
+pub struct PreConvSequentialInfo {
+    pub suffix: Vec<i64>,
+    pub extension: Vec<String>,
+    pub save_dir: Vec<String>,
+    pub delete_flag: Vec<i64>,
+    pub insert_flag: Vec<i64>,
+    pub ignore_flag: Vec<i64>,
+}
+
+#[derive(Clone)]
+pub struct PostConvSequentialInfo {
+    pub suffix: i64,
+    pub extension: String,
+    pub save_dir: String,
+    #[allow(dead_code)]
+    pub delete_flag: i64,
+    pub insert_flag: i64,
+    pub ignore_flag: i64,
+}
+
+#[derive(Clone)]
+pub struct IdInfo {
+    pub illust_id: i64,
+    pub sequential_info: Vec<PostConvSequentialInfo>,
 }

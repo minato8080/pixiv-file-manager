@@ -8,7 +8,6 @@
   - `character`: TEXT - イラストのキャラクター名
   - `save_dir`: TEXT - イラストが保存されているディレクトリのパス
   - `control_num`: INTEGER NOT NULL - タグ用の管理番号
-  - `update_time`: INTEGER NOT NULL - ファイルの更新時刻
   - **PRIMARY KEY**: (`illust_id`, `suffix`)
 
 - **ILLUST_INFO_WORK**
@@ -16,10 +15,11 @@
   - `suffix`: INTEGER NOT NULL - イラストのサフィックス
   - `extension`: TEXT NOT NULL - ファイルの拡張子
   - `save_dir`: TEXT NOT NULL - 保存ディレクトリのパス
-  - `update_time`: INTEGER NOT NULL - 更新時刻
+  - `created_time`: INTEGER NOT NULL - 作成時刻
   - `file_size` : INTEGER NOT NULL - ファイルサイズ
-  - `delete_flg` : INTEGER NOT NULL - 削除フラグ
-  - `ignore_flg` : INTEGER NOT NULL - 無視フラグ
+  - `delete_flg` : INTEGER NOT NULL - 重複ファイルを削除するフラグ
+  - `insert_flg` : INTEGER NOT NULL - DBに追加するフラグ
+  - `ignore_flg` : INTEGER NOT NULL - APIフェッチから除外するフラグ
   - **PRIMARY KEY**: (`illust_id`, `suffix`, `extension`, `save_dir`)
 
 - **TAG_INFO**

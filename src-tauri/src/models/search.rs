@@ -44,4 +44,12 @@ pub struct AuthorInfo {
     pub author_id: u32,
     pub author_name: String,
     pub author_account: String,
+    pub count: Option<u8>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, TS)]
+#[ts(export)]
+pub struct CharacterInfo {
+    pub character: String,
+    pub count: Option<u8>,
 }

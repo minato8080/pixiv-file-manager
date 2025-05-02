@@ -12,8 +12,8 @@ import { Badge } from "@/components/ui/badge";
 
 export type Item = {
   id: string;
-  label?: string;
-  count?: number;
+  label?: string | null;
+  count?: number | null;
 };
 
 type DropdownProps<T> = DropdownSharedProps &

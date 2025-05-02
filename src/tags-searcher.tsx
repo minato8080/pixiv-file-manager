@@ -43,6 +43,7 @@ import {
 import { DropdownHistory, DropdownHistoryHandle } from "./dropdown-history";
 import { DialogTagEditor, DialogTagEditorHandle } from "./dialog-tag-editor";
 import { EditTagReq } from "@/bindings/EditTagReq";
+import { CharacterInfo } from "@/bindings/CharacterInfo";
 
 export default function TagsSearcher() {
   // State for buissiness
@@ -77,8 +78,7 @@ export default function TagsSearcher() {
     useRef<DropdownHandle<UniqueTagList & Item>>(null);
   const charaDropdownHandlerRef =
     useRef<DropdownHandle<CharacterDropdown>>(null);
-  const authorDropdownHandlerRef =
-    useRef<DropdownHandle<AuthorInfo & Item>>(null);
+  const authorDropdownHandlerRef = useRef<DropdownHandle<AuthorDropdown>>(null);
 
   // Handlers to fetch tags, characters, authors, and search history from the database
   const fetchTags = async () => {
@@ -94,11 +94,11 @@ export default function TagsSearcher() {
 
   const fetchCharacters = async () => {
     try {
-      const characters = await invoke<string[]>("get_unique_characters");
+      const characters = await invoke<CharacterInfo[]>("get_unique_characters");
       charaDropdownHandlerRef.current?.setAvailableItems(
-        characters.map((character) => ({
-          id: character,
-          character,
+        characters.map((c) => ({
+          id: c.character,
+          ...c,
         }))
       );
     } catch (error) {
@@ -257,6 +257,7 @@ export default function TagsSearcher() {
         ? {
             id: history.character,
             character: history.character,
+            count: null,
           }
         : null
     );

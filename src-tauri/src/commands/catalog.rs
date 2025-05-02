@@ -3,7 +3,7 @@ use tauri::State;
 use trash::delete;
 
 use crate::models::{
-    catalog::{AssociateInfo, CharacterInfo, EditTagReq, SaveDirInfo},
+    catalog::{AssociateCharacter, AssociateInfo, AssociateSaveDir, EditTagReq},
     global::AppState,
 };
 
@@ -301,7 +301,7 @@ pub fn get_associated_info(
     // count = 出現したユニークな (illust_id, suffix) の組数
     let characters = character_counts
         .into_iter()
-        .map(|(character, set)| CharacterInfo {
+        .map(|(character, set)| AssociateCharacter {
             character,
             count: set.len() as i32,
         })
@@ -309,7 +309,7 @@ pub fn get_associated_info(
 
     let save_dirs = save_dir_counts
         .into_iter()
-        .map(|(save_dir, set)| SaveDirInfo {
+        .map(|(save_dir, set)| AssociateSaveDir {
             save_dir,
             count: set.len() as i32,
         })

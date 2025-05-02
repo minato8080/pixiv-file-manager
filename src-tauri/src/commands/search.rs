@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::models::{
     global::AppState,
-    search::{AuthorInfo, SearchHistory, SearchResult, UniqueTagList},
+    search::{AuthorInfo, CharacterInfo, SearchHistory, SearchResult, UniqueTagList},
 };
 use rusqlite::{params, Result, ToSql};
 use tauri::State;
@@ -33,26 +33,37 @@ pub fn get_unique_tag_list(state: State<AppState>) -> Result<Vec<UniqueTagList>,
 }
 
 #[tauri::command]
-pub fn get_unique_characters(state: State<AppState>) -> Result<Vec<String>, String> {
+pub fn get_unique_characters(state: State<AppState>) -> Result<Vec<CharacterInfo>, String> {
     let conn = state.db.lock().unwrap();
 
     let mut stmt = conn
-        .prepare("SELECT DISTINCT character FROM CHARACTER_INFO")
+        .prepare(
+            "
+                SELECT 
+                    C.character,
+                    COUNT(I.illust_id) AS illust_count
+                FROM 
+                    CHARACTER_INFO C
+                LEFT JOIN 
+                    ILLUST_INFO I ON C.character = I.character
+                GROUP BY 
+                    C.character
+        ",
+        )
         .map_err(|e| e.to_string())?;
 
     let character_iter = stmt
         .query_map([], |row| {
-            let character: Option<String> = row.get(0)?;
-            Ok(character)
+            let character: String = row.get(0)?;
+            let count: Option<u8> = row.get(1)?;
+            Ok(CharacterInfo { character, count })
         })
         .map_err(|e| e.to_string())?;
 
-    let mut characters = Vec::new();
-    for character in character_iter {
-        if let Some(c) = character.map_err(|e| e.to_string())? {
-            characters.push(c);
-        }
-    }
+    let characters: Vec<CharacterInfo> = character_iter
+        .into_iter()
+        .filter_map(|character| character.ok())
+        .collect();
 
     Ok(characters)
 }
@@ -62,7 +73,21 @@ pub fn get_unique_authors(state: State<AppState>) -> Result<Vec<AuthorInfo>, Str
     let conn = state.db.lock().unwrap();
 
     let mut stmt = conn
-        .prepare("SELECT DISTINCT author_id, author_name, author_account FROM AUTHOR_INFO")
+        .prepare(
+            "
+                SELECT 
+                    A.author_id,
+                    A.author_name,
+                    A.author_account,
+                    COUNT(I.illust_id) AS illust_count
+                FROM 
+                    AUTHOR_INFO A
+                LEFT JOIN 
+                    ILLUST_INFO I ON A.author_id = I.author_id
+                GROUP BY 
+                    A.author_id
+        ",
+        )
         .map_err(|e| e.to_string())?;
 
     let author_iter = stmt
@@ -70,10 +95,12 @@ pub fn get_unique_authors(state: State<AppState>) -> Result<Vec<AuthorInfo>, Str
             let author_id: u32 = row.get(0)?;
             let author_name: String = row.get(1)?;
             let author_account: String = row.get(2)?;
+            let count: Option<u8> = row.get(3)?;
             Ok(AuthorInfo {
                 author_id,
                 author_name,
                 author_account,
+                count,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -194,6 +221,7 @@ pub fn search_by_criteria(
                 author_id,
                 author_name: author_name.clone(),
                 author_account: author_account.clone(),
+                count: None,
             };
 
             Ok(SearchResult {

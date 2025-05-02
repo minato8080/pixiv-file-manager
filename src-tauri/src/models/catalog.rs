@@ -12,20 +12,20 @@ pub struct EditTagReq {
 #[derive(Serialize, Deserialize, Debug, Clone, TS)]
 #[ts(export)]
 pub struct AssociateInfo {
-    pub characters: Vec<CharacterInfo>,
-    pub save_dirs: Vec<SaveDirInfo>,
+    pub characters: Vec<AssociateCharacter>,
+    pub save_dirs: Vec<AssociateSaveDir>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, TS)]
 #[ts(export)]
-pub struct CharacterInfo {
+pub struct  AssociateCharacter {
     pub character: String,
     pub count: i32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, TS)]
 #[ts(export)]
-pub struct SaveDirInfo {
+pub struct AssociateSaveDir {
     pub save_dir: String,
     pub count: i32,
 }

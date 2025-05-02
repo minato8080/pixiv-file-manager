@@ -7,3 +7,25 @@ pub struct EditTagReq {
     pub file_name: String,
     pub tags: Vec<String>,
 }
+
+// AssociateInfo型の定義
+#[derive(Serialize, Deserialize, Debug, Clone, TS)]
+#[ts(export)]
+pub struct AssociateInfo {
+    pub characters: Vec<CharacterInfo>,
+    pub save_dirs: Vec<SaveDirInfo>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, TS)]
+#[ts(export)]
+pub struct CharacterInfo {
+    pub character: String,
+    pub count: i32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, TS)]
+#[ts(export)]
+pub struct SaveDirInfo {
+    pub save_dir: String,
+    pub count: i32,
+}

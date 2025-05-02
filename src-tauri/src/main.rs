@@ -8,7 +8,7 @@ mod commands;
 mod constants;
 mod models;
 
-use commands::catalog::{delete_files, edit_tags, label_character_name, move_files};
+use commands::catalog::{delete_files, edit_tags, get_associated_info, label_character_name, move_files};
 use rusqlite::{Connection, Result};
 use std::sync::Mutex;
 use tauri::Manager;
@@ -56,6 +56,7 @@ fn main() {
             edit_tags,
             delete_files,
             count_files_in_dir,
+            get_associated_info,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

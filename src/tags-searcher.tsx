@@ -1,5 +1,5 @@
 import { listen } from "@tauri-apps/api/event";
-import { convertFileSrc , invoke } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { useState, useEffect, useRef } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 
@@ -33,6 +33,7 @@ import { AuthorDropdown, CharacterDropdown } from "./types/app-types";
 import {
   DialogCharaLabel,
   DialogCharaLabelHandle,
+  DialogCharaLabelSubmitParams,
 } from "./dialog-character-label";
 import { DialogMoveFiles, DialogMoveFilesHandle } from "./dialog-move-files";
 import {
@@ -48,7 +49,7 @@ export default function TagsSearcher() {
   const [searchCondition, setSearchCondition] = useState<"AND" | "OR">("AND");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<SearchResult[]>([]);
-  const [operationMode, setOperationMode] = useState(false);
+  const [operationMode, setOperationMode] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [currentViewMode, setCurrentViewMode] = useState<ViewMode>(
     VIEW_MODES[0]
@@ -84,7 +85,7 @@ export default function TagsSearcher() {
     try {
       const tags = await invoke<UniqueTagList[]>("get_unique_tag_list");
       tagDropdownHandlerRef.current?.setAvailableItems(
-        tags.map((t) => ({ id: t.tag, label: t.tag, ...t }))
+        tags.map((t) => ({ id: t.tag, ...t }))
       );
     } catch (error) {
       console.error("Error fetching tags:", error);
@@ -97,7 +98,6 @@ export default function TagsSearcher() {
       charaDropdownHandlerRef.current?.setAvailableItems(
         characters.map((character) => ({
           id: character,
-          label: character,
           character,
         }))
       );
@@ -136,13 +136,15 @@ export default function TagsSearcher() {
     fetchCharacters();
     fetchAuthors();
     fetchSearchHistory();
+    const unlisten = listen<null>("update_db", () => {
+      fetchTags();
+      fetchCharacters();
+      fetchAuthors();
+    });
+    return () => {
+      unlisten.then((f) => f());
+    };
   }, []);
-
-  listen<null>("update_db", () => {
-    fetchTags();
-    fetchCharacters();
-    fetchAuthors();
-  });
 
   // Add keyboard and mouse wheel event listeners for view mode switching
   useEffect(() => {
@@ -254,7 +256,6 @@ export default function TagsSearcher() {
       history.character
         ? {
             id: history.character,
-            label: history.character,
             character: history.character,
           }
         : null
@@ -322,9 +323,16 @@ export default function TagsSearcher() {
 
     const combinedArray: string[] = Array.from(combinedSet);
 
+    const uniqueCharacters = new Set(
+      selectedFiles.map((file) => file.character)
+    );
+
+    const uniqueInitialName =
+      uniqueCharacters.size === 1 ? Array.from(uniqueCharacters)[0] ?? "" : "";
+
     dialogCharacterLabelHandleRef.current?.open(
-      selectedFiles.map((p) => p.file_name),
-      initialName ?? "",
+      selectedFiles,
+      initialName ?? uniqueInitialName,
       combinedArray
     );
   };
@@ -359,10 +367,16 @@ export default function TagsSearcher() {
     handleSearch();
   };
 
-  const confirmName = async (name: string, selectedFiles: string[]) => {
+  const confirmName = async ({
+    characterName,
+    updateLinkedFiles,
+    collectDir,
+  }: DialogCharaLabelSubmitParams) => {
     await invoke("label_character_name", {
-      fileNames: selectedFiles,
-      characterName: name,
+      fileNames: selectedFiles.map((p) => p.file_name),
+      characterName,
+      updateLinkedFiles,
+      collectDir,
     });
     await fetchCharacters();
     handleSearch();
@@ -450,7 +464,6 @@ export default function TagsSearcher() {
           buttonText={"Tag"}
           selectedItem={selectedTags.map((tag) => ({
             id: tag.tag,
-            label: tag.tag,
             ...tag,
           }))}
           setSelectedItem={(items) => {

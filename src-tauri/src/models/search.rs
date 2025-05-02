@@ -25,8 +25,7 @@ pub struct SearchHistory {
     pub result_count: u8,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, TS)]
-#[ts(export)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TagInfo {
     pub id: u32,
     pub tag: String,

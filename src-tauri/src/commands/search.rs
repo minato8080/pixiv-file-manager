@@ -37,7 +37,7 @@ pub fn get_unique_characters(state: State<AppState>) -> Result<Vec<String>, Stri
     let conn = state.db.lock().unwrap();
 
     let mut stmt = conn
-        .prepare("SELECT DISTINCT character FROM ILLUST_INFO")
+        .prepare("SELECT DISTINCT character FROM CHARACTER_INFO")
         .map_err(|e| e.to_string())?;
 
     let character_iter = stmt
@@ -121,7 +121,7 @@ pub fn search_by_criteria(
              JOIN AUTHOR_INFO ON ILLUST_INFO.author_id = AUTHOR_INFO.author_id \
              JOIN TAG_INFO ON ILLUST_INFO.illust_id = TAG_INFO.illust_id \
              WHERE TAG_INFO.tag IN ({}) \
-             GROUP BY ILLUST_INFO.illust_id \
+             GROUP BY ILLUST_INFO.illust_id, suffix \
              {} \
          ) AS filtered \
          LEFT JOIN TAG_INFO ON filtered.illust_id = TAG_INFO.illust_id \
@@ -157,7 +157,7 @@ pub fn search_by_criteria(
         query.push_str(&where_clauses.join(" AND "));
     }
 
-    query.push_str(" GROUP BY filtered.illust_id");
+    query.push_str(" GROUP BY filtered.illust_id, suffix");
 
     let mut stmt = conn.prepare(&query).map_err(|e| e.to_string())?;
 

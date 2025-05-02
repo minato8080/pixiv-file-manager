@@ -1,5 +1,5 @@
 import { listen } from "@tauri-apps/api/event";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { FolderOpen, Trash2, Play } from "lucide-react";
@@ -28,9 +28,14 @@ export default function TagsFetcher() {
   const [stats, setStats] = useState<ProcessStats | null>(null);
   const [showFailedDetails, setShowFailedDetails] = useState(false);
 
-  listen<TagProgress>("tag_progress", (event) => {
-    setProgress(event.payload);
-  });
+  useEffect(() => {
+    const unlisten = listen<TagProgress>("tag_progress", (event) => {
+      setProgress(event.payload);
+    });
+    return () => {
+      unlisten.then((f) => f());
+    };
+  }, []);
 
   // Function to select folders
   const selectFolders = async () => {

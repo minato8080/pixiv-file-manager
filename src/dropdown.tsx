@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 
 export type Item = {
   id: string;
-  label: string;
+  label?: string;
   count?: number;
 };
 
@@ -145,7 +145,7 @@ function FilterDropdown<T extends Item>(
                   }
                   onClick={() => addItem(item)}
                 >
-                  <span className="truncate">{item.label}</span>
+                  <span className="truncate">{item.label ?? item.id}</span>
                   {item?.count && (
                     <Badge
                       className={

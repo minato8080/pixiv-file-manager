@@ -398,7 +398,6 @@ export default function TagsSearcher() {
       await invoke("delete_files", {
         fileNames: selectedFiles.map((p) => p.file_name),
       });
-      console.log(`Deleting ${selectedFiles.length} files`);
 
       // Remove deleted items from search results
       setSearchResults(
@@ -448,7 +447,6 @@ export default function TagsSearcher() {
         fileId,
         filePath,
       });
-      console.log(`Opening image: ${filePath} (ID: ${fileId})`);
     } catch (error) {
       console.error("Error opening image:", error);
     }
@@ -760,7 +758,7 @@ export default function TagsSearcher() {
                   <tbody>
                     {searchResults.map((result) => (
                       <tr
-                        key={result.id}
+                        key={result.file_name}
                         className={cn(
                           "hover:bg-blue-50 dark:hover:bg-blue-900/20 border-b border-gray-200 dark:border-gray-700",
                           operationMode &&
@@ -815,7 +813,7 @@ export default function TagsSearcher() {
               <div className={`grid ${currentViewMode.gridCols} gap-1 p-2`}>
                 {searchResults.map((result) => (
                   <div
-                    key={result.id}
+                    key={result.file_name}
                     className={cn(
                       "flex flex-col items-center p-1 rounded-md border hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer",
                       operationMode &&

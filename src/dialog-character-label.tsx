@@ -143,10 +143,8 @@ export const DialogCharaLabel = forwardRef<DialogCharaLabelHandle, Props>(
     const calculateFileChanges = () => {
       // 選択されたファイルの中で、パスが変更されるもの
       const selectedPathChanges = selectedFiles.filter((file) => {
-        console.log(file.save_dir, collectDir);
         return file.save_dir !== collectDir;
       }).length;
-      console.log(selectedPathChanges);
       if (associateInfo && isUpdateLinkedFiles) {
         // 保存パスが変更されるファイル数
         const linkedPathChangeCount = associateInfo.save_dirs.reduce(

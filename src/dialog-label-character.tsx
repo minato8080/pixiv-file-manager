@@ -25,7 +25,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { SearchResult } from "@/bindings/SearchResult";
 import { AssociateInfo } from "@/bindings/AssociateInfo";
 
-export type DialogCharaLabelHandle = {
+export type DialogLabelCharaHandle = {
   open: (
     items: SearchResult[],
     initialName: string,
@@ -33,16 +33,16 @@ export type DialogCharaLabelHandle = {
   ) => void;
   close: () => void;
 };
-export type DialogCharaLabelSubmitParams = {
+export type DialogLabelCharaSubmitParams = {
   characterName: string;
   updateLinkedFiles: boolean;
   collectDir?: string;
 };
 type Props = {
-  onSubmit: (params: DialogCharaLabelSubmitParams) => Promise<void>;
+  onSubmit: (params: DialogLabelCharaSubmitParams) => Promise<void>;
 };
 
-export const DialogCharaLabel = forwardRef<DialogCharaLabelHandle, Props>(
+export const DialogLabelChara = forwardRef<DialogLabelCharaHandle, Props>(
   (props, ref) => {
     // UI state management
     const [isOpen, setIsOpen] = useState(false); // Dialog open state
@@ -556,4 +556,4 @@ export const DialogCharaLabel = forwardRef<DialogCharaLabelHandle, Props>(
     );
   }
 );
-DialogCharaLabel.displayName = "DialogCharaLabel";
+DialogLabelChara.displayName = "DialogLabelChara";

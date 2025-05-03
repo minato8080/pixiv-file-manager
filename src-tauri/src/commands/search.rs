@@ -2,13 +2,13 @@ use std::path::Path;
 
 use crate::models::{
     global::AppState,
-    search::{AuthorInfo, CharacterInfo, SearchHistory, SearchResult, UniqueTagList},
+    search::{AuthorInfo, CharacterInfo, SearchHistory, SearchResult, TagInfo},
 };
 use rusqlite::{params, Result, ToSql};
 use tauri::State;
 
 #[tauri::command]
-pub fn get_unique_tag_list(state: State<AppState>) -> Result<Vec<UniqueTagList>, String> {
+pub fn get_unique_tag_list(state: State<AppState>) -> Result<Vec<TagInfo>, String> {
     let conn = state.db.lock().unwrap();
 
     let mut stmt = conn
@@ -17,7 +17,7 @@ pub fn get_unique_tag_list(state: State<AppState>) -> Result<Vec<UniqueTagList>,
 
     let tag_iter = stmt
         .query_map([], |row| {
-            Ok(UniqueTagList {
+            Ok(TagInfo {
                 tag: row.get(0)?,
                 count: row.get(1)?,
             })

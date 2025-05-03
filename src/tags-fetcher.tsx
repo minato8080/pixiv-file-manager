@@ -79,12 +79,9 @@ export default function TagsFetcher() {
     setStats(null);
 
     try {
-      const result = await invoke<ProcessStats>(
-        "process_capture_illust_detail",
-        {
-          folders: selectedFolders,
-        }
-      );
+      const result = await invoke<ProcessStats>("capture_illust_detail", {
+        folders: selectedFolders,
+      });
 
       setStats(result);
     } catch (error) {

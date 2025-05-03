@@ -8,12 +8,14 @@ mod commands;
 mod constants;
 mod models;
 
-use commands::catalog::{delete_files, edit_tags, get_associated_info, label_character_name, move_files};
+use commands::catalog::{
+    delete_files, edit_tags, get_associated_info, label_character_name, move_files,
+};
 use rusqlite::{Connection, Result};
 use std::sync::Mutex;
 use tauri::Manager;
 
-use commands::fetch::{count_files_in_dir, process_capture_illust_detail};
+use commands::fetch::{capture_illust_detail, count_files_in_dir};
 use commands::search::{
     get_search_history, get_unique_authors, get_unique_characters, get_unique_tag_list,
     search_by_criteria,
@@ -48,7 +50,7 @@ fn main() {
             get_unique_tag_list,
             search_by_criteria,
             get_search_history,
-            process_capture_illust_detail,
+            capture_illust_detail,
             get_unique_characters,
             get_unique_authors,
             move_files,

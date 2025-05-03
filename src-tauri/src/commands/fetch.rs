@@ -125,7 +125,7 @@ fn extract_dir_detail<P: AsRef<Path>>(folder: P) -> Vec<FileDetail> {
 }
 
 #[tauri::command]
-pub fn process_capture_illust_detail(
+pub fn capture_illust_detail(
     state: State<'_, AppState>,
     window: tauri::Window,
     folders: Vec<String>,

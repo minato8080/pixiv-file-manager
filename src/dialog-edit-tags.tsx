@@ -30,7 +30,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SearchResult } from "@/bindings/SearchResult";
 import { EditTagReq } from "@/bindings/EditTagReq";
 
-export type DialogTagEditorHandle = {
+export type DialogEditTagsHandle = {
   open: (items: SearchResult[]) => void;
   close: () => void;
 };
@@ -574,7 +574,7 @@ const AddRemoveModeUI = forwardRef<
 });
 AddRemoveModeUI.displayName = "AddRemoveModeUI";
 
-export const DialogTagEditor = forwardRef<DialogTagEditorHandle, Props>(
+export const DialogEditTags = forwardRef<DialogEditTagsHandle, Props>(
   (props, ref) => {
     const [selectedFiles, setSelectedFiles] = useState<SearchResult[]>([]);
     const [isOpen, setIsOpen] = useState(false);
@@ -695,4 +695,4 @@ export const DialogTagEditor = forwardRef<DialogTagEditorHandle, Props>(
     );
   }
 );
-DialogTagEditor.displayName = "DialogTagEditor";
+DialogEditTags.displayName = "DialogEditTags";

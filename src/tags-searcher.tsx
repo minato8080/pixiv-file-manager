@@ -23,17 +23,20 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { VIEW_MODES, type ViewMode } from "./constants";
-import { UniqueTagList } from "@/bindings/UniqueTagList";
 import { SearchResult } from "@/bindings/SearchResult";
 import { SearchHistory } from "@/bindings/SearchHistory";
 import { AuthorInfo } from "@/bindings/AuthorInfo";
-import { DropdownHandle, ForwardedFilterDropdown, Item } from "./dropdown";
-import { AuthorDropdown, CharacterDropdown } from "./types/app-types";
+import { DropdownHandle, ForwardedFilterDropdown } from "./dropdown";
 import {
-  DialogCharaLabel,
-  DialogCharaLabelHandle,
-  DialogCharaLabelSubmitParams,
-} from "./dialog-character-label";
+  AuthorDropdown,
+  CharacterDropdown,
+  TagDropdown,
+} from "./types/app-types";
+import {
+  DialogLabelChara,
+  DialogLabelCharaHandle,
+  DialogLabelCharaSubmitParams,
+} from "./dialog-label-character";
 import {
   DialogMoveFiles,
   DialogMoveFilesHandle,
@@ -44,9 +47,10 @@ import {
   DialogDeleteFilesHandle,
 } from "./dialog-delete-confirm";
 import { DropdownHistory, DropdownHistoryHandle } from "./dropdown-history";
-import { DialogTagEditor, DialogTagEditorHandle } from "./dialog-tag-editor";
+import { DialogEditTags, DialogEditTagsHandle } from "./dialog-edit-tags";
 import { EditTagReq } from "@/bindings/EditTagReq";
 import { CharacterInfo } from "@/bindings/CharacterInfo";
+import { TagInfo } from "@/bindings/TagInfo";
 
 export default function TagsSearcher() {
   // State for buissiness
@@ -60,7 +64,7 @@ export default function TagsSearcher() {
   );
 
   // State for dropdown
-  const [selectedTags, setSelectedTags] = useState<UniqueTagList[]>([]);
+  const [selectedTags, setSelectedTags] = useState<TagInfo[]>([]);
   const [selectedCharacter, setSelectedCharacter] =
     useState<CharacterDropdown | null>(null);
   const [selectedAuthor, setSelectedAuthor] = useState<AuthorDropdown | null>(
@@ -69,16 +73,15 @@ export default function TagsSearcher() {
   const [isViewModeDropdownOpen, setIsViewModeDropdownOpen] = useState(false);
 
   // Refs for Dialog
-  const dialogCharacterLabelHandleRef = useRef<DialogCharaLabelHandle>(null);
+  const dialogCharacterLabelHandleRef = useRef<DialogLabelCharaHandle>(null);
   const dialogMoveLabelHandleRef = useRef<DialogMoveFilesHandle>(null);
   const dialogDeleteFilesHandleRef = useRef<DialogDeleteFilesHandle>(null);
-  const dialogLabelEditHandleRef = useRef<DialogTagEditorHandle>(null);
+  const dialogLabelEditHandleRef = useRef<DialogEditTagsHandle>(null);
 
   // Refs for dropdown
   const viewModeDropdownRef = useRef<HTMLDivElement>(null);
   const historyDropdownHandlerRef = useRef<DropdownHistoryHandle>(null);
-  const tagDropdownHandlerRef =
-    useRef<DropdownHandle<UniqueTagList & Item>>(null);
+  const tagDropdownHandlerRef = useRef<DropdownHandle<TagDropdown>>(null);
   const charaDropdownHandlerRef =
     useRef<DropdownHandle<CharacterDropdown>>(null);
   const authorDropdownHandlerRef = useRef<DropdownHandle<AuthorDropdown>>(null);
@@ -86,7 +89,7 @@ export default function TagsSearcher() {
   // Handlers to fetch tags, characters, authors, and search history from the database
   const fetchTags = async () => {
     try {
-      const tags = await invoke<UniqueTagList[]>("get_unique_tag_list");
+      const tags = await invoke<TagInfo[]>("get_unique_tag_list");
       tagDropdownHandlerRef.current?.setAvailableItems(
         tags.map((t) => ({ id: t.tag, ...t }))
       );
@@ -370,7 +373,7 @@ export default function TagsSearcher() {
     characterName,
     updateLinkedFiles,
     collectDir,
-  }: DialogCharaLabelSubmitParams) => {
+  }: DialogLabelCharaSubmitParams) => {
     await invoke("label_character_name", {
       fileNames: selectedFiles.map((p) => p.file_name),
       characterName,
@@ -857,12 +860,12 @@ export default function TagsSearcher() {
       />
 
       {/* Character Name Input Dialog */}
-      <DialogCharaLabel
+      <DialogLabelChara
         onSubmit={confirmName}
         ref={dialogCharacterLabelHandleRef}
       />
 
-      <DialogTagEditor onSubmit={confirmTags} ref={dialogLabelEditHandleRef} />
+      <DialogEditTags onSubmit={confirmTags} ref={dialogLabelEditHandleRef} />
     </div>
   );
 }

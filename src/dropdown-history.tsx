@@ -6,9 +6,9 @@ import {
   useRef,
   useState,
 } from "react";
-import { SearchHistory } from "@/bindings/SearchHistory";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { SearchHistory } from "@/bindings/SearchHistory";
 
 export type DropdownHistoryHandle = {
   setHistory: (history: SearchHistory[]) => void;

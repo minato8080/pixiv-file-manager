@@ -33,8 +33,11 @@ fn main() {
                 "{}.db",
                 std::env::var("DB_NAME").unwrap_or_else(|_| DB_NAME.to_string())
             ));
-            let conn = Connection::open(db_path).unwrap();
-            let app_pixiv_api = RealPixivApi::create_api().unwrap();
+            let conn = Connection::open(db_path).unwrap_or_else(|err| {
+                eprintln!("Failed to open database connection: {}", err);
+                std::process::exit(1);
+            });
+            let app_pixiv_api = RealPixivApi::create_api().ok();
 
             // Initialize database
             initialize_db(&conn).unwrap();

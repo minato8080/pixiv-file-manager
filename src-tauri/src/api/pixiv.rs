@@ -1,4 +1,10 @@
-use pixieve_rs::{errors::AuthError, pixiv::{client::PixivClient, request_builder::PixivRequestBuilder, result::illustration_proxy::IllustrationProxy}};
+use pixieve_rs::{
+    errors::AuthError,
+    pixiv::{
+        client::PixivClient, request_builder::PixivRequestBuilder,
+        result::illustration_proxy::IllustrationProxy,
+    },
+};
 use tauri::State;
 
 use crate::models::{
@@ -20,15 +26,18 @@ impl PixivApi for RealPixivApi {
     }
 
     fn fetch_detail(
-        state: &State<'_,AppState>,
+        state: &State<'_, AppState>,
         image_id: u32,
     ) -> Result<IllustrationProxy, anyhow::Error> {
         let illust_id = image_id.try_into().unwrap();
         let request = PixivRequestBuilder::request_illustration(illust_id);
 
-        let illustration = state.app_pixiv_api
-            .execute_with_auth(request)?
-            .json::<IllustrationProxy>()?;
+        let illustration = match &state.app_pixiv_api {
+            Some(api) => api
+                .execute_with_auth(request)?
+                .json::<IllustrationProxy>()?,
+            None => return Err(anyhow::Error::msg("Pixiv API client is not initialized")),
+        };
         Ok(illustration)
     }
 }

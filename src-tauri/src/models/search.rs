@@ -22,14 +22,14 @@ pub struct SearchHistory {
     pub author: Option<AuthorInfo>,
     pub condition: String,
     pub timestamp: String,
-    pub result_count: u8,
+    pub result_count: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, TS)]
 #[ts(export)]
 pub struct TagInfo {
     pub tag: String,
-    pub count: u8,
+    pub count: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, TS)]
@@ -38,12 +38,12 @@ pub struct AuthorInfo {
     pub author_id: u32,
     pub author_name: String,
     pub author_account: String,
-    pub count: Option<u8>,
+    pub count: Option<u32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, TS)]
 #[ts(export)]
 pub struct CharacterInfo {
     pub character: String,
-    pub count: Option<u8>,
+    pub count: Option<u32>,
 }

@@ -216,43 +216,42 @@ export default function TagsSearcher() {
     if (!selectedTags) return;
     if (selectedTags.length === 0 && !selectedCharacter && !selectedAuthor) {
       return;
-    } else {
-      const performSearch = async () => {
-        try {
-          const results: SearchResult[] = await invoke("search_by_criteria", {
-            tags: selectedTags.map((iter) => iter.tag),
-            condition: searchCondition,
-            character: selectedCharacter?.character,
-            author: selectedAuthor?.author_id,
-          });
-
-          setSearchResults(
-            results.map((r) => {
-              const url = convertFileSrc(r.thumbnail_url);
-              r.thumbnail_url = url;
-              return r;
-            })
-          );
-          setSelectedFiles([]);
-
-          // Save search history to DB
-          if (results.length > 0) {
-            const newHistoryItem: SearchHistory = {
-              tags: selectedTags.map((tags) => tags.tag),
-              condition: searchCondition,
-              timestamp: new Date().toLocaleString(),
-              result_count: results.length,
-              character: selectedCharacter?.character ?? "",
-              author: selectedAuthor,
-            };
-            historyDropdownHandlerRef.current?.addHistory(newHistoryItem);
-          }
-        } catch (error) {
-          console.error("Error search illusts:", error);
-        }
-      };
-      performSearch();
     }
+    const performSearch = async () => {
+      try {
+        const results: SearchResult[] = await invoke("search_by_criteria", {
+          tags: selectedTags.map((iter) => iter.tag),
+          condition: searchCondition,
+          character: selectedCharacter?.character,
+          author: selectedAuthor?.author_id,
+        });
+
+        setSearchResults(
+          results.map((r) => {
+            const url = convertFileSrc(r.thumbnail_url);
+            r.thumbnail_url = url;
+            return r;
+          })
+        );
+        setSelectedFiles([]);
+
+        // Save search history to DB
+        if (results.length > 0) {
+          const newHistoryItem: SearchHistory = {
+            tags: selectedTags.map((tags) => tags.tag),
+            condition: searchCondition,
+            timestamp: new Date().toLocaleString(),
+            result_count: results.length,
+            character: selectedCharacter?.character ?? "",
+            author: selectedAuthor,
+          };
+          historyDropdownHandlerRef.current?.addHistory(newHistoryItem);
+        }
+      } catch (error) {
+        console.error("Error search illusts:", error);
+      }
+    };
+    performSearch();
   };
 
   // Apply history item
@@ -713,7 +712,7 @@ export default function TagsSearcher() {
 
       {/* Results Area */}
       <Card className="flex-1 overflow-hidden border-2 border-gray-200 dark:border-gray-700">
-        <ScrollArea className="h-full">
+        <ScrollArea className="h-full overflow-auto">
           {searchResults.length > 0 ? (
             currentViewMode.id === "details" ? (
               <div className="w-full">

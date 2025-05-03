@@ -55,7 +55,7 @@ pub fn get_unique_characters(state: State<AppState>) -> Result<Vec<CharacterInfo
     let character_iter = stmt
         .query_map([], |row| {
             let character: String = row.get(0)?;
-            let count: Option<u8> = row.get(1)?;
+            let count: Option<u32> = row.get(1)?;
             Ok(CharacterInfo { character, count })
         })
         .map_err(|e| e.to_string())?;
@@ -95,7 +95,7 @@ pub fn get_unique_authors(state: State<AppState>) -> Result<Vec<AuthorInfo>, Str
             let author_id: u32 = row.get(0)?;
             let author_name: String = row.get(1)?;
             let author_account: String = row.get(2)?;
-            let count: Option<u8> = row.get(3)?;
+            let count: Option<u32> = row.get(3)?;
             Ok(AuthorInfo {
                 author_id,
                 author_name,
@@ -185,7 +185,8 @@ pub fn search_by_criteria(
     }
 
     query.push_str(" GROUP BY filtered.illust_id, suffix");
-
+    query.push_str(" ORDER BY filtered.illust_id ASC, suffix ASC");
+    query.push_str(" LIMIT 500");
     let mut stmt = conn.prepare(&query).map_err(|e| e.to_string())?;
 
     // Convert params to Vec<&dyn ToSql>
@@ -255,7 +256,7 @@ pub fn search_by_criteria(
             tags,
             condition: condition.clone(),
             timestamp: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-            result_count: results.len() as u8,
+            result_count: results.len() as u32,
             character,
             author: author_info,
         },
@@ -285,7 +286,7 @@ pub fn get_search_history(state: State<AppState>) -> Result<Vec<SearchHistory>, 
             };
             let condition: String = row.get(3)?;
             let timestamp: String = row.get(4)?;
-            let result_count: u8 = row.get(5)?;
+            let result_count: u32 = row.get(5)?;
 
             let tags: Vec<String> = serde_json::from_str(&tags_json)
                 .map_err(|e| rusqlite::Error::UserFunctionError(Box::new(e)))?;

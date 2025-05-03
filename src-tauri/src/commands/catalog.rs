@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use rusqlite::params;
 use tauri::State;
 use trash::delete;
@@ -12,46 +14,98 @@ pub fn move_files(
     state: State<AppState>,
     file_names: Vec<String>,
     target_folder: &str,
+    move_linked_files: bool,
 ) -> Result<(), String> {
-    let conn = state.db.lock().unwrap();
-    for file_name in file_names {
+    let mut conn = state.db.lock().unwrap();
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    let mut updates = HashSet::new();
+
+    // 更新用のデータを作成
+    for file_name in &file_names {
         let parts: Vec<&str> = file_name.split("_p").collect();
         if parts.len() != 2 {
             return Err("Invalid file name format".to_string());
         }
-        let id = parts[0];
-        let suffix_and_extension: Vec<&str> = parts[1].split('.').collect();
-        if suffix_and_extension.len() != 2 {
+        let id = parts[0].to_string();
+        let suffix_and_ext: Vec<&str> = parts[1].split('.').collect();
+        if suffix_and_ext.len() != 2 {
             return Err("Invalid file name format".to_string());
         }
-        let suffix = suffix_and_extension[0];
-        let extension = suffix_and_extension[1];
+        let suffix = suffix_and_ext[0].to_string();
 
-        let mut stmt = conn
-            .prepare("SELECT save_dir FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?")
+        let (save_dir, control_num): (String, i64) = tx
+            .query_row(
+                "SELECT save_dir, control_num FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
+                params![id, suffix],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
             .map_err(|e| e.to_string())?;
 
-        let file_info: Result<String, _> =
-            stmt.query_row([id, suffix, extension], |row| Ok(row.get(0)?));
-
-        match file_info {
-            Ok(save_dir) => {
-                let source_path = std::path::Path::new(&save_dir).join(&file_name);
-                let target_path = std::path::Path::new(target_folder).join(&file_name);
-
-                // ファイルを移動
-                std::fs::rename(&source_path, &target_path).map_err(|e| e.to_string())?;
-
-                // DBを更新
-                conn.execute(
-                    "UPDATE ILLUST_INFO SET save_dir = ? WHERE illust_id = ? AND suffix = ?",
-                    params![target_folder, id, suffix, extension],
-                )
-                .map_err(|e| e.to_string())?;
-            }
-            Err(e) => return Err(e.to_string()),
+        if move_linked_files {
+            updates.insert(((id, None, Some(control_num)), save_dir));
+        } else {
+            updates.insert(((id, Some(suffix), None), save_dir)); // suffixで更新する
         }
     }
+
+    // ILLUST_INFOを更新
+    for ((id, suffix_opt, control_num_opt), save_dir) in updates {
+        println!("suffix_opt: {:?}, control_num_opt: {:?}", suffix_opt, control_num_opt);
+        
+        let mut update_sql = String::from("UPDATE ILLUST_INFO SET save_dir = ?");
+        let mut param_vec: Vec<&dyn rusqlite::ToSql> = vec![&target_folder];
+
+        if let Some(ref control_num) = control_num_opt {
+            update_sql.push_str(" WHERE illust_id = ? AND control_num = ?");
+            param_vec.push(&id);
+            param_vec.push(control_num);
+        } else {
+            // suffix指定
+            update_sql.push_str(" WHERE illust_id = ? AND suffix = ?");
+            param_vec.push(&id);
+            param_vec.push(&suffix_opt);
+        }
+
+        // 実体ファイルを移動
+        let mut select_sql = String::from(
+            "SELECT illust_id || '_p' || suffix || '.' || extension FROM ILLUST_INFO WHERE illust_id = ? AND ",
+        );
+
+        let mut select_param_vec: Vec<&dyn rusqlite::ToSql> = Vec::new();
+        select_param_vec.push(&id);
+
+        if let Some(ref control_num) = control_num_opt {
+            select_sql.push_str("control_num = ?");
+            select_param_vec.push(control_num);
+        } else if let Some(ref suffix) = suffix_opt {
+            select_sql.push_str("suffix = ?");
+            select_param_vec.push(suffix);
+        } else {
+            return Err("Either suffix or control_num is required".to_string());
+        }
+
+        println!("SQL: {}", select_sql);
+        // ファイル移動用のデータを取得
+        let mut stmt = tx.prepare(&select_sql).map_err(|e| e.to_string())?;
+        let file_names_to_update: Vec<String> = stmt
+            .query_map(select_param_vec.as_slice(), |row| row.get(0))
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<String>, _>>()
+            .map_err(|e| e.to_string())?;
+
+        // ファイルを移動
+        for file_name in file_names_to_update {
+            let source_path = std::path::Path::new(&save_dir).join(&file_name);
+            let target_path = std::path::Path::new(target_folder).join(&file_name);
+            std::fs::rename(&source_path, &target_path).map_err(|e| e.to_string())?;
+        }
+
+        // DBを更新
+        tx.execute(&update_sql, param_vec.as_slice())
+            .map_err(|e| e.to_string())?;
+    }
+    tx.commit().map_err(|e| e.to_string())?;
+
     Ok(())
 }
 
@@ -63,68 +117,97 @@ pub fn label_character_name(
     update_linked_files: bool,
     collect_dir: Option<String>,
 ) -> Result<(), String> {
-    let conn = state.db.lock().unwrap();
-    for file_name in file_names {
+    let mut conn = state.db.lock().unwrap();
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    let mut updates = HashSet::new();
+    let mut old_names = HashSet::new();
+
+    // 更新用のデータを作成
+    for file_name in &file_names {
         let parts: Vec<&str> = file_name.split("_p").collect();
         if parts.len() != 2 {
             return Err("Invalid file name format".to_string());
         }
-        let id = parts[0];
-        let suffix_and_extension: Vec<&str> = parts[1].split('.').collect();
-        if suffix_and_extension.len() != 2 {
+        let id = parts[0].to_string();
+        let suffix_and_ext: Vec<&str> = parts[1].split('.').collect();
+        if suffix_and_ext.len() != 2 {
             return Err("Invalid file name format".to_string());
         }
-        let suffix = suffix_and_extension[0];
+        let suffix = suffix_and_ext[0].to_string();
 
+        let (control_num, character): (i64, Option<String>) = tx
+            .query_row(
+                "SELECT control_num, character FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
+                params![id, suffix],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .map_err(|e| e.to_string())?;
+
+        if update_linked_files {
+            updates.insert((id, None, Some(control_num)));
+        } else {
+            updates.insert((id, Some(suffix), None)); // suffixで更新する
+        }
+
+        if let Some(character_name) = character {
+            old_names.insert(character_name);
+        }
+    }
+
+    // ILLUST_INFOを更新
+    for (id, suffix_opt, control_num_opt) in updates {
         let mut sql = String::from("UPDATE ILLUST_INFO SET character = ?");
-        let mut param_vec: Vec<&dyn rusqlite::ToSql> = Vec::new();
-        param_vec.push(&character_name);
+        let mut param_vec: Vec<&dyn rusqlite::ToSql> = vec![&character_name];
 
         if let Some(ref dir) = collect_dir {
             sql.push_str(", save_dir = ?");
             param_vec.push(dir);
         }
 
-        let control_num: Option<i64>;
-        // control_numを使う場合
-        if update_linked_files {
-            control_num = conn
-                .query_row(
-                    "SELECT control_num FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
-                    params![id, suffix],
-                    |row| row.get(0),
-                )
-                .map_err(|e| e.to_string())?;
-
+        if let Some(ref control_num) = control_num_opt {
             sql.push_str(" WHERE illust_id = ? AND control_num = ?");
             param_vec.push(&id);
-            param_vec.push(&control_num);
+            param_vec.push(control_num);
         } else {
+            // suffix指定
             sql.push_str(" WHERE illust_id = ? AND suffix = ?");
             param_vec.push(&id);
-            param_vec.push(&suffix);
+            param_vec.push(&suffix_opt);
         }
 
-        // 実行
-        conn.execute(&sql, param_vec.as_slice())
+        tx.execute(&sql, param_vec.as_slice())
             .map_err(|e| e.to_string())?;
+    }
 
-        // collect_dirがある場合、CHARACTER_INFOを更新
-        if let Some(ref dir) = collect_dir {
-            conn.execute(
-                "INSERT OR REPLACE INTO CHARACTER_INFO (character, collect_dir) VALUES (?, ?)",
-                params![character_name, dir],
-            )
-            .map_err(|e| e.to_string())?;
-        } else {
-            // collect_dirがない場合、characterを登録。ただし、登録済みの場合は更新しない
-            conn.execute(
-                "INSERT INTO CHARACTER_INFO (character) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM CHARACTER_INFO WHERE character = ?)",
-                params![character_name, character_name],
+    // CHARACTER_INFOの更新
+    if let Some(ref dir) = collect_dir {
+        tx.execute(
+            "INSERT OR REPLACE INTO CHARACTER_INFO (character, collect_dir) VALUES (?, ?)",
+            params![character_name, dir],
         )
         .map_err(|e| e.to_string())?;
-        }
+    } else {
+        tx.execute(
+            "INSERT INTO CHARACTER_INFO (character) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM CHARACTER_INFO WHERE character = ?)",
+            params![character_name, character_name],
+        ).map_err(|e| e.to_string())?;
     }
+
+    // 名前がない場合は削除する
+    tx.execute(
+        "
+        DELETE FROM CHARACTER_INFO
+        WHERE character IN (SELECT value FROM json_each(?))
+          AND NOT EXISTS (
+            SELECT 1 FROM ILLUST_INFO
+            WHERE ILLUST_INFO.character = CHARACTER_INFO.character
+          )
+        ",
+        params![serde_json::to_string(&old_names).map_err(|e| e.to_string())?],
+    )
+    .map_err(|e| e.to_string())?;
+
+    tx.commit().map_err(|e| e.to_string())?;
     Ok(())
 }
 

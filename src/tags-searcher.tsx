@@ -1,7 +1,6 @@
 import { listen } from "@tauri-apps/api/event";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { useState, useEffect, useRef } from "react";
-import { open } from "@tauri-apps/plugin-dialog";
 
 import {
   Search,
@@ -35,7 +34,11 @@ import {
   DialogCharaLabelHandle,
   DialogCharaLabelSubmitParams,
 } from "./dialog-character-label";
-import { DialogMoveFiles, DialogMoveFilesHandle } from "./dialog-move-files";
+import {
+  DialogMoveFiles,
+  DialogMoveFilesHandle,
+  DialogMoveFilesSubmitParams,
+} from "./dialog-move-files";
 import {
   DialogDeleteFiles,
   DialogDeleteFilesHandle,
@@ -297,10 +300,7 @@ export default function TagsSearcher() {
   // Handle move operation
   const handleMove = () => {
     if (selectedFiles.length === 0) return;
-    dialogMoveLabelHandleRef.current?.open(
-      selectedFiles.map((p) => p.file_name),
-      ""
-    );
+    dialogMoveLabelHandleRef.current?.open(selectedFiles);
   };
 
   // Handle delete operation
@@ -339,7 +339,9 @@ export default function TagsSearcher() {
   };
 
   // Confirm move operation
-  const confirmMove = async () => {
+  const confirmMove = async ({
+    moveLinkedFiles,
+  }: DialogMoveFilesSubmitParams) => {
     const targetFolder = dialogMoveLabelHandleRef.current?.targetFolder;
     if (!targetFolder) return;
 
@@ -350,6 +352,7 @@ export default function TagsSearcher() {
       await invoke("move_files", {
         fileNames,
         targetFolder,
+        moveLinkedFiles,
       });
     } catch (error) {
       console.error("Error moving files:", error);
@@ -358,11 +361,6 @@ export default function TagsSearcher() {
       // close Move Files dialog
       dialogMoveLabelHandleRef.current?.close();
     }
-
-    // initial name for input area
-    const folderName = targetFolder.split("\\").pop() ?? "";
-    // open Chara Name dialog
-    handleLabel(folderName);
 
     // refresh
     handleSearch();
@@ -412,24 +410,6 @@ export default function TagsSearcher() {
     } finally {
       setIsDeleting(false);
       dialogDeleteFilesHandleRef.current?.close();
-    }
-  };
-
-  // Handle folder selection
-  const handleSelectFolder = async () => {
-    try {
-      // Function to select folders
-      const selected = await open({
-        directory: true,
-        multiple: false,
-        title: "Select folders containing images",
-      });
-
-      if (selected) {
-        dialogMoveLabelHandleRef.current?.setTargetFolder(selected);
-      }
-    } catch (error) {
-      console.error("Error selecting folders:", error);
     }
   };
 
@@ -868,11 +848,7 @@ export default function TagsSearcher() {
       )}
 
       {/* Move Dialog */}
-      <DialogMoveFiles
-        onClick={handleSelectFolder}
-        onSubmit={confirmMove}
-        ref={dialogMoveLabelHandleRef}
-      />
+      <DialogMoveFiles onSubmit={confirmMove} ref={dialogMoveLabelHandleRef} />
 
       {/* Delete Confirmation Dialog */}
       <DialogDeleteFiles

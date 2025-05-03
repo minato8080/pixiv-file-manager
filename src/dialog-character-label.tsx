@@ -118,7 +118,7 @@ export const DialogCharaLabel = forwardRef<DialogCharaLabelHandle, Props>(
     };
 
     // 登録名変更の影響を計算
-    const calculateFileLabel = () => {
+    const calculateLabelChanges = () => {
       // キャラクター名が変更されるファイル数
       const nameChangeCount = selectedFiles.filter((file) => {
         return file.character !== characterName;
@@ -140,7 +140,7 @@ export const DialogCharaLabel = forwardRef<DialogCharaLabelHandle, Props>(
     };
 
     // ファイル変更の影響を計算
-    const calculateFileChanges = () => {
+    const calculatePathChanges = () => {
       // 選択されたファイルの中で、パスが変更されるもの
       const selectedPathChanges = selectedFiles.filter((file) => {
         return file.save_dir !== collectDir;
@@ -237,18 +237,18 @@ export const DialogCharaLabel = forwardRef<DialogCharaLabelHandle, Props>(
 
     // キャラクター名入力変更時の処理
     useEffect(() => {
-      calculateFileLabel();
+      calculateLabelChanges();
     }, [characterName, selectedFiles, associateInfo]);
 
     // 保存パス変更時の処理
     useEffect(() => {
-      calculateFileChanges();
+      calculatePathChanges();
     }, [collectDir, selectedFiles, associateInfo]);
 
     // チェックボックス変更時の処理
     useEffect(() => {
-      calculateFileLabel();
-      calculateFileChanges();
+      calculateLabelChanges();
+      calculatePathChanges();
     }, [isUpdateLinkedFiles, isChangeCollectPath]);
 
     // Close dropdown when clicking outside

@@ -41,7 +41,7 @@ export default defineConfig([
           args: "none",
         },
       ],
-      "import/no-unresolved": "none",
+      "import/no-unresolved": "off",
       "import/order": [
         "error",
         { groups: [["builtin", "external", "internal"]] },

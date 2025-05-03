@@ -20,10 +20,10 @@ import { Input } from "@/components/ui/input";
 import { FolderOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { SearchResult } from "@/bindings/SearchResult";
 import { open } from "@tauri-apps/plugin-dialog";
-import { AssociateInfo } from "@/bindings/AssociateInfo";
 import { invoke } from "@tauri-apps/api/core";
+import { SearchResult } from "@/bindings/SearchResult";
+import { AssociateInfo } from "@/bindings/AssociateInfo";
 
 export type DialogCharaLabelHandle = {
   open: (

@@ -11,10 +11,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { AssociateInfo } from "@/bindings/AssociateInfo";
 import { invoke } from "@tauri-apps/api/core";
-import { SearchResult } from "@/bindings/SearchResult";
 import { open } from "@tauri-apps/plugin-dialog";
+import { AssociateInfo } from "@/bindings/AssociateInfo";
+import { SearchResult } from "@/bindings/SearchResult";
 
 export type DialogMoveFilesHandle = {
   open: (items: SearchResult[]) => void;

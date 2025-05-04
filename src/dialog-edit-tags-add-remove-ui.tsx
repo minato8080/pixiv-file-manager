@@ -228,29 +228,19 @@ export const AddRemoveModeUI = forwardRef<
                   {fileState.fileName}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-2 grid grid-cols-2 gap-2">
+              <CardContent>
                 <div className="flex flex-wrap gap-1 p-1 min-h-[40px] border rounded-md bg-slate-50 dark:bg-slate-800">
-                  {fileState.tags
-                    .filter((tag) => tag.status !== "added")
-                    .map((tag, index) => (
-                      <Badge
-                        key={`before-${fileState.fileId}-${index}`}
-                        variant="secondary"
-                        className="bg-slate-200 dark:bg-slate-700 h-5 text-xs"
-                      >
-                        {tag.originalValue || tag.value}
-                      </Badge>
-                    ))}
-                </div>
-                <div className="flex flex-wrap gap-1 p-1 min-h-[40px] border rounded-md bg-slate-50 dark:bg-slate-800">
-                  {fileState.tags
-                    .filter((tag) => tag.status !== "deleted")
-                    .map((tag, index) => (
-                      <Badge
-                        key={`after-${fileState.fileId}-${index}`}
-                        variant="secondary"
-                        className={`
+                  {fileState.tags.map((tag, index) => (
+                    <Badge
+                      key={`after-${fileState.fileId}-${index}`}
+                      variant="secondary"
+                      className={`
                       h-5 text-xs
+                      ${
+                        tag.status === "deleted"
+                          ? "line-through opacity-70 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300"
+                          : ""
+                      }
                       ${
                         tag.status === "edited"
                           ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
@@ -267,10 +257,10 @@ export const AddRemoveModeUI = forwardRef<
                           : ""
                       }
                     `}
-                      >
-                        {tag.value}
-                      </Badge>
-                    ))}
+                    >
+                      {tag.value}
+                    </Badge>
+                  ))}
                 </div>
               </CardContent>
             </Card>

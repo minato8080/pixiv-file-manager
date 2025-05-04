@@ -228,7 +228,8 @@ pub fn label_character_name(
 
 #[tauri::command]
 pub fn edit_tags(state: State<AppState>, edit_tag_req: Vec<EditTagReq>) -> Result<(), String> {
-    let conn = state.db.lock().unwrap();
+    let mut conn = state.db.lock().unwrap();
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
     for edit_tag in edit_tag_req {
         let parts: Vec<&str> = edit_tag.file_name.split("_p").collect();
         if parts.len() != 2 {
@@ -239,22 +240,35 @@ pub fn edit_tags(state: State<AppState>, edit_tag_req: Vec<EditTagReq>) -> Resul
         if suffix_and_extension.len() != 2 {
             return Err("Invalid file name format".to_string());
         }
-        let _suffix = suffix_and_extension[0];
+        let suffix = suffix_and_extension[0];
         let _extension = suffix_and_extension[1];
 
-        // 既存のタグを削除
-        conn.execute("DELETE FROM TAG_INFO WHERE illust_id = ?", params![id])
+        let control_num: i32 = tx
+            .query_row(
+                "SELECT control_num FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
+                params![id, suffix],
+                |row| row.get(0),
+            )
             .map_err(|e| e.to_string())?;
+
+        // 既存のタグを削除
+        tx.execute(
+            "DELETE FROM TAG_INFO WHERE illust_id = ? AND control_num = ?",
+            params![id, control_num],
+        )
+        .map_err(|e| e.to_string())?;
 
         // 新しいタグを挿入
         for tag in &edit_tag.tags {
-            conn.execute(
-                "INSERT INTO TAG_INFO (illust_id, tag) VALUES (?, ?)",
-                params![id, tag],
+            tx.execute(
+                "INSERT INTO TAG_INFO (illust_id, control_num, tag) VALUES (?, ?, ?)",
+                params![id, control_num, tag],
             )
             .map_err(|e| e.to_string())?;
         }
     }
+    tx.commit().map_err(|e| e.to_string())?;
+
     Ok(())
 }
 

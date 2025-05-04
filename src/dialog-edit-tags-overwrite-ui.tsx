@@ -141,11 +141,11 @@ export const OverwriteModeUI = forwardRef<
   };
 
   // Handle key press in add tag input
-  // const handleKeyDown = (e: React.KeyboardEvent) => {
-  //   if (e.key === "Enter") {
-  //     handleAddTag();
-  //   }
-  // };
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleAddTag();
+    }
+  };
 
   // Save edited tag
   const handleSaveEdit = () => {
@@ -212,18 +212,13 @@ export const OverwriteModeUI = forwardRef<
         </div>
 
         <div className="flex items-center gap-2">
-          {/* <Input
-            ref={addInputRef}
-            placeholder="Add new tag"
-            onKeyDown={handleKeyDown}
-            className="border-blue-200 dark:border-blue-800 h-8"
-          /> */}
           <InputDropdown
             items={availableTags}
             valueKey={(item) => item}
             placeholder="Add new tag"
             value={inputValue}
             onChange={setInputvalue}
+            onKeyDown={handleKeyDown}
           />
           <Button
             onClick={handleAddTag}

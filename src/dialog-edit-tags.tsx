@@ -137,6 +137,7 @@ export const DialogEditTags = forwardRef<DialogEditTagsHandle, Props>(
               <AddRemoveModeUI
                 ref={addRemoveHandleRef}
                 selectedFiles={selectedFiles}
+                uniqueTagList={props.uniqueTagList}
               />
             </div>
           </div>

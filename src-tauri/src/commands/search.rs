@@ -107,7 +107,10 @@ pub fn get_unique_authors(state: State<AppState>) -> Result<Vec<AuthorInfo>, Str
 
     let mut authors = Vec::new();
     for author in author_iter {
-        authors.push(author.map_err(|e| e.to_string())?);
+        let author_info = author.map_err(|e| e.to_string())?;
+        if author_info.count.unwrap_or(0) > 0 {
+            authors.push(author_info);
+        }
     }
 
     Ok(authors)

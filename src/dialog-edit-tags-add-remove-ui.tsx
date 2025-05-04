@@ -1,4 +1,4 @@
-import {
+import React, {
   forwardRef,
   useImperativeHandle,
   useState,
@@ -7,7 +7,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -20,6 +19,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SearchResult } from "@/bindings/SearchResult";
 import { EditTagReq } from "@/bindings/EditTagReq";
 import { FileTagState } from "./dialog-edit-tags";
+import { InputDropdown } from "./input-dropdown";
+import { TagInfo } from "@/bindings/TagInfo";
 
 type AddRemoveModeHandle = {
   close: () => void;
@@ -28,12 +29,18 @@ type AddRemoveModeHandle = {
 
 export const AddRemoveModeUI = forwardRef<
   AddRemoveModeHandle,
-  { selectedFiles: SearchResult[] }
->(({ selectedFiles }, ref) => {
+  { selectedFiles: SearchResult[]; uniqueTagList: TagInfo[] }
+>(({ selectedFiles, uniqueTagList }, ref) => {
   const [fileTagStates, setFileTagStates] = useState<FileTagState[]>([]);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [tagsToAdd, setTagsToAdd] = useState<string>("");
   const [tagsToRemove, setTagsToRemove] = useState<string>("");
   const [allExistingTags, setAllExistingTags] = useState<string[]>([]);
+
+  // Extract all unique tags from selected files
+  useEffect(() => {
+    setAvailableTags(uniqueTagList.map((p) => p.tag));
+  }, [uniqueTagList]);
 
   // Extract all unique tags from selected files
   useEffect(() => {
@@ -141,6 +148,13 @@ export const AddRemoveModeUI = forwardRef<
     }
   };
 
+  // Handle key press in add tag input
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleAddTagsToAll();
+    }
+  };
+
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3 p-3 rounded-lg border border-green-200 dark:border-green-800">
@@ -149,10 +163,13 @@ export const AddRemoveModeUI = forwardRef<
             Add tags to all files:
           </Label>
           <div className="flex space-x-1">
-            <Input
+            <InputDropdown
+              items={availableTags}
+              valueKey={(item) => item}
+              placeholder="Add new tag"
               value={tagsToAdd}
-              onChange={(e) => setTagsToAdd(e.target.value)}
-              placeholder="tag1, tag2, tag3"
+              onChange={setTagsToAdd}
+              onKeyDown={handleKeyDown}
               className="border-green-200 dark:border-green-800 h-8"
             />
             <Button

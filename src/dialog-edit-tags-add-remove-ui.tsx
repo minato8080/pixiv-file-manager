@@ -27,9 +27,14 @@ type AddRemoveModeHandle = {
   getForm: () => EditTagReq[];
 };
 
+type AddRemoveModeProps = {
+  selectedFiles: SearchResult[];
+  uniqueTagList: TagInfo[];
+};
+
 export const AddRemoveModeUI = forwardRef<
   AddRemoveModeHandle,
-  { selectedFiles: SearchResult[]; uniqueTagList: TagInfo[] }
+  AddRemoveModeProps
 >(({ selectedFiles, uniqueTagList }, ref) => {
   const [fileTagStates, setFileTagStates] = useState<FileTagState[]>([]);
   const [availableTags, setAvailableTags] = useState<string[]>([]);

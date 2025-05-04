@@ -129,7 +129,7 @@ export function InputDropdown<T>({
   }
 
   return (
-    <div className={className}>
+    <div>
       {label && (
         <Label htmlFor="input-dropdown" className="mb-2 block">
           {label}
@@ -147,7 +147,7 @@ export function InputDropdown<T>({
           onKeyDown={onKeyDown}
           onCompositionStart={handleCompositionStart}
           onCompositionEnd={handleCompositionEnd}
-          className="w-full"
+          className={`w-full ${className}`}
           autoComplete="off"
         />
 

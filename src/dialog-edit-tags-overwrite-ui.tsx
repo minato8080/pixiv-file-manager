@@ -28,14 +28,17 @@ type OverwriteModeHandle = {
   getForm: () => EditTagReq[];
 };
 
+type OverwriteModeProps = {
+  selectedFiles: SearchResult[];
+  uniqueTagList: TagInfo[];
+};
+
 export const OverwriteModeUI = forwardRef<
   OverwriteModeHandle,
-  { selectedFiles: SearchResult[]; uniqueTagList: TagInfo[] }
+  OverwriteModeProps
 >(({ selectedFiles, uniqueTagList }, ref) => {
   const [tags, setTags] = useState<TagState[]>([]);
-  const [selectedFileForTags, setSelectedFileForTags] = useState<string | null>(
-    null
-  );
+  const [selectedFileForTags, setSelectedFileForTags] = useState<string>("");
   const [editingTagIndex, setEditingTagIndex] = useState<number | null>(null);
   const [editingTagValue, setEditingTagValue] = useState<string>("");
   const [availableTags, setAvailableTags] = useState<string[]>([]);
@@ -44,7 +47,7 @@ export const OverwriteModeUI = forwardRef<
 
   const resetState = () => {
     setTags([]);
-    setSelectedFileForTags(null);
+    setSelectedFileForTags("");
     setEditingTagIndex(null);
     setEditingTagValue("");
   };
@@ -195,7 +198,7 @@ export const OverwriteModeUI = forwardRef<
             Select file:
           </Label>
           <Select
-            value={selectedFileForTags || ""}
+            value={selectedFileForTags}
             onValueChange={handleFileTagsSelect}
           >
             <SelectTrigger className="border-blue-200 dark:border-blue-800 h-8">
@@ -219,6 +222,7 @@ export const OverwriteModeUI = forwardRef<
             value={inputValue}
             onChange={setInputvalue}
             onKeyDown={handleKeyDown}
+            className="border-blue-200 dark:border-blue-800 h-8"
           />
           <Button
             onClick={handleAddTag}

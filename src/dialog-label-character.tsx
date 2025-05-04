@@ -1,11 +1,5 @@
 import type React from "react";
-import {
-  forwardRef,
-  useImperativeHandle,
-  useState,
-  useRef,
-  useEffect,
-} from "react";
+import { forwardRef, useImperativeHandle, useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +18,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { SearchResult } from "@/bindings/SearchResult";
 import { AssociateInfo } from "@/bindings/AssociateInfo";
+import { InputDropdown } from "./input-dropdown";
 
 export type DialogLabelCharaHandle = {
   open: (
@@ -46,16 +41,13 @@ export const DialogLabelChara = forwardRef<DialogLabelCharaHandle, Props>(
   (props, ref) => {
     // UI state management
     const [isOpen, setIsOpen] = useState(false); // Dialog open state
-    const [showDropdown, setShowDropdown] = useState(false); // Dropdown visibility
     const [isSubmitting, setIsSubmitting] = useState(false); // Submission state
-    const [isComposing, setIsComposing] = useState(false); // IME composition state
 
     // Character management
     const [characterName, setCharacterName] = useState(""); // Current character name
     const [availableCharacters, setAvailableCharacters] = useState<string[]>(
       []
     ); // List of available characters
-    const [filteredCharacters, setFilteredCharacters] = useState<string[]>([]); // Filtered characters based on input
 
     // File management
     const [selectedFiles, setSelectedFiles] = useState<SearchResult[]>([]); // Files selected for operation
@@ -70,11 +62,6 @@ export const DialogLabelChara = forwardRef<DialogLabelCharaHandle, Props>(
     const [associateInfo, setAssociateInfo] = useState<AssociateInfo | null>(
       null
     );
-
-    const inputRef = useRef<HTMLInputElement>(null);
-    const dropdownRef = useRef<HTMLDivElement>(null);
-    const containerRef = useRef<HTMLDivElement>(null);
-    const savePathInputRef = useRef<HTMLInputElement>(null);
 
     // 最も頻度の高いパスを見つける関数
     const findMostCommonPath = (files: SearchResult[]): string => {
@@ -182,12 +169,9 @@ export const DialogLabelChara = forwardRef<DialogLabelCharaHandle, Props>(
     const close = () => {
       // 変数を初期化
       setIsOpen(false);
-      setShowDropdown(false);
       setIsSubmitting(false);
-      setIsComposing(false);
       setCharacterName("");
       setAvailableCharacters([]);
-      setFilteredCharacters([]);
       setSelectedFiles([]);
       setIsUpdateLinkedFiles(false);
       setIsChangeCollectPath(false);
@@ -203,7 +187,6 @@ export const DialogLabelChara = forwardRef<DialogLabelCharaHandle, Props>(
         setCharacterName(initialName);
         setSelectedFiles(items);
         setAvailableCharacters(characters);
-        setFilteredCharacters(characters);
 
         // 保存パスの初期値を設定
         const mostCommonPath = findMostCommonPath(items);
@@ -219,21 +202,6 @@ export const DialogLabelChara = forwardRef<DialogLabelCharaHandle, Props>(
       },
       close,
     }));
-
-    useEffect(() => {
-      // Only filter characters when not in IME composition
-      if (!isComposing) {
-        if (characterName) {
-          setFilteredCharacters(
-            availableCharacters.filter((char) =>
-              char.toLowerCase().includes(characterName.toLowerCase())
-            )
-          );
-        } else {
-          setFilteredCharacters(availableCharacters);
-        }
-      }
-    }, [characterName, availableCharacters, isComposing]);
 
     // キャラクター名入力変更時の処理
     useEffect(() => {
@@ -251,26 +219,6 @@ export const DialogLabelChara = forwardRef<DialogLabelCharaHandle, Props>(
       calculatePathChanges();
     }, [isUpdateLinkedFiles, isChangeCollectPath]);
 
-    // Close dropdown when clicking outside
-    useEffect(() => {
-      const handleClickOutside = (event: MouseEvent) => {
-        if (
-          (dropdownRef.current &&
-            !dropdownRef.current.contains(event.target as Node) &&
-            inputRef.current &&
-            !inputRef.current.contains(event.target as Node)) ||
-          (!dropdownRef.current?.contains(event.target as Node) &&
-            document.contains(event.target as Node))
-        ) {
-          setShowDropdown(false);
-        }
-      };
-
-      document.addEventListener("mousedown", handleClickOutside);
-      return () =>
-        document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
-
     const handleSubmit = async () => {
       setIsSubmitting(true);
       try {
@@ -283,46 +231,6 @@ export const DialogLabelChara = forwardRef<DialogLabelCharaHandle, Props>(
       } finally {
         setIsSubmitting(false);
       }
-    };
-
-    const handleBlur = (event: React.FocusEvent<HTMLDivElement>) => {
-      const nextFocused = event.relatedTarget as Node | null;
-
-      if (!nextFocused || !containerRef.current?.contains(nextFocused)) {
-        setShowDropdown(false);
-      }
-    };
-
-    const handleSelectCharacter = (character: string) => {
-      setCharacterName(character);
-      setShowDropdown(false);
-      inputRef.current?.focus();
-    };
-
-    const handleCompositionStart = () => {
-      setIsComposing(true);
-    };
-
-    const handleCompositionEnd = () => {
-      setIsComposing(false);
-      // Update filtered characters after composition ends
-      if (characterName) {
-        setFilteredCharacters(
-          availableCharacters.filter((char) =>
-            char.toLowerCase().includes(characterName.toLowerCase())
-          )
-        );
-      } else {
-        setFilteredCharacters(availableCharacters);
-      }
-    };
-
-    // キャラクター名の変更ハンドラ
-    const handleCharacterNameChange = (
-      e: React.ChangeEvent<HTMLInputElement>
-    ) => {
-      const newName = e.target.value;
-      setCharacterName(newName);
     };
 
     // 保存パスの変更ハンドラ
@@ -339,46 +247,21 @@ export const DialogLabelChara = forwardRef<DialogLabelCharaHandle, Props>(
           </DialogHeader>
           <div className="py-3 space-y-3">
             {/* キャラクター名入力 */}
-            <div
-              className="relative"
-              ref={containerRef}
-              tabIndex={-1}
-              onBlur={handleBlur}
-            >
+            <div className="relative">
               <div className="border rounded-md p-2 bg-gray-50">
                 <p className="text-xs font-medium text-gray-500 mb-1">
                   Label Character Name:
                 </p>
-                <Input
-                  ref={inputRef}
-                  type="text"
+
+                <InputDropdown
+                  items={availableCharacters}
+                  valueKey={(item) => item}
                   placeholder="Enter character name"
                   value={characterName}
-                  onChange={handleCharacterNameChange}
-                  onClick={() => !isComposing && setShowDropdown(true)}
-                  onCompositionStart={handleCompositionStart}
-                  onCompositionEnd={handleCompositionEnd}
+                  onChange={setCharacterName}
                   className="w-full"
                 />
 
-                {showDropdown &&
-                  !isComposing &&
-                  filteredCharacters.length > 0 && (
-                    <div
-                      ref={dropdownRef}
-                      className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-sm max-h-60 overflow-auto"
-                    >
-                      {filteredCharacters.map((character) => (
-                        <div
-                          key={character}
-                          className="px-3 py-2 cursor-pointer hover:bg-gray-100"
-                          onClick={() => handleSelectCharacter(character)}
-                        >
-                          {character}
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 {/* 関連キャラクター情報 */}
                 {isUpdateLinkedFiles && associateInfo && (
                   <>
@@ -419,7 +302,6 @@ export const DialogLabelChara = forwardRef<DialogLabelCharaHandle, Props>(
                     </p>
                     <div className="flex gap-1">
                       <Input
-                        ref={savePathInputRef}
                         type="text"
                         placeholder="Enter save path"
                         value={collectDir}

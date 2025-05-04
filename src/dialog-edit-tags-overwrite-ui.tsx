@@ -222,7 +222,8 @@ export const OverwriteModeUI = forwardRef<
             value={inputValue}
             onChange={setInputvalue}
             onKeyDown={handleKeyDown}
-            className="border-blue-200 dark:border-blue-800 h-8"
+            inputClassName="border-blue-200 dark:border-blue-800 h-8"
+            dropdownClassName="h-30"
           />
           <Button
             onClick={handleAddTag}

@@ -259,7 +259,7 @@ export const DialogLabelChara = forwardRef<DialogLabelCharaHandle, Props>(
                   placeholder="Enter character name"
                   value={characterName}
                   onChange={setCharacterName}
-                  className="w-full"
+                  inputClassName="w-full"
                 />
 
                 {/* 関連キャラクター情報 */}

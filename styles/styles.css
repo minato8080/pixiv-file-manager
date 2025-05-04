@@ -46,7 +46,25 @@
     --input: 217.2 32.6% 17.5%;
     --ring: 224.3 76.5% 48%;
   }
-
+  .scroll-transparent::-webkit-scrollbar {
+    width: 8px;
+  }
+  .scroll-transparent::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scroll-transparent::-webkit-scrollbar-thumb {
+    background-color: transparent;
+  }
+  .scroll-hidden::-webkit-scrollbar {
+    width: 0px;
+    height: 0px;
+  }
+  .scroll-hidden::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scroll-hidden::-webkit-scrollbar-thumb {
+    background-color: transparent;
+  }
   [data-slot="switch-thumb"] {
     background-color: theme('colors.white');
   }

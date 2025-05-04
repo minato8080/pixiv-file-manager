@@ -175,7 +175,8 @@ export const AddRemoveModeUI = forwardRef<
               value={tagsToAdd}
               onChange={setTagsToAdd}
               onKeyDown={handleKeyDown}
-              className="border-green-200 dark:border-green-800 h-8"
+              inputClassName="border-green-200 dark:border-green-800 h-8"
+              dropdownClassName="h-50"
             />
             <Button
               onClick={handleAddTagsToAll}

@@ -108,7 +108,7 @@ export const DialogEditTags = forwardRef<DialogEditTagsHandle, Props>(
             </DialogTitle>
           </DialogHeader>
 
-          <div className="py-2 space-y-3 overflow-y-auto">
+          <div className="py-2 space-y-3 overflow-auto scroll-hidden">
             <div className="flex items-center space-x-2 p-2 rounded-lg">
               <Switch
                 id="mode-switch"

@@ -450,7 +450,11 @@ export default function TagsSearcher() {
             ...tag,
           }))}
           setSelectedItem={(items) => {
-            setSelectedTags(items.map((item) => ({ ...item })));
+            const uniqueItems = items.filter(
+              (item, index, self) =>
+                index === self.findIndex((t) => t.tag === item.tag)
+            );
+            setSelectedTags(uniqueItems.map((item) => ({ ...item })));
           }}
           ref={tagDropdownHandlerRef}
         />

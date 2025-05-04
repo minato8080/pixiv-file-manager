@@ -11,7 +11,7 @@ mod models;
 use commands::catalog::{
     delete_files, edit_tags, get_associated_info, label_character_name, move_files,
 };
-use rusqlite::{Connection, Result};
+use rusqlite::{params, Connection, Result};
 use std::sync::Mutex;
 use tauri::Manager;
 
@@ -126,6 +126,11 @@ fn initialize_db(conn: &Connection) -> Result<()> {
             PRIMARY KEY (author_id)
         )",
         [],
+    )?;
+
+    conn.execute(
+        "INSERT OR REPLACE INTO AUTHOR_INFO (author_id, author_name, author_account) VALUES (?1, ?2, ?3)",
+        params![0, "Missing", "Missing"],
     )?;
 
     conn.execute(

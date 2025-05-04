@@ -173,6 +173,8 @@ fn process_image_ids_detail(
             success_count += 1;
         } else {
             fail_count += 1;
+            insert_illust_info_with_defaults(&tx, &id_info)?;
+            insert_tags_with_defaults(&tx, &id_info)?;
             failed_file_paths.extend(id_info.sequential_info.iter().map(|info| {
                 format!(
                     "{}\\{}_p{}.{}",
@@ -410,6 +412,37 @@ fn insert_illust_info(
     Ok(())
 }
 
+fn insert_illust_info_with_defaults(
+    conn: &Connection,
+    id_info: &IdInfo,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let filtered_sequential_info = id_info
+        .sequential_info
+        .iter()
+        .filter(|info| info.insert_flag == 1)
+        .cloned()
+        .collect();
+    let filtered_info = IdInfo {
+        illust_id: id_info.illust_id,
+        sequential_info: filtered_sequential_info,
+    };
+    let mut stmt = conn.prepare(
+        "INSERT INTO ILLUST_INFO (illust_id, suffix, extension, author_id, character, save_dir, control_num) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)"
+    )?;
+    for info in &filtered_info.sequential_info {
+        stmt.execute(params![
+            id_info.illust_id,
+            info.suffix,
+            info.extension,
+            0,
+            None::<String>,
+            info.save_dir,
+            0,
+        ])?;
+    }
+    Ok(())
+}
+
 fn insert_suffixes_to_illust_info(
     conn: &Connection,
     id_info: IdInfo,
@@ -480,6 +513,17 @@ fn insert_tags(
             params![id_info.illust_id, 0, tag.name()],
         )?;
     }
+    Ok(())
+}
+
+fn insert_tags_with_defaults(
+    conn: &Connection,
+    id_info: &IdInfo,
+) -> Result<(), Box<dyn std::error::Error>> {
+    conn.execute(
+        "INSERT OR REPLACE INTO TAG_INFO (illust_id, control_num, tag) VALUES (?1, ?2, ?3)",
+        params![id_info.illust_id, 0, "Missing"],
+    )?;
     Ok(())
 }
 

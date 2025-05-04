@@ -3,6 +3,7 @@ import React, {
   useImperativeHandle,
   useState,
   useRef,
+  useEffect,
 } from "react";
 import { X, Plus, Edit, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,24 +20,26 @@ import {
 import { SearchResult } from "@/bindings/SearchResult";
 import { EditTagReq } from "@/bindings/EditTagReq";
 import { TagState } from "./dialog-edit-tags";
+import { TagInfo } from "@/bindings/TagInfo";
+import { InputDropdown } from "./input-dropdown";
 
 type OverwriteModeHandle = {
-  open: (items: SearchResult[]) => void;
   close: () => void;
   getForm: () => EditTagReq[];
 };
 
 export const OverwriteModeUI = forwardRef<
   OverwriteModeHandle,
-  { selectedFiles: SearchResult[] }
->(({ selectedFiles }, ref) => {
+  { selectedFiles: SearchResult[]; uniqueTagList: TagInfo[] }
+>(({ selectedFiles, uniqueTagList }, ref) => {
   const [tags, setTags] = useState<TagState[]>([]);
   const [selectedFileForTags, setSelectedFileForTags] = useState<string | null>(
     null
   );
   const [editingTagIndex, setEditingTagIndex] = useState<number | null>(null);
   const [editingTagValue, setEditingTagValue] = useState<string>("");
-  const addInputRef = useRef<HTMLInputElement>(null);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [inputValue, setInputvalue] = useState("");
   const editInputRef = useRef<HTMLInputElement>(null);
 
   const resetState = () => {
@@ -58,24 +61,28 @@ export const OverwriteModeUI = forwardRef<
     }));
     return form;
   };
+  // Extract all unique tags from selected files
+  useEffect(() => {
+    setAvailableTags(uniqueTagList.map((p) => p.tag));
+  }, [uniqueTagList]);
+
+  useEffect(() => {
+    if (selectedFiles.length > 0) {
+      // Default to the first file's tags
+      const firstFileTags = selectedFiles[0].tags
+        ? selectedFiles[0].tags
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter(Boolean)
+        : [];
+      setTags(
+        firstFileTags.map((tag) => ({ value: tag, status: "unchanged" }))
+      );
+      setSelectedFileForTags(`${selectedFiles[0].file_name}`);
+    }
+  }, [selectedFiles]);
 
   useImperativeHandle(ref, () => ({
-    open: (items) => {
-      console.log("open");
-      if (items.length > 0) {
-        // Default to the first file's tags
-        const firstFileTags = items[0].tags
-          ? items[0].tags
-              .split(",")
-              .map((tag) => tag.trim())
-              .filter(Boolean)
-          : [];
-        setTags(
-          firstFileTags.map((tag) => ({ value: tag, status: "unchanged" }))
-        );
-        setSelectedFileForTags(`${items[0].file_name}`);
-      }
-    },
     close: resetState,
     getForm: createForm,
   }));
@@ -134,11 +141,11 @@ export const OverwriteModeUI = forwardRef<
   };
 
   // Handle key press in add tag input
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleAddTag();
-    }
-  };
+  // const handleKeyDown = (e: React.KeyboardEvent) => {
+  //   if (e.key === "Enter") {
+  //     handleAddTag();
+  //   }
+  // };
 
   // Save edited tag
   const handleSaveEdit = () => {
@@ -162,17 +169,15 @@ export const OverwriteModeUI = forwardRef<
 
   // Add a new tag in overwrite mode
   const handleAddTag = () => {
-    if (addInputRef.current?.value) {
-      const newTag = addInputRef.current.value.trim();
-      if (newTag && !tags.some((tag) => tag.value === newTag)) {
-        setTags((prevTags) => [
-          ...prevTags,
-          { value: newTag, status: "added" },
-        ]);
-        addInputRef.current.value = "";
-      }
+    if (!tags.some((tag) => tag.value === inputValue)) {
+      setTags((prevTags) => [
+        ...prevTags,
+        { value: inputValue, status: "added" },
+      ]);
+      setInputvalue("");
     }
   };
+
   // Cancel editing
   const handleCancelEdit = () => {
     setEditingTagIndex(null);
@@ -207,11 +212,18 @@ export const OverwriteModeUI = forwardRef<
         </div>
 
         <div className="flex items-center gap-2">
-          <Input
+          {/* <Input
             ref={addInputRef}
             placeholder="Add new tag"
             onKeyDown={handleKeyDown}
             className="border-blue-200 dark:border-blue-800 h-8"
+          /> */}
+          <InputDropdown
+            items={availableTags}
+            valueKey={(item) => item}
+            placeholder="Add new tag"
+            value={inputValue}
+            onChange={setInputvalue}
           />
           <Button
             onClick={handleAddTag}

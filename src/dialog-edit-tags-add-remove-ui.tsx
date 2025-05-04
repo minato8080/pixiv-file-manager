@@ -23,7 +23,6 @@ import { FileTagState } from "./dialog-edit-tags";
 
 type AddRemoveModeHandle = {
   close: () => void;
-  fileTagStates: FileTagState[];
   getForm: () => EditTagReq[];
 };
 
@@ -83,7 +82,6 @@ export const AddRemoveModeUI = forwardRef<
 
   useImperativeHandle(ref, () => ({
     close: resetState,
-    fileTagStates,
     getForm: () =>
       fileTagStates.map((fileState) => ({
         file_name: fileState.fileName,

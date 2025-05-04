@@ -62,6 +62,7 @@ export default function TagsSearcher() {
   const [currentViewMode, setCurrentViewMode] = useState<ViewMode>(
     VIEW_MODES[0]
   );
+  const [uniqueTagList, setUniqueTagList] = useState<TagInfo[]>([]);
 
   // State for dropdown
   const [selectedTags, setSelectedTags] = useState<TagInfo[]>([]);
@@ -90,6 +91,7 @@ export default function TagsSearcher() {
   const fetchTags = async () => {
     try {
       const tags = await invoke<TagInfo[]>("get_unique_tag_list");
+      setUniqueTagList(tags);
       tagDropdownHandlerRef.current?.setAvailableItems(
         tags.map((t) => ({ id: t.tag, ...t }))
       );
@@ -864,7 +866,11 @@ export default function TagsSearcher() {
         ref={dialogCharacterLabelHandleRef}
       />
 
-      <DialogEditTags onSubmit={confirmTags} ref={dialogLabelEditHandleRef} />
+      <DialogEditTags
+        onSubmit={confirmTags}
+        uniqueTagList={uniqueTagList}
+        ref={dialogLabelEditHandleRef}
+      />
     </div>
   );
 }

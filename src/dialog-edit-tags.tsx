@@ -1,9 +1,4 @@
-import {
-  forwardRef,
-  useImperativeHandle,
-  useState,
-  useRef,
-} from "react";
+import { forwardRef, useImperativeHandle, useState, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -18,6 +13,7 @@ import { SearchResult } from "@/bindings/SearchResult";
 import { EditTagReq } from "@/bindings/EditTagReq";
 import { OverwriteModeUI } from "./dialog-edit-tags-overwrite-ui";
 import { AddRemoveModeUI } from "./dialog-edit-tags-add-remove-ui";
+import { TagInfo } from "@/bindings/TagInfo";
 
 export type DialogEditTagsHandle = {
   open: (items: SearchResult[]) => void;
@@ -38,6 +34,7 @@ export type FileTagState = {
 
 type Props = {
   onSubmit: (form: EditTagReq[]) => Promise<void>;
+  uniqueTagList: TagInfo[];
 };
 
 type OverwriteModeHandle = {
@@ -78,7 +75,6 @@ export const DialogEditTags = forwardRef<DialogEditTagsHandle, Props>(
       open: (items) => {
         setSelectedFiles(items);
         setIsOpen(true);
-        overwriteModeUIRef.current?.open(items);
       },
       close,
     }));
@@ -134,6 +130,7 @@ export const DialogEditTags = forwardRef<DialogEditTagsHandle, Props>(
               <OverwriteModeUI
                 ref={overwriteModeUIRef}
                 selectedFiles={selectedFiles}
+                uniqueTagList={props.uniqueTagList}
               />
             </div>
             <div className={isOverwriteMode ? "hidden" : ""}>

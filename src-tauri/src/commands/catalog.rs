@@ -1,4 +1,8 @@
-use std::{collections::HashSet, fs, path::Path};
+use std::{
+    collections::{HashMap, HashSet},
+    fs,
+    path::Path,
+};
 
 use rusqlite::{params, Transaction};
 use tauri::State;
@@ -123,6 +127,10 @@ fn process_move_files(
     Ok(())
 }
 
+const UPDATE_MODE_CONTROL: i32 = 0;
+const UPDATE_MODE_SUFFIX: i32 = 1;
+const UPDATE_MODE_INCREMENTAL: i32 = 2;
+
 #[tauri::command]
 pub fn label_character_name(
     state: State<AppState>,
@@ -133,10 +141,10 @@ pub fn label_character_name(
 ) -> Result<(), String> {
     let mut conn = state.db.lock().unwrap();
     let tx = conn.transaction().map_err(|e| e.to_string())?;
-    let mut updates = HashSet::new();
     let mut old_names = HashSet::new();
 
-    // 更新用のデータを作成
+    // 基本データを作成
+    let mut base_set = HashSet::new();
     for file_name in &file_names {
         let parts: Vec<&str> = file_name.split("_p").collect();
         if parts.len() != 2 {
@@ -148,7 +156,6 @@ pub fn label_character_name(
             return Err("Invalid file name format".to_string());
         }
         let suffix = suffix_and_ext[0].to_string();
-
         let (control_num, character): (i64, Option<String>) = tx
             .query_row(
                 "SELECT control_num, character FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
@@ -156,37 +163,126 @@ pub fn label_character_name(
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .map_err(|e| e.to_string())?;
-
-        if update_linked_files {
-            updates.insert((id, None, Some(control_num)));
-        } else {
-            updates.insert((id, Some(suffix), None)); // suffixで更新する
-        }
-
+        base_set.insert((id, suffix, control_num));
         if let Some(character_name) = character {
             old_names.insert(character_name);
         }
     }
 
-    // ILLUST_INFOを更新
-    for (id, suffix_opt, control_num_opt) in updates {
-        let mut sql = String::from("UPDATE ILLUST_INFO SET character = ?");
-        let mut param_vec: Vec<&dyn rusqlite::ToSql> = vec![&character_name];
-
-        if let Some(ref control_num) = control_num_opt {
-            sql.push_str(" WHERE illust_id = ? AND control_num = ?");
-            param_vec.push(&id);
-            param_vec.push(control_num);
-        } else if let Some(ref suffix) = suffix_opt {
-            sql.push_str(" WHERE illust_id = ? AND suffix = ?");
-            param_vec.push(&id);
-            param_vec.push(suffix);
+    // 更新用にデータを整形
+    let mut updates_set = HashSet::new();
+    for (id, suffix, control_num) in base_set.clone() {
+        if update_linked_files {
+            updates_set.insert(((id, None, control_num), UPDATE_MODE_CONTROL));
         } else {
-            return Err("Suffix is missing for the update operation".to_string());
+            // DBにある、illust_idに紐づくsuffixの数を取得
+            let total_control_count: usize = tx
+                .query_row(
+                    "SELECT COUNT(*) FROM ILLUST_INFO WHERE illust_id = ? AND control_num = ?",
+                    params![id, control_num],
+                    |row| row.get(0),
+                )
+                .map_err(|e| e.to_string())?;
+
+            // 今回の更新対象として選ばれたsuffixの数
+            let updated_suffix_count = base_set
+                .iter()
+                .filter(|(i_id, _, i_control_num)| id == *i_id && control_num == *i_control_num)
+                .count();
+
+            let needs_increment = updated_suffix_count < total_control_count;
+            if needs_increment {
+                updates_set.insert(((id, Some(suffix), control_num), UPDATE_MODE_INCREMENTAL));
+            } else {
+                updates_set.insert(((id, Some(suffix), control_num), UPDATE_MODE_SUFFIX));
+            }
+        }
+    }
+
+    // IN句に変換するためグループ化
+    let mut updates_map: HashMap<(String, i64, i32), Vec<Option<String>>> = HashMap::new();
+    for ((id, suffix_opt, control_num), update_mode) in &updates_set {
+        updates_map
+            .entry((id.clone(), *control_num, *update_mode))
+            .or_default()
+            .push(suffix_opt.clone());
+    }
+
+    // ILLUST_INFOを更新
+    for ((id, control_num, update_mode), suffixes) in updates_map {
+        let mut update_sql = String::from("UPDATE ILLUST_INFO SET character = ?");
+        let mut update_param_vec: Vec<Box<dyn rusqlite::ToSql>> = vec![Box::new(character_name)];
+        let mut insert_sql = None;
+        let mut insert_param_vec: Vec<&dyn rusqlite::ToSql> = vec![];
+        match update_mode {
+            UPDATE_MODE_CONTROL => {
+                update_sql.push_str(" WHERE illust_id = ? AND control_num = ?");
+                update_param_vec.push(Box::new(id));
+                update_param_vec.push(Box::new(control_num));
+            }
+            UPDATE_MODE_SUFFIX => {
+                if !suffixes.is_empty() {
+                    update_sql.push_str(" WHERE illust_id = ? AND suffix IN (");
+                    update_sql.push_str(&vec!["?"; suffixes.len()].join(", "));
+                    update_sql.push(')');
+                    update_param_vec.push(Box::new(id));
+                    for suffix in suffixes {
+                        if let Some(suffix) = suffix {
+                            update_param_vec.push(Box::new(suffix));
+                        }
+                    }
+                } else {
+                    return Err("Suffixes are missing for the update operation".to_string());
+                }
+            }
+            UPDATE_MODE_INCREMENTAL => {
+                update_sql.push_str(", control_num = (SELECT MAX(control_num) + 1 FROM ILLUST_INFO WHERE illust_id = ?)");
+                update_param_vec.push(Box::new(id.clone()));
+                if !suffixes.is_empty() {
+                    update_sql.push_str(" WHERE illust_id = ? AND suffix IN (");
+                    update_sql.push_str(&vec!["?"; suffixes.len()].join(", "));
+                    update_sql.push(')');
+                    update_param_vec.push(Box::new(id.clone()));
+                    for suffix in suffixes.clone() {
+                        if let Some(suffix) = suffix {
+                            update_param_vec.push(Box::new(suffix));
+                        }
+                    }
+
+                    insert_sql = Some(
+                        "
+                    INSERT INTO TAG_INFO (illust_id, control_num, tag)
+                    SELECT t.illust_id, i.control_num, t.tag
+                    FROM TAG_INFO t
+                    JOIN ILLUST_INFO i
+                        ON i.illust_id = t.illust_id
+                        AND i.suffix = ?
+                    WHERE t.illust_id = ?
+                        AND t.control_num = ?;
+                    ",
+                    );
+                    insert_param_vec.push(suffixes.get(0).unwrap_or(&None).as_ref().unwrap());
+                    insert_param_vec.push(&id);
+                    insert_param_vec.push(&control_num);
+                } else {
+                    return Err("Suffixes are missing for the update operation".to_string());
+                }
+            }
+            _ => {
+                return Err("An unknown update mode was encountered".to_string());
+            }
         }
 
-        tx.execute(&sql, param_vec.as_slice())
-            .map_err(|e| e.to_string())?;
+        tx.execute(
+            &update_sql,
+            rusqlite::params_from_iter(update_param_vec.iter().map(|b| b.as_ref())),
+        )
+        .map_err(|e| e.to_string())?;
+
+        if let Some(ref insert_query) = insert_sql {
+            tx.execute(insert_query, insert_param_vec.as_slice())
+                .map_err(|e| e.to_string())?;
+        }
     }
 
     // CHARACTER_INFOの更新

@@ -7,6 +7,7 @@ mod api;
 mod commands;
 mod constants;
 mod models;
+mod service;
 
 use commands::catalog::{
     delete_files, edit_tags, get_associated_info, label_character_name, move_files,

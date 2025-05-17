@@ -3,12 +3,18 @@ use ts_rs::TS;
 
 #[derive(Serialize, Deserialize, Debug, Clone, TS)]
 #[ts(export)]
-pub struct EditTagReq {
+pub struct EditTag {
     pub file_name: String,
-    pub tags: Vec<String>,
+    pub individual_tags: Option<Vec<String>>,
 }
 
-// AssociateInfo型の定義
+#[derive(Serialize, Deserialize, Debug, Clone, TS)]
+#[ts(export)]
+pub struct EditTagReq {
+    pub vec: Vec<EditTag>,
+    pub overwrite_tags: Option<Vec<String>>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, TS)]
 #[ts(export)]
 pub struct AssociateInfo {
@@ -18,7 +24,7 @@ pub struct AssociateInfo {
 
 #[derive(Serialize, Deserialize, Debug, Clone, TS)]
 #[ts(export)]
-pub struct  AssociateCharacter {
+pub struct AssociateCharacter {
     pub character: String,
     pub count: i32,
 }

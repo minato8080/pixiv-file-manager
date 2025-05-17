@@ -22,7 +22,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { VIEW_MODES, type ViewMode } from "./constants";
+import { VIEW_MODES, ViewModeKey } from "./constants";
 import { SearchResult } from "@/bindings/SearchResult";
 import { SearchHistory } from "@/bindings/SearchHistory";
 import { AuthorInfo } from "@/bindings/AuthorInfo";
@@ -47,8 +47,11 @@ import {
   DialogDeleteFilesHandle,
 } from "./dialog-delete-confirm";
 import { DropdownHistory, DropdownHistoryHandle } from "./dropdown-history";
-import { DialogEditTags, DialogEditTagsHandle } from "./dialog-edit-tags";
-import { EditTagReq } from "@/bindings/EditTagReq";
+import {
+  DialogEditTags,
+  DialogEditTagsHandle,
+  EditTagsSubmitType,
+} from "./dialog-edit-tags";
 import { CharacterInfo } from "@/bindings/CharacterInfo";
 import { TagInfo } from "@/bindings/TagInfo";
 
@@ -59,9 +62,8 @@ export default function TagsSearcher() {
   const [selectedFiles, setSelectedFiles] = useState<SearchResult[]>([]);
   const [operationMode, setOperationMode] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [currentViewMode, setCurrentViewMode] = useState<ViewMode>(
-    VIEW_MODES[0]
-  );
+  const [currentViewMode, setCurrentViewMode] =
+    useState<ViewModeKey>("details");
   const [uniqueTagList, setUniqueTagList] = useState<TagInfo[]>([]);
 
   // State for dropdown
@@ -159,20 +161,17 @@ export default function TagsSearcher() {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ctrl + Plus/Minus to change view mode
       if (e.ctrlKey) {
+        const viewModeKeys = Object.keys(VIEW_MODES) as ViewModeKey[];
+        const currentIndex = viewModeKeys.indexOf(currentViewMode);
+
         if (e.key === "+" || e.key === "=") {
           e.preventDefault();
-          const currentIndex = VIEW_MODES.findIndex(
-            (mode) => mode.id === currentViewMode.id
-          );
           const nextIndex = Math.max(0, currentIndex - 1);
-          setCurrentViewMode(VIEW_MODES[nextIndex]);
+          setCurrentViewMode(viewModeKeys[nextIndex]);
         } else if (e.key === "-" || e.key === "_") {
           e.preventDefault();
-          const currentIndex = VIEW_MODES.findIndex(
-            (mode) => mode.id === currentViewMode.id
-          );
-          const nextIndex = Math.min(VIEW_MODES.length - 1, currentIndex + 1);
-          setCurrentViewMode(VIEW_MODES[nextIndex]);
+          const nextIndex = Math.min(viewModeKeys.length - 1, currentIndex + 1);
+          setCurrentViewMode(viewModeKeys[nextIndex]);
         }
       }
     };
@@ -181,17 +180,16 @@ export default function TagsSearcher() {
       // Ctrl + Mouse wheel to change view mode
       if (e.ctrlKey) {
         e.preventDefault();
-        const currentIndex = VIEW_MODES.findIndex(
-          (mode) => mode.id === currentViewMode.id
-        );
+        const viewModeKeys = Object.keys(VIEW_MODES) as ViewModeKey[];
+        const currentIndex = viewModeKeys.indexOf(currentViewMode);
         if (e.deltaY < 0) {
           // Scroll up - larger icons
           const nextIndex = Math.max(0, currentIndex - 1);
-          setCurrentViewMode(VIEW_MODES[nextIndex]);
+          setCurrentViewMode(viewModeKeys[nextIndex]);
         } else {
           // Scroll down - smaller icons
-          const nextIndex = Math.min(VIEW_MODES.length - 1, currentIndex + 1);
-          setCurrentViewMode(VIEW_MODES[nextIndex]);
+          const nextIndex = Math.min(viewModeKeys.length - 1, currentIndex + 1);
+          setCurrentViewMode(viewModeKeys[nextIndex]);
         }
       }
     };
@@ -203,7 +201,7 @@ export default function TagsSearcher() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("wheel", handleWheel);
     };
-  }, [currentViewMode, VIEW_MODES]);
+  }, [VIEW_MODES[currentViewMode], VIEW_MODES]);
 
   // Clear all search conditions
   const clearSearchConditions = () => {
@@ -385,10 +383,8 @@ export default function TagsSearcher() {
     handleSearch();
   };
 
-  const confirmTags = async (form: EditTagReq[]) => {
-    await invoke("edit_tags", {
-      editTagReq: form,
-    });
+  const confirmTags = async (param: EditTagsSubmitType) => {
+    await invoke("edit_tags", param);
     await fetchTags();
     handleSearch();
   };
@@ -539,7 +535,7 @@ export default function TagsSearcher() {
               className="h-9 bg-white dark:bg-gray-800"
               onClick={() => setIsViewModeDropdownOpen(!isViewModeDropdownOpen)}
             >
-              {currentViewMode.icon}
+              {VIEW_MODES[currentViewMode].icon}
               <ChevronDown className="h-4 w-4 ml-1" />
             </Button>
 
@@ -548,15 +544,15 @@ export default function TagsSearcher() {
                 ref={viewModeDropdownRef}
                 className="absolute z-50 right-0 mt-1 w-40 bg-white dark:bg-gray-800 rounded-md shadow-lg border overflow-hidden"
               >
-                {VIEW_MODES.map((mode) => (
+                {Object.entries(VIEW_MODES).map(([key, mode]) => (
                   <button
-                    key={mode.id}
+                    key={key}
                     onClick={() => {
-                      setCurrentViewMode(mode);
+                      setCurrentViewMode(key as ViewModeKey);
                       setIsViewModeDropdownOpen(false);
                     }}
                     className={`w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 ${
-                      currentViewMode.id === mode.id
+                      currentViewMode === key
                         ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
                         : ""
                     }`}
@@ -720,7 +716,7 @@ export default function TagsSearcher() {
       <Card className="flex-1 overflow-hidden border-2 border-gray-200 dark:border-gray-700">
         <ScrollArea className="h-full overflow-auto">
           {searchResults.length > 0 ? (
-            currentViewMode.id === "details" ? (
+            currentViewMode === "details" ? (
               <div className="w-full">
                 <table className="w-full">
                   <thead className="bg-gray-100 dark:bg-gray-800 sticky top-0">
@@ -798,7 +794,9 @@ export default function TagsSearcher() {
                 </table>
               </div>
             ) : (
-              <div className={`grid ${currentViewMode.gridCols} gap-1 p-2`}>
+              <div
+                className={`grid ${VIEW_MODES[currentViewMode].gridCols} gap-1 p-2`}
+              >
                 {searchResults.map((result) => (
                   <div
                     key={result.file_name}
@@ -830,7 +828,7 @@ export default function TagsSearcher() {
                     <img
                       src={result.thumbnail_url || "/placeholder.svg"}
                       alt={result.file_name}
-                      className={`object-contain mb-1 rounded border border-gray-200 dark:border-gray-700 ${currentViewMode.size}`}
+                      className={`object-contain mb-1 rounded border border-gray-200 dark:border-gray-700 ${VIEW_MODES[currentViewMode].size}`}
                     />
                     <span className="text-xs text-center truncate w-full">
                       {result.file_name}

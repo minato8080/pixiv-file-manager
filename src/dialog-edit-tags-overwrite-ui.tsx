@@ -22,10 +22,11 @@ import { EditTagReq } from "@/bindings/EditTagReq";
 import { TagState } from "./dialog-edit-tags";
 import { TagInfo } from "@/bindings/TagInfo";
 import { InputDropdown } from "./input-dropdown";
+import { EditTag } from "@/bindings/EditTag";
 
 type OverwriteModeHandle = {
   close: () => void;
-  getForm: () => EditTagReq[];
+  getForm: () => EditTagReq;
 };
 
 type OverwriteModeProps = {
@@ -52,17 +53,17 @@ export const OverwriteModeUI = forwardRef<
     setEditingTagValue("");
   };
 
-  const createForm = (): EditTagReq[] => {
+  const createForm = (): EditTagReq => {
     // In overwrite mode, apply the same tags to all files
     const finalTags = tags
       .filter((tag) => tag.status !== "deleted")
       .map((tag) => tag.value);
 
-    const form: EditTagReq[] = selectedFiles.map((file) => ({
+    const vec: EditTag[] = selectedFiles.map((file) => ({
       file_name: file.file_name,
-      tags: finalTags,
+      individual_tags: null,
     }));
-    return form;
+    return { vec, overwrite_tags: finalTags };
   };
   // Extract all unique tags from selected files
   useEffect(() => {

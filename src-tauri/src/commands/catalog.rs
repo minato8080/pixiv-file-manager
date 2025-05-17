@@ -10,7 +10,8 @@ use crate::{
         global::AppState,
     },
     service::catalog::{
-        create_base_set, delete_unused_character_info, group_updates, prepare_updates_set,
+        create_base_map, create_base_map_with_opt, delete_unused_character_info,
+        prepare_id_tags_map, prepare_suffiexes_map, prepare_update_mode_map, process_edit_tags,
         process_move_files, update_character_info, update_illust_info,
     },
 };
@@ -39,13 +40,24 @@ pub fn label_character_name(
 ) -> Result<(), String> {
     let mut conn = state.db.lock().unwrap();
     let tx = conn.transaction().map_err(|e| e.to_string())?;
+
+    let base_map = create_base_map(&tx, &file_names)?;
+    let update_mode_map = prepare_update_mode_map(&tx, &base_map, update_linked_files)?;
+    let suffixes_map = prepare_suffiexes_map(update_mode_map);
+
     let mut old_names = HashSet::new();
+    for ((id, suffix, _), _) in base_map {
+        let old_name = tx
+            .query_row(
+                "SELECT character_name FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
+                params![id, suffix],
+                |row| Ok(row.get(0)?),
+            )
+            .map_err(|e| e.to_string())?;
+        old_names.insert(old_name);
+    }
 
-    let base_set = create_base_set(&tx, &file_names, &mut old_names)?;
-    let updates_set = prepare_updates_set(&tx, &base_set, update_linked_files)?;
-    let updates_map = group_updates(&updates_set);
-
-    update_illust_info(&tx, &updates_map, character_name)?;
+    update_illust_info(&tx, &suffixes_map, character_name)?;
     update_character_info(&tx, character_name, &collect_dir)?;
     delete_unused_character_info(&tx, &old_names)?;
 
@@ -60,47 +72,25 @@ pub fn label_character_name(
 #[tauri::command]
 pub fn edit_tags(
     state: State<AppState>,
-    edit_tag_req: Vec<EditTagReq>,
+    edit_tag_req: EditTagReq,
+    update_linked_files: bool,
 ) -> Result<(), String> {
     let mut conn = state.db.lock().unwrap();
     let tx = conn.transaction().map_err(|e| e.to_string())?;
-    for edit_tag in edit_tag_req {
-        let parts: Vec<&str> = edit_tag.file_name.split("_p").collect();
-        if parts.len() != 2 {
-            return Err("Invalid file name format".to_string());
-        }
-        let id = parts[0];
-        let suffix_and_extension: Vec<&str> = parts[1].split('.').collect();
-        if suffix_and_extension.len() != 2 {
-            return Err("Invalid file name format".to_string());
-        }
-        let suffix = suffix_and_extension[0];
-        let _extension = suffix_and_extension[1];
+    let file_names_with_opt: Vec<(String, Option<Vec<String>>)> = edit_tag_req
+        .vec
+        .into_iter()
+        .map(|edit_tag| (edit_tag.file_name, edit_tag.individual_tags))
+        .collect();
+    let base_map = create_base_map_with_opt(&tx, file_names_with_opt)?;
+    let id_tags_map = prepare_id_tags_map(
+        &tx,
+        base_map,
+        update_linked_files,
+        &edit_tag_req.overwrite_tags.clone(),
+    )?;
+    process_edit_tags(&tx, id_tags_map)?;
 
-        let control_num: i32 = tx
-            .query_row(
-                "SELECT control_num FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
-                params![id, suffix],
-                |row| row.get(0),
-            )
-            .map_err(|e| e.to_string())?;
-
-        // 既存のタグを削除
-        tx.execute(
-            "DELETE FROM TAG_INFO WHERE illust_id = ? AND control_num = ?",
-            params![id, control_num],
-        )
-        .map_err(|e| e.to_string())?;
-
-        // 新しいタグを挿入
-        for tag in &edit_tag.tags {
-            tx.execute(
-                "INSERT INTO TAG_INFO (illust_id, control_num, tag) VALUES (?, ?, ?)",
-                params![id, control_num, tag],
-            )
-            .map_err(|e| e.to_string())?;
-        }
-    }
     tx.commit().map_err(|e| e.to_string())?;
 
     Ok(())

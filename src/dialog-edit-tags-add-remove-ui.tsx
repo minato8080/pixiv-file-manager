@@ -21,10 +21,11 @@ import { EditTagReq } from "@/bindings/EditTagReq";
 import { FileTagState } from "./dialog-edit-tags";
 import { InputDropdown } from "./input-dropdown";
 import { TagInfo } from "@/bindings/TagInfo";
+import { EditTag } from "@/bindings/EditTag";
 
 type AddRemoveModeHandle = {
   close: () => void;
-  getForm: () => EditTagReq[];
+  getForm: () => EditTagReq;
 };
 
 type AddRemoveModeProps = {
@@ -92,15 +93,19 @@ export const AddRemoveModeUI = forwardRef<
     setAllExistingTags([]);
   };
 
+  const createForm = (): EditTagReq => {
+    const vec: EditTag[] = fileTagStates.map((fileState) => ({
+      file_name: fileState.fileName,
+      individual_tags: fileState.tags
+        .filter((tag) => tag.status !== "deleted")
+        .map((tag) => tag.value),
+    }));
+    return { vec, overwrite_tags: null };
+  };
+
   useImperativeHandle(ref, () => ({
     close: resetState,
-    getForm: () =>
-      fileTagStates.map((fileState) => ({
-        file_name: fileState.fileName,
-        tags: fileState.tags
-          .filter((tag) => tag.status !== "deleted")
-          .map((tag) => tag.value),
-      })),
+    getForm: () => createForm(),
   }));
 
   // Add tags in add/remove mode

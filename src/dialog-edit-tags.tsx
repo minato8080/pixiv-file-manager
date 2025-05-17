@@ -9,11 +9,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { invoke } from "@tauri-apps/api/core";
 import { SearchResult } from "@/bindings/SearchResult";
 import { EditTagReq } from "@/bindings/EditTagReq";
 import { OverwriteModeUI } from "./dialog-edit-tags-overwrite-ui";
 import { AddRemoveModeUI } from "./dialog-edit-tags-add-remove-ui";
 import { TagInfo } from "@/bindings/TagInfo";
+import { AssociateInfo } from "@/bindings/AssociateInfo";
 
 export type DialogEditTagsHandle = {
   open: (items: SearchResult[]) => void;
@@ -32,21 +36,25 @@ export type FileTagState = {
   tags: TagState[];
 };
 
+export type EditTagsSubmitType = {
+  editTagReq: EditTagReq;
+  updateLinkedFiles: boolean;
+};
 type Props = {
-  onSubmit: (form: EditTagReq[]) => Promise<void>;
+  onSubmit: (params: EditTagsSubmitType) => Promise<void>;
   uniqueTagList: TagInfo[];
 };
 
 type OverwriteModeHandle = {
   open: (items: SearchResult[]) => void;
   close: () => void;
-  getForm: () => EditTagReq[];
+  getForm: () => EditTagReq;
 };
 
 type AddRemoveModeHandle = {
   close: () => void;
   fileTagStates: FileTagState[];
-  getForm: () => EditTagReq[];
+  getForm: () => EditTagReq;
 };
 
 export const DialogEditTags = forwardRef<DialogEditTagsHandle, Props>(
@@ -56,8 +64,33 @@ export const DialogEditTags = forwardRef<DialogEditTagsHandle, Props>(
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isOverwriteMode, setIsOverwriteMode] = useState(false);
 
+    // 影響を受けるファイル数の状態
+    const [isUpdateLinkedFiles, setIsUpdateLinkedFiles] = useState(false); // Whether to update linked files
+    const [isLoadingAssociations, setIsLoadingAssociations] = useState(false);
+    const [associateInfo, setAssociateInfo] = useState<AssociateInfo | null>(
+      null
+    );
+
     const overwriteModeUIRef = useRef<OverwriteModeHandle>(null);
     const addRemoveHandleRef = useRef<AddRemoveModeHandle>(null);
+
+    // 紐づけ更新の情報を取得
+    const fetchAssociations = async (searchResult: SearchResult[]) => {
+      setIsLoadingAssociations(true);
+      try {
+        const result: AssociateInfo = await invoke("get_associated_info", {
+          fileNames: searchResult.map((p) => p.file_name),
+        });
+
+        if (result) {
+          setAssociateInfo(result);
+        }
+      } catch (error) {
+        console.error("Failed to fetch associations:", error);
+      } finally {
+        setIsLoadingAssociations(false);
+      }
+    };
 
     const resetState = () => {
       setSelectedFiles([]);
@@ -75,6 +108,8 @@ export const DialogEditTags = forwardRef<DialogEditTagsHandle, Props>(
       open: (items) => {
         setSelectedFiles(items);
         setIsOpen(true);
+        // 紐づけ更新の情報を取得
+        fetchAssociations(items);
       },
       close,
     }));
@@ -85,10 +120,18 @@ export const DialogEditTags = forwardRef<DialogEditTagsHandle, Props>(
       try {
         if (isOverwriteMode) {
           const form = overwriteModeUIRef.current?.getForm();
-          if (form) await props.onSubmit(form);
+          if (form)
+            await props.onSubmit({
+              editTagReq: form,
+              updateLinkedFiles: isUpdateLinkedFiles,
+            });
         } else {
           const form = addRemoveHandleRef.current?.getForm();
-          if (form) await props.onSubmit(form);
+          if (form)
+            await props.onSubmit({
+              editTagReq: form,
+              updateLinkedFiles: isUpdateLinkedFiles,
+            });
         }
 
         close();
@@ -123,6 +166,35 @@ export const DialogEditTags = forwardRef<DialogEditTagsHandle, Props>(
               <Label htmlFor="mode-switch" className="font-medium">
                 {isOverwriteMode ? "Overwrite Mode" : "Add/Remove Mode"}
               </Label>
+              {/* チェックボックスエリア */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="updateLinkedFiles"
+                    checked={isUpdateLinkedFiles}
+                    onCheckedChange={(checked) =>
+                      setIsUpdateLinkedFiles(checked === true)
+                    }
+                  />
+                  <Label
+                    htmlFor="updateLinkedFiles"
+                    className="text-red-600 font-medium"
+                  >
+                    Update linked files
+                  </Label>
+                  <Badge
+                    variant="outline"
+                    className="bg-red-50 text-red-600 border-red-200"
+                  >
+                    {isLoadingAssociations
+                      ? "Loading..."
+                      : `${associateInfo?.characters.reduce(
+                          (total, p) => total + p.count,
+                          0
+                        )} files linked`}
+                  </Badge>
+                </div>
+              </div>
             </div>
 
             {/* Main UI */}

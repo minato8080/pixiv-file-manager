@@ -47,11 +47,14 @@ pub fn label_character_name(
 
     let mut old_names = HashSet::new();
     for ((id, suffix, _), _) in base_map {
-        let old_name = tx
+        let old_name: Option<String> = tx
             .query_row(
-                "SELECT character_name FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
+                "SELECT D.character FROM ILLUST_DETAIL D 
+                INNER JOIN ILLUST_INFO I ON D.illust_id = I.illust_id 
+                AND D.control_num = I.control_num 
+                WHERE I.illust_id = ? AND I.suffix = ?",
                 params![id, suffix],
-                |row| Ok(row.get(0)?),
+                |row| row.get(0),
             )
             .map_err(|e| e.to_string())?;
         old_names.insert(old_name);
@@ -132,10 +135,24 @@ pub fn delete_files(state: State<AppState>, file_names: Vec<String>) -> Result<(
         )
         .map_err(|e| e.to_string())?;
 
-        // control_numを取り出して0件の場合、TAG_INFOから削除する
+        // control_numを取り出して0件の場合、TAG_INFOおよびILLUST_DETAILから削除する
         tx.execute(
             "
             DELETE FROM TAG_INFO
+            WHERE illust_id = ? AND control_num = ?
+            AND NOT EXISTS (
+                SELECT 1
+                FROM ILLUST_INFO
+                WHERE illust_id = ? AND control_num = ?
+            )
+            ",
+            params![id, control_num, id, control_num],
+        )
+        .map_err(|e| e.to_string())?;
+
+        tx.execute(
+            "
+            DELETE FROM ILLUST_DETAIL
             WHERE illust_id = ? AND control_num = ?
             AND NOT EXISTS (
                 SELECT 1
@@ -186,7 +203,11 @@ pub fn get_associated_info(
 
         // 同じ control_num を持つレコードを取得
         let mut stmt = conn.prepare(
-            "SELECT (illust_id || '_p' || suffix || '.' || extension) as key, character, save_dir FROM ILLUST_INFO WHERE illust_id = ? AND control_num = ?",
+            "SELECT (I.illust_id || '_p' || I.suffix || '.' || I.extension) as key, D.character, I.save_dir
+             FROM ILLUST_INFO I
+             LEFT JOIN ILLUST_DETAIL D
+             ON I.illust_id = D.illust_id AND I.control_num = D.control_num
+             WHERE I.illust_id = ? AND I.control_num = ?",
         ).map_err(|e| e.to_string())?;
 
         let rows = stmt

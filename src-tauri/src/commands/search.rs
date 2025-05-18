@@ -41,11 +41,13 @@ pub fn get_unique_characters(state: State<AppState>) -> Result<Vec<CharacterInfo
             "
                 SELECT 
                     C.character,
-                    COUNT(I.illust_id) AS illust_count
+                    COUNT(DISTINCT I.illust_id) AS illust_count
                 FROM 
                     CHARACTER_INFO C
                 LEFT JOIN 
-                    ILLUST_INFO I ON C.character = I.character
+                    ILLUST_DETAIL D ON C.character = D.character
+                LEFT JOIN 
+                    ILLUST_INFO I ON D.illust_id = I.illust_id
                 GROUP BY 
                     C.character
         ",
@@ -75,17 +77,19 @@ pub fn get_unique_authors(state: State<AppState>) -> Result<Vec<AuthorInfo>, Str
     let mut stmt = conn
         .prepare(
             "
-                SELECT 
-                    A.author_id,
-                    A.author_name,
-                    A.author_account,
-                    COUNT(I.illust_id) AS illust_count
-                FROM 
-                    AUTHOR_INFO A
-                LEFT JOIN 
-                    ILLUST_INFO I ON A.author_id = I.author_id
-                GROUP BY 
-                    A.author_id
+            SELECT 
+                A.author_id,
+                A.author_name,
+                A.author_account,
+                COUNT(I.illust_id) AS illust_count
+            FROM 
+                ILLUST_INFO I
+            INNER JOIN 
+                AUTHOR_INFO A ON A.author_id = D.author_id
+            INNER JOIN 
+                ILLUST_DETAIL D ON I.illust_id = D.illust_id AND I.control_num = D.control_num
+            GROUP BY 
+                A.author_id, A.author_name, A.author_account
         ",
         )
         .map_err(|e| e.to_string())?;
@@ -126,11 +130,34 @@ pub fn search_by_criteria(
 ) -> Result<Vec<SearchResult>, String> {
     let conn = state.db.lock().unwrap();
     let mut query = String::from(
-    "SELECT filtered.illust_id, suffix, extension, filtered.author_id, character, save_dir, author_name, author_account, GROUP_CONCAT(TAG_INFO.tag, ',') AS tags \
-     FROM ILLUST_INFO AS filtered \
-     JOIN AUTHOR_INFO ON filtered.author_id = AUTHOR_INFO.author_id \
-     JOIN TAG_INFO ON filtered.illust_id = TAG_INFO.illust_id \
-     AND filtered.control_num = TAG_INFO.control_num ",
+        "SELECT 
+        F.illust_id, 
+        F.suffix, 
+        F.extension, 
+        F.author_id, 
+        F.character, 
+        F.save_dir, 
+        A.author_name, 
+        A.author_account, 
+        GROUP_CONCAT(T.tag, ',') AS tags
+     FROM 
+        (
+            SELECT 
+                I.illust_id, 
+                I.suffix, 
+                I.extension, 
+                D.author_id, 
+                D.character, 
+                I.save_dir, 
+                I.control_num
+            FROM ILLUST_INFO AS I
+            LEFT JOIN ILLUST_DETAIL AS D ON I.illust_id = D.illust_id AND I.control_num = D.control_num
+        ) AS F
+     LEFT JOIN 
+        AUTHOR_INFO AS A ON F.author_id = A.author_id
+     LEFT JOIN 
+        TAG_INFO AS T ON F.illust_id = T.illust_id AND F.control_num = T.control_num
+    ",
     );
 
     let mut params: Vec<Box<dyn ToSql>> = Vec::new();
@@ -144,25 +171,42 @@ pub fn search_by_criteria(
             .join(", ");
 
         query = format!(
-        "SELECT filtered.illust_id, suffix, extension, filtered.author_id, character, save_dir, author_name, author_account, GROUP_CONCAT(TAG_INFO.tag, ',') AS tags \
-         FROM ( \
-             SELECT ILLUST_INFO.illust_id, suffix, extension, ILLUST_INFO.author_id, character, save_dir, ILLUST_INFO.control_num, author_name, author_account \
-             FROM ILLUST_INFO \
-             JOIN AUTHOR_INFO ON ILLUST_INFO.author_id = AUTHOR_INFO.author_id \
-             JOIN TAG_INFO ON ILLUST_INFO.illust_id = TAG_INFO.illust_id \
-             WHERE TAG_INFO.tag IN ({}) \
-             GROUP BY ILLUST_INFO.illust_id, suffix \
-             {} \
-         ) AS filtered \
-         LEFT JOIN TAG_INFO ON filtered.illust_id = TAG_INFO.illust_id \
-         AND filtered.control_num = TAG_INFO.control_num ",
-        placeholders,
-        match condition.as_str() {
-            "AND" => format!("HAVING COUNT(DISTINCT TAG_INFO.tag) = {}", tags.len()),
-            "OR" => "".to_string(),
-            _ => panic!("Unknown condition: {}", condition),
-        }
-    );
+            "SELECT F.illust_id,
+                suffix,
+                extension,
+                F.author_id,
+                character,
+                save_dir,
+                author_name,
+                author_account,
+                GROUP_CONCAT(T.tag, ',') AS tags
+             FROM (
+                SELECT  I.illust_id, 
+                        I.suffix, 
+                        I.extension, 
+                        D.author_id, 
+                        D.character, 
+                        I.save_dir, 
+                        I.control_num, 
+                        A.author_name, 
+                        A.author_account
+                FROM ILLUST_INFO AS I
+                JOIN ILLUST_DETAIL AS D ON I.illust_id = D.illust_id AND I.control_num = D.control_num
+                JOIN AUTHOR_INFO AS A ON D.author_id = A.author_id
+                JOIN TAG_INFO AS T ON I.illust_id = T.illust_id AND I.control_num = T.control_num
+                WHERE T.tag IN ({})
+                GROUP BY I.illust_id, I.suffix
+                {}
+            ) AS F
+            LEFT JOIN TAG_INFO AS T ON F.illust_id = T.illust_id
+            AND F.control_num = T.control_num ",
+            placeholders,
+            match condition.as_str() {
+                "AND" => format!("HAVING COUNT(DISTINCT T.tag) = {}", tags.len()),
+                "OR" => "".to_string(),
+                _ => panic!("Unknown condition: {}", condition),
+            }
+        );
 
         for tag in &tags {
             params.push(Box::new(tag.clone()));
@@ -173,11 +217,11 @@ pub fn search_by_criteria(
     if character.is_some() || author.is_some() {
         where_clauses.clear(); // 新しい外側クエリ用
         if let Some(c) = character.clone() {
-            where_clauses.push("filtered.character = ?".to_string());
+            where_clauses.push("F.character = ?".to_string());
             params.push(Box::new(c));
         }
         if let Some(a) = author {
-            where_clauses.push("filtered.author_id = ?".to_string());
+            where_clauses.push("F.author_id = ?".to_string());
             params.push(Box::new(a));
         }
     }
@@ -187,8 +231,8 @@ pub fn search_by_criteria(
         query.push_str(&where_clauses.join(" AND "));
     }
 
-    query.push_str(" GROUP BY filtered.illust_id, suffix");
-    query.push_str(" ORDER BY filtered.illust_id ASC, suffix ASC");
+    query.push_str(" GROUP BY F.illust_id, suffix");
+    query.push_str(" ORDER BY F.illust_id ASC, suffix ASC");
     query.push_str(" LIMIT 500");
     let mut stmt = conn.prepare(&query).map_err(|e| e.to_string())?;
 
@@ -327,8 +371,8 @@ fn save_search_history(
 
     // 履歴は10件まで保存
     conn.execute(
-        "DELETE FROM SEARCH_HISTORY WHERE ROWID NOT IN ( \
-            SELECT ROWID FROM SEARCH_HISTORY ORDER BY timestamp DESC LIMIT 10 \
+        "DELETE FROM SEARCH_HISTORY WHERE ROWID NOT IN (
+            SELECT ROWID FROM SEARCH_HISTORY ORDER BY timestamp DESC LIMIT 10
             )",
         [],
     )

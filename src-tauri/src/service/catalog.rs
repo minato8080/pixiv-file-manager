@@ -238,46 +238,79 @@ pub fn update_illust_info(
     suffixes_map: &SuffixesMap,
     character_name: &str,
 ) -> Result<(), String> {
+    // db_design.mdに基づき、ILLUST_DETAILテーブルを更新する形に修正
     for ((id, control_num, update_mode), suffixes) in suffixes_map {
-        let mut update_sql = String::from("UPDATE ILLUST_INFO SET character = ?");
-        let mut update_param_vec: Vec<Box<dyn rusqlite::ToSql>> = vec![Box::new(character_name)];
-        let mut insert_sql = None;
-        let mut insert_param_vec: Vec<&dyn rusqlite::ToSql> = vec![];
         match *update_mode {
             UPDATE_MODE_CONTROL => {
-                update_sql.push_str(" WHERE illust_id = ? AND control_num = ?");
-                update_param_vec.push(Box::new(id));
-                update_param_vec.push(Box::new(control_num));
+                // control_num指定でILLUST_DETAILを更新
+                tx.execute(
+                    "UPDATE ILLUST_DETAIL SET character = ? WHERE illust_id = ? AND control_num = ?",
+                    params![character_name, id, control_num])
+                    .map_err(|e| e.to_string())?;
             }
             UPDATE_MODE_INCREMENT => {
-                update_sql.push_str(", control_num = (SELECT MAX(control_num) + 1 FROM ILLUST_INFO WHERE illust_id = ?)");
-                update_param_vec.push(Box::new(id.clone()));
+                // suffixesが空でないことを確認
                 if !suffixes.is_empty() {
-                    update_sql.push_str(" WHERE illust_id = ? AND suffix IN (");
-                    update_sql.push_str(&vec!["?"; suffixes.len()].join(", "));
-                    update_sql.push(')');
-                    update_param_vec.push(Box::new(id.clone()));
-                    for suffix in suffixes.clone() {
+                    // 次の管理番号
+                    let next_control_num: i32 = tx
+                        .query_row(
+                            "SELECT IFNULL(MAX(control_num), 0) + 1 FROM ILLUST_INFO WHERE illust_id = ?",
+                            params![&id],
+                            |row| row.get(0),
+                        )
+                        .map_err(|e| e.to_string())?;
+
+                    // 元の管理番号からauthor_idをSELECTして使用
+                    let author_id: i32 = tx
+                        .query_row(
+                            "SELECT author_id FROM ILLUST_DETAIL WHERE illust_id = ? AND control_num = ?",
+                            params![id, control_num],
+                            |row| row.get(0),
+                        )
+                        .map_err(|e| e.to_string())?;
+
+                    // control_numを新規発番し、ILLUST_DETAILにINSERT
+                    tx.execute(
+                        "INSERT INTO ILLUST_DETAIL (illust_id, control_num, author_id, character) VALUES (?, ?, ?, ?)",
+                        params![id, next_control_num, author_id, character_name],
+                    )
+                    .map_err(|e| e.to_string())?;
+
+                    // ILLUST_INFOの該当suffixのcontrol_numを新しいものに更新
+                    let mut update_info_sql = String::from("UPDATE ILLUST_INFO SET control_num = ? WHERE illust_id = ? AND suffix IN (");
+                    update_info_sql.push_str(&vec!["?"; suffixes.len()].join(", "));
+                    update_info_sql.push(')');
+                    let mut update_info_params: Vec<Box<dyn rusqlite::ToSql>> =
+                        vec![Box::new(next_control_num), Box::new(id)];
+                    for suffix in suffixes.iter() {
                         if let Some(suffix) = suffix {
-                            update_param_vec.push(Box::new(suffix));
+                            update_info_params.push(Box::new(suffix));
                         }
                     }
+                    tx.execute(
+                        &update_info_sql,
+                        rusqlite::params_from_iter(update_info_params.iter().map(|b| b.as_ref())),
+                    )
+                    .map_err(|e| e.to_string())?;
 
-                    insert_sql = Some(
-                        "
-                    INSERT INTO TAG_INFO (illust_id, control_num, tag)
-                    SELECT t.illust_id, i.control_num, t.tag
-                    FROM TAG_INFO t
-                    JOIN ILLUST_INFO i
-                        ON i.illust_id = t.illust_id
-                        AND i.suffix = ?
-                    WHERE t.illust_id = ?
-                        AND t.control_num = ?;
-                    ",
-                    );
-                    insert_param_vec.push(suffixes.get(0).unwrap_or(&None).as_ref().unwrap());
-                    insert_param_vec.push(&id);
-                    insert_param_vec.push(&control_num);
+                    // TAG_INFOも新しいcontrol_numで複製
+                    let insert_tags_sql = "
+                        INSERT INTO TAG_INFO (illust_id, control_num, tag)
+                        SELECT illust_id, ? as control_num, tag
+                        FROM TAG_INFO
+                        WHERE illust_id = ? AND control_num = ?
+                        ";
+                    let mut insert_tags_param_vec: Vec<Box<dyn rusqlite::ToSql>> = vec![];
+                    insert_tags_param_vec.push(Box::new(next_control_num));
+                    insert_tags_param_vec.push(Box::new(id));
+                    insert_tags_param_vec.push(Box::new(control_num));
+                    tx.execute(
+                        insert_tags_sql,
+                        rusqlite::params_from_iter(
+                            insert_tags_param_vec.iter().map(|b| b.as_ref()),
+                        ),
+                    )
+                    .map_err(|e| e.to_string())?;
                 } else {
                     return Err("Suffixes are missing for the update operation".to_string());
                 }
@@ -285,17 +318,6 @@ pub fn update_illust_info(
             _ => {
                 return Err("An unknown update mode was encountered".to_string());
             }
-        }
-
-        tx.execute(
-            &update_sql,
-            rusqlite::params_from_iter(update_param_vec.iter().map(|b| b.as_ref())),
-        )
-        .map_err(|e| e.to_string())?;
-
-        if let Some(ref insert_query) = insert_sql {
-            tx.execute(insert_query, insert_param_vec.as_slice())
-                .map_err(|e| e.to_string())?;
         }
     }
     Ok(())
@@ -323,15 +345,19 @@ pub fn update_character_info(
 
 pub fn delete_unused_character_info(
     tx: &rusqlite::Transaction,
-    old_names: &HashSet<String>,
+    old_names: &HashSet<Option<String>>,
 ) -> Result<(), String> {
+    // old_namesの中身がNoneしかないならリターン
+    if old_names.iter().all(|name| name.is_none()) {
+        return Ok(());
+    }
     tx.execute(
         "
         DELETE FROM CHARACTER_INFO
         WHERE character IN (SELECT value FROM json_each(?))
           AND NOT EXISTS (
-            SELECT 1 FROM ILLUST_INFO
-            WHERE ILLUST_INFO.character = CHARACTER_INFO.character
+            SELECT 1 FROM ILLUST_DETAIL
+            WHERE ILLUST_DETAIL.character = CHARACTER_INFO.character
           )
         ",
         params![serde_json::to_string(old_names).map_err(|e| e.to_string())?],
@@ -390,16 +416,45 @@ pub fn prepare_id_tags_map(
 pub fn process_edit_tags(tx: &rusqlite::Transaction, id_tags_map: IdTagsMap) -> Result<(), String> {
     // idとtagsの一対一で処理
     for ((id, tags_opt), suffixes_and_control_num) in id_tags_map {
-        // stuffixes_and_control_numのcontrol_numが単一ならそのまま、複数ならdbから最新を取得してインクリメント
+        // 管理番号のセット
         let unique_control_nums: std::collections::HashSet<i32> = suffixes_and_control_num
             .iter()
             .map(|(_, control_num)| *control_num)
             .collect();
-        let next_control_num = if unique_control_nums.len() == 1 {
-            // control_numが全て同じならそのまま使う
+
+        // suffixの配列
+        let suffixes: Vec<i32> = suffixes_and_control_num
+            .iter()
+            .map(|(suffix, _)| suffix.clone())
+            .collect();
+
+        // 管理番号変更フラグ
+        let is_change_control_num = if unique_control_nums.len() == 1 {
+            // 一個目の管理番号
+            let first_control_num = *unique_control_nums.iter().next().unwrap();
+            // 一個目の管理番号でカウント
+            let count: i32 = tx
+                .query_row(
+                    "SELECT COUNT(*) FROM ILLUST_INFO WHERE illust_id = ? AND control_num = ?",
+                    params![&id, first_control_num],
+                    |row| row.get(0),
+                )
+                .map_err(|e| e.to_string())?;
+            // 全件更新なら未変更
+            count != suffixes.len() as i32
+        }
+        // それ以外は変更
+        else {
+            true
+        };
+
+        // 次の管理番号
+        // 管理番号が未変更ならそのまま
+        let next_control_num = if !is_change_control_num {
             *unique_control_nums.iter().next().unwrap()
-        } else {
-            // 複数ある場合はDBから最新のcontrol_numを取得し、インクリメント
+        }
+        // そうでないなら最新を取得してインクリメント
+        else {
             let max_control_num: i32 = tx
                 .query_row(
                     "SELECT MAX(control_num) FROM ILLUST_INFO WHERE illust_id = ?",
@@ -411,45 +466,72 @@ pub fn process_edit_tags(tx: &rusqlite::Transaction, id_tags_map: IdTagsMap) -> 
             max_control_num + 1
         };
 
-        // suffixes_and_control_numを使ってsuffixのIN句でupdateする
-        let suffixes: Vec<i32> = suffixes_and_control_num
-            .iter()
-            .map(|(suffix, _)| suffix.clone())
-            .collect();
-        if !suffixes.is_empty() {
-            let in_clause = suffixes.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-            let mut params_vec: Vec<&dyn rusqlite::ToSql> = Vec::new();
-            params_vec.push(&next_control_num);
-            params_vec.push(&id);
-            for suffix in &suffixes {
-                params_vec.push(suffix);
-            }
-            let sql = format!(
+        // suffixのIN句で管理番号をupdateする
+        let in_clause = suffixes.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+
+        let mut params_vec: Vec<&dyn rusqlite::ToSql> = Vec::new();
+        params_vec.push(&next_control_num);
+        params_vec.push(&id);
+        for suffix in &suffixes {
+            params_vec.push(suffix);
+        }
+
+        tx.execute(
+            &format!(
                 "UPDATE ILLUST_INFO SET control_num = ? WHERE illust_id = ? AND suffix IN ({})",
                 in_clause
-            );
-            tx.execute(&sql, params_vec.as_slice())
+            ),
+            params_vec.as_slice(),
+        )
+        .map_err(|e| e.to_string())?;
+
+        // 管理番号を変更してるならILLUST_DETAILを複製
+        if is_change_control_num {
+            let some_control_num = unique_control_nums.iter().next().unwrap();
+            tx.execute(
+                "
+                INSERT OR IGNORE INTO ILLUST_DETAIL (illust_id, control_num, author_id, character)
+                SELECT illust_id, ? as control_num, author_id, character
+                FROM ILLUST_DETAIL WHERE illust_id = ? AND control_num = ?
+                ",
+                params![&next_control_num, &id, &some_control_num],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+
+        // 関連テーブルの更新
+        for control_num in unique_control_nums {
+            // 旧番でカウント
+            let count: i32 = tx
+                .query_row(
+                    "SELECT COUNT(*) FROM ILLUST_INFO WHERE illust_id = ? AND control_num = ?",
+                    params![&id, &control_num],
+                    |row| row.get(0),
+                )
                 .map_err(|e| e.to_string())?;
 
-            // unique_control_numsをループして、ILLUST_INFOに登録が0ならTAG_INFOからDELETE
-            for control_num in unique_control_nums {
-                let count: i32 = tx
-                    .query_row(
-                        "SELECT COUNT(*) FROM ILLUST_INFO WHERE illust_id = ? AND control_num = ?",
-                        params![&id, &control_num],
-                        |row| row.get(0),
-                    )
-                    .map_err(|e| e.to_string())?;
-                if count == 0 || (control_num == next_control_num && count == suffixes.len() as i32)
-                {
-                    tx.execute(
-                        "DELETE FROM TAG_INFO WHERE illust_id = ? AND control_num = ?",
-                        params![&id, &control_num],
-                    )
-                    .map_err(|e| e.to_string())?;
-                }
+            // カウントが0なら削除
+            // 洗い替えの場合も削除
+            if count == 0 || is_change_control_num {
+                // TAG_INFOからDELETE
+                tx.execute(
+                    "DELETE FROM TAG_INFO WHERE illust_id = ? AND control_num = ?",
+                    params![&id, &control_num],
+                )
+                .map_err(|e| e.to_string())?;
+            }
+
+            // カウントが0なら削除
+            if count == 0 {
+                // ILLUST_DETAILを削除
+                tx.execute(
+                    "DELETE ILLUST_DETAIL WHERE illust_id = ? AND control_num = ?",
+                    params![&next_control_num, &id, &control_num],
+                )
+                .map_err(|e| e.to_string())?;
             }
         }
+
         // 新しいタグを挿入
         if let Some(tags) = tags_opt {
             for tag in tags {

@@ -73,12 +73,21 @@ fn initialize_db(conn: &Connection) -> Result<()> {
         "CREATE TABLE IF NOT EXISTS ILLUST_INFO (
             illust_id INTEGER NOT NULL,
             suffix INTEGER NOT NULL,
+            control_num INTEGER NOT NULL,
             extension TEXT NOT NULL,
+            save_dir TEXT,
+            PRIMARY KEY (illust_id, suffix)
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS ILLUST_DETAIL (
+            illust_id INTEGER NOT NULL,
+            control_num INTEGER NOT NULL,
             author_id INTEGER NOT NULL,
             character TEXT,
-            save_dir TEXT,
-            control_num INTEGER NOT NULL,
-            PRIMARY KEY (illust_id, suffix)
+            PRIMARY KEY (illust_id, control_num)
         )",
         [],
     )?;

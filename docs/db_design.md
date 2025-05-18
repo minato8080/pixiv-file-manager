@@ -4,11 +4,16 @@
   - `illust_id`: INTEGER NOT NULL - イラストの識別子
   - `suffix`: INTEGER NOT NULL - イラストのサフィックス
   - `extension`: TEXT NOT NULL - ファイルの拡張子
-  - `author_id`: INTEGER NOT NULL - 作者の識別子
-  - `character`: TEXT - イラストのキャラクター名
   - `save_dir`: TEXT - イラストが保存されているディレクトリのパス
   - `control_num`: INTEGER NOT NULL - タグ用の管理番号
   - **PRIMARY KEY**: (`illust_id`, `suffix`)
+
+- **ILLUST_DETAIL**
+  - `illust_id`: INTEGER NOT NULL - イラストの識別子
+  - `control_num`: INTEGER NOT NULL - タグ用の管理番号
+  - `author_id`: INTEGER NOT NULL - 作者の識別子
+  - `character`: TEXT - イラストのキャラクター名
+  - **PRIMARY KEY**: (`illust_id`, `control_num`)
 
 - **ILLUST_INFO_WORK**
   - `illust_id`: INTEGER NOT NULL - イラストの識別子

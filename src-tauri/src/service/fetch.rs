@@ -389,58 +389,44 @@ fn insert_suffixes_to_illust_info(
     conn: &Connection,
     id_info: IdInfo,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let filtered_sequential_info = id_info
-        .sequential_info
-        .iter()
-        .filter(|info| info.insert_flag == 1)
-        .cloned()
-        .collect();
+    // insert_flagが1のものだけを抽出
     let filtered_info = IdInfo {
         illust_id: id_info.illust_id,
-        sequential_info: filtered_sequential_info,
+        sequential_info: id_info
+            .sequential_info
+            .iter()
+            .filter(|info| info.insert_flag == 1)
+            .cloned()
+            .collect(),
     };
-    let mut select_stmt = conn.prepare(
-        "SELECT suffix, extension, author_id, character, save_dir, control_num FROM ILLUST_INFO WHERE illust_id = ?1 ORDER BY control_num ASC LIMIT 1"
+
+    // 既存のILLUST_INFOからcontrol_numを取得
+    let (control_num,) = {
+        let mut stmt = conn.prepare(
+            "SELECT control_num FROM ILLUST_INFO WHERE illust_id = ?1 ORDER BY control_num ASC LIMIT 1"
+        )?;
+        stmt.query_row(params![filtered_info.illust_id], |row| {
+            let control_num: i64 = row.get(0)?;
+            Ok((control_num,))
+        })?
+    };
+
+    // 挿入用ステートメントを準備
+    let mut insert_stmt = conn.prepare(
+        "INSERT INTO ILLUST_INFO (illust_id, suffix, extension, save_dir, control_num) VALUES (?1, ?2, ?3, ?4, ?5)"
     )?;
 
-    let mut stmt = conn.prepare(
-        "INSERT INTO ILLUST_INFO (illust_id, suffix, extension, author_id, character, save_dir, control_num) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)"
-    )?;
-
-    let row = select_stmt.query_row(params![filtered_info.illust_id], |row| {
-        let suffix: i64 = row.get(0)?;
-        let extension: String = row.get(1)?;
-        let author_id: i64 = row.get(2)?;
-        let character: Option<String> = row.get(3)?;
-        let save_dir: String = row.get(4)?;
-        let control_num: i64 = row.get(5)?;
-        Ok((
-            suffix,
-            extension,
-            author_id,
-            character,
-            save_dir,
-            control_num,
-        ))
-    })?;
+    // 各sequential_infoを挿入
     for info in &filtered_info.sequential_info {
-        let suffix: i64 = info.suffix;
-        let extension: String = info.extension.clone();
-        let author_id: i64 = row.2;
-        let character: Option<String> = row.3.clone();
-        let save_dir: String = info.save_dir.clone();
-        let control_num: i64 = row.5;
-
-        stmt.execute(params![
+        insert_stmt.execute(params![
             filtered_info.illust_id,
-            suffix,
-            extension,
-            author_id,
-            character,
-            save_dir,
+            info.suffix,
+            info.extension,
+            info.save_dir,
             control_num,
         ])?;
     }
+
     Ok(())
 }
 

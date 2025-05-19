@@ -3,7 +3,6 @@ import { cn } from "@/lib/utils";
 import { ScrollArea } from "@radix-ui/react-scroll-area";
 import { CheckSquare, Square, Search } from "lucide-react";
 import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { VIEW_MODES, ViewModeKey } from "./constants";
 import { SearchResult } from "@/bindings/SearchResult";
 
@@ -56,19 +55,6 @@ export const TagsSearcherResultArea = ({
     updateResultsInBatches(searchResults);
   }, [searchResults]);
 
-  const openImage = async (fileId: number, filePath: string) => {
-    if (operationMode) return; // 選択モード中は画像を開かない
-
-    try {
-      await invoke("open_image", {
-        fileId,
-        filePath,
-      });
-    } catch (error) {
-      console.error("Error opening image:", error);
-    }
-  };
-
   return (
     <Card className="flex-1 overflow-hidden border-2 border-gray-200 dark:border-gray-700">
       <ScrollArea className="h-full overflow-auto">
@@ -106,7 +92,6 @@ export const TagsSearcherResultArea = ({
                         if (operationMode) {
                           toggleItemSelection(result);
                         } else {
-                          // openImage(result.id, result.file_name);
                           setSelectedImage(result.file_name);
                         }
                       }}
@@ -166,7 +151,7 @@ export const TagsSearcherResultArea = ({
                     if (operationMode) {
                       toggleItemSelection(result);
                     } else {
-                      openImage(result.id, result.file_name);
+                      setSelectedImage(result.file_name);
                     }
                   }}
                 >

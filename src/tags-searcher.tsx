@@ -54,17 +54,20 @@ import {
 } from "./dialog-edit-tags";
 import { CharacterInfo } from "@/bindings/CharacterInfo";
 import { TagInfo } from "@/bindings/TagInfo";
+import { ImageViewerModal } from "./image-viewer-modal";
 
 export default function TagsSearcher() {
   // State for buissiness
   const [searchCondition, setSearchCondition] = useState<"AND" | "OR">("AND");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const searchResultsRef = useRef<SearchResult[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<SearchResult[]>([]);
-  const [operationMode, setOperationMode] = useState(true);
+  const [operationMode, setOperationMode] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [currentViewMode, setCurrentViewMode] =
     useState<ViewModeKey>("details");
   const [uniqueTagList, setUniqueTagList] = useState<TagInfo[]>([]);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   // State for dropdown
   const [selectedTags, setSelectedTags] = useState<TagInfo[]>([]);
@@ -217,6 +220,7 @@ export default function TagsSearcher() {
     if (selectedTags.length === 0 && !selectedCharacter && !selectedAuthor) {
       return;
     }
+
     const performSearch = async () => {
       try {
         const results: SearchResult[] = await invoke("search_by_criteria", {
@@ -226,13 +230,46 @@ export default function TagsSearcher() {
           author: selectedAuthor?.author_id,
         });
 
-        setSearchResults(
-          results.map((r) => {
-            const url = convertFileSrc(r.thumbnail_url);
-            r.thumbnail_url = url;
-            return r;
-          })
-        );
+        // 画像ビューワーモーダル用
+        searchResultsRef.current = results;
+
+        // 遅延読み込み
+        const updateResultsInBatches = (results: SearchResult[]) => {
+          let index = 0;
+          const batchSize = 50; // N件ずつ処理
+          const delay = 2500; // N秒間隔で処理
+
+          const processBatch = () => {
+            // 50件ずつ取り出してURL変換
+            const batch = results.slice(index, index + batchSize).map((r) => {
+              const url = convertFileSrc(r.thumbnail_url);
+              r.thumbnail_url = url;
+              return r;
+            });
+
+            // searchResultsに追加
+            setSearchResults((prevResults) => [...prevResults, ...batch]);
+
+            index += batchSize;
+
+            // 全ての結果を処理し終えたら停止
+            if (index < results.length) {
+              setTimeout(processBatch, delay);
+            }
+          };
+
+          // 最初のバッチを処理開始
+          processBatch();
+        };
+
+        // setSearchResults(
+        //   results.map((r) => {
+        //     const url = convertFileSrc(r.thumbnail_url);
+        //     r.thumbnail_url = url;
+        //     return r;
+        //   })
+        // );
+        updateResultsInBatches(results);
         setSelectedFiles([]);
 
         // Save search history to DB
@@ -306,8 +343,11 @@ export default function TagsSearcher() {
   };
 
   // Handle delete operation
-  const handleDelete = () => {
-    if (selectedFiles.length === 0) return;
+  const handleDelete = (item?: SearchResult) => {
+    if (item) {
+      setSelectedFiles([item]);
+      dialogDeleteFilesHandleRef.current?.open([item.file_name]);
+    } else if (selectedFiles.length === 0) return;
     dialogDeleteFilesHandleRef.current?.open(
       selectedFiles.map((p) => p.file_name)
     );
@@ -677,7 +717,7 @@ export default function TagsSearcher() {
             variant="outline"
             size="sm"
             className="h-8 bg-white dark:bg-gray-800"
-            onClick={handleDelete}
+            onClick={() => handleDelete()}
             disabled={selectedFiles.length === 0 || isDeleting}
           >
             <Trash2 className="h-3.5 w-3.5 mr-1 text-red-500" />
@@ -753,7 +793,8 @@ export default function TagsSearcher() {
                           if (operationMode) {
                             toggleItemSelection(result);
                           } else {
-                            openImage(result.id, result.file_name);
+                            // openImage(result.id, result.file_name);
+                            setSelectedImage(result.file_name);
                           }
                         }}
                       >
@@ -872,6 +913,13 @@ export default function TagsSearcher() {
         onSubmit={confirmTags}
         uniqueTagList={uniqueTagList}
         ref={dialogLabelEditHandleRef}
+      />
+
+      <ImageViewerModal
+        searchResults={searchResultsRef.current}
+        selectedItem={selectedImage}
+        onClose={() => setSelectedImage(null)}
+        onDelete={handleDelete}
       />
     </div>
   );

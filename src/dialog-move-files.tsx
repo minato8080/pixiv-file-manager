@@ -140,7 +140,9 @@ export const DialogMoveFiles = forwardRef<DialogMoveFilesHandle, Props>(
 
     return (
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900">
+        <DialogContent 
+          aria-describedby="A dialog to move files."
+          className="sm:max-w-md bg-white dark:bg-gray-900">
           <DialogHeader>
             <DialogTitle>Move {pathsToUpdate} files</DialogTitle>
           </DialogHeader>

@@ -46,7 +46,10 @@ export const DialogDeleteFiles = forwardRef<DialogDeleteFilesHandle, Props>(
 
     return (
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900">
+        <DialogContent
+          aria-describedby="A dialog to delete files."
+          className="sm:max-w-md bg-white dark:bg-gray-900"
+        >
           <DialogHeader>
             <DialogTitle className="text-red-600">
               Delete Confirmation

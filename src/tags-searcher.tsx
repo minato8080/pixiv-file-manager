@@ -17,11 +17,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
 import { VIEW_MODES, ViewModeKey } from "./constants";
 import { SearchResult } from "@/bindings/SearchResult";
 import { SearchHistory } from "@/bindings/SearchHistory";
@@ -55,12 +52,12 @@ import {
 import { CharacterInfo } from "@/bindings/CharacterInfo";
 import { TagInfo } from "@/bindings/TagInfo";
 import { ImageViewerModal } from "./image-viewer-modal";
+import { TagsSearcherResultArea } from "./tags-searcher-result-area";
 
 export default function TagsSearcher() {
   // State for buissiness
   const [searchCondition, setSearchCondition] = useState<"AND" | "OR">("AND");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const searchResultsRef = useRef<SearchResult[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<SearchResult[]>([]);
   const [operationMode, setOperationMode] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -230,46 +227,13 @@ export default function TagsSearcher() {
           author: selectedAuthor?.author_id,
         });
 
-        // 画像ビューワーモーダル用
-        searchResultsRef.current = results;
-
-        // 遅延読み込み
-        const updateResultsInBatches = (results: SearchResult[]) => {
-          let index = 0;
-          const batchSize = 50; // N件ずつ処理
-          const delay = 2500; // N秒間隔で処理
-
-          const processBatch = () => {
-            // 50件ずつ取り出してURL変換
-            const batch = results.slice(index, index + batchSize).map((r) => {
-              const url = convertFileSrc(r.thumbnail_url);
-              r.thumbnail_url = url;
-              return r;
-            });
-
-            // searchResultsに追加
-            setSearchResults((prevResults) => [...prevResults, ...batch]);
-
-            index += batchSize;
-
-            // 全ての結果を処理し終えたら停止
-            if (index < results.length) {
-              setTimeout(processBatch, delay);
-            }
-          };
-
-          // 最初のバッチを処理開始
-          processBatch();
-        };
-
-        // setSearchResults(
-        //   results.map((r) => {
-        //     const url = convertFileSrc(r.thumbnail_url);
-        //     r.thumbnail_url = url;
-        //     return r;
-        //   })
-        // );
-        updateResultsInBatches(results);
+        setSearchResults(
+          results.map((r) => {
+            const url = convertFileSrc(r.thumbnail_url);
+            r.thumbnail_url = url;
+            return r;
+          })
+        );
         setSelectedFiles([]);
 
         // Save search history to DB
@@ -456,19 +420,6 @@ export default function TagsSearcher() {
   const handleTagEditor = () => {
     if (selectedFiles.length > 0 && dialogLabelEditHandleRef.current) {
       dialogLabelEditHandleRef.current.open(selectedFiles);
-    }
-  };
-
-  const openImage = async (fileId: number, filePath: string) => {
-    if (operationMode) return; // 選択モード中は画像を開かない
-
-    try {
-      await invoke("open_image", {
-        fileId,
-        filePath,
-      });
-    } catch (error) {
-      console.error("Error opening image:", error);
     }
   };
 
@@ -753,139 +704,14 @@ export default function TagsSearcher() {
       )}
 
       {/* Results Area */}
-      <Card className="flex-1 overflow-hidden border-2 border-gray-200 dark:border-gray-700">
-        <ScrollArea className="h-full overflow-auto">
-          {searchResults.length > 0 ? (
-            currentViewMode === "details" ? (
-              <div className="w-full">
-                <table className="w-full">
-                  <thead className="bg-gray-100 dark:bg-gray-800 sticky top-0">
-                    <tr>
-                      {operationMode && <th className="w-8 p-2"></th>}
-                      <th className="text-left p-2 text-xs font-medium">
-                        File
-                      </th>
-                      <th className="text-left p-2 text-xs font-medium">
-                        Location
-                      </th>
-                      <th className="text-left p-2 text-xs font-medium">
-                        Author
-                      </th>
-                      <th className="text-left p-2 text-xs font-medium">
-                        Character
-                      </th>
-                      <th className="text-left p-2 text-xs font-medium">
-                        Tags
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {searchResults.map((result) => (
-                      <tr
-                        key={result.file_name}
-                        className={cn(
-                          "hover:bg-blue-50 dark:hover:bg-blue-900/20 border-b border-gray-200 dark:border-gray-700",
-                          operationMode &&
-                            selectedFiles.includes(result) &&
-                            "bg-blue-100 dark:bg-blue-900/30"
-                        )}
-                        onClick={() => {
-                          if (operationMode) {
-                            toggleItemSelection(result);
-                          } else {
-                            // openImage(result.id, result.file_name);
-                            setSelectedImage(result.file_name);
-                          }
-                        }}
-                      >
-                        {operationMode && (
-                          <td className="p-2">
-                            {selectedFiles.includes(result) ? (
-                              <CheckSquare className="h-4 w-4 text-blue-600" />
-                            ) : (
-                              <Square className="h-4 w-4 text-gray-400" />
-                            )}
-                          </td>
-                        )}
-                        <td className="p-2">
-                          <div className="flex items-center gap-2">
-                            <img
-                              src={result.thumbnail_url || "/placeholder.svg"}
-                              alt={result.file_name}
-                              className="h-8 w-8 object-contain rounded border border-gray-200 dark:border-gray-700"
-                            />
-                            <span className="text-sm">{result.file_name}</span>
-                          </div>
-                        </td>
-                        <td className="p-2 text-sm text-gray-600 dark:text-gray-300">
-                          {result.save_dir}
-                        </td>
-                        <td className="p-2 text-sm text-gray-600 dark:text-gray-300">
-                          {result.author.author_name || "-"}
-                        </td>
-                        <td className="p-2 text-sm text-gray-600 dark:text-gray-300">
-                          {result.character || "-"}
-                        </td>
-                        <td className="p-2 text-sm text-gray-600 dark:text-gray-300">
-                          {result.tags || "-"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div
-                className={`grid ${VIEW_MODES[currentViewMode].gridCols} gap-1 p-2`}
-              >
-                {searchResults.map((result) => (
-                  <div
-                    key={result.file_name}
-                    className={cn(
-                      "flex flex-col items-center p-1 rounded-md border hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer",
-                      operationMode &&
-                        selectedFiles.includes(result) &&
-                        "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700",
-                      !selectedFiles.includes(result) &&
-                        "border-gray-200 dark:border-gray-700"
-                    )}
-                    onClick={() => {
-                      if (operationMode) {
-                        toggleItemSelection(result);
-                      } else {
-                        openImage(result.id, result.file_name);
-                      }
-                    }}
-                  >
-                    {operationMode && (
-                      <div className="self-start mb-1">
-                        {selectedFiles.includes(result) ? (
-                          <CheckSquare className="h-4 w-4 text-blue-600" />
-                        ) : (
-                          <Square className="h-4 w-4 text-gray-400" />
-                        )}
-                      </div>
-                    )}
-                    <img
-                      src={result.thumbnail_url || "/placeholder.svg"}
-                      alt={result.file_name}
-                      className={`object-contain mb-1 rounded border border-gray-200 dark:border-gray-700 ${VIEW_MODES[currentViewMode].size}`}
-                    />
-                    <span className="text-xs text-center truncate w-full">
-                      {result.file_name}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )
-          ) : (
-            <div className="flex flex-col items-center justify-center h-[200px] text-gray-500">
-              <Search className="h-12 w-12 mb-2 opacity-50" />
-              <p className="text-base">Select tags and search to see results</p>
-            </div>
-          )}
-        </ScrollArea>
-      </Card>
+      <TagsSearcherResultArea
+        searchResults={searchResults}
+        currentViewMode={currentViewMode}
+        operationMode={operationMode}
+        selectedFiles={selectedFiles}
+        toggleItemSelection={toggleItemSelection}
+        setSelectedImage={setSelectedImage}
+      />
 
       {/* Add status bar at the bottom */}
       {searchResults.length > 0 && (
@@ -916,7 +742,7 @@ export default function TagsSearcher() {
       />
 
       <ImageViewerModal
-        searchResults={searchResultsRef.current}
+        searchResults={searchResults}
         selectedItem={selectedImage}
         onClose={() => setSelectedImage(null)}
         onDelete={handleDelete}

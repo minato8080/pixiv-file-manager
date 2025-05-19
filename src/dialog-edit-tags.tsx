@@ -142,7 +142,9 @@ export const DialogEditTags = forwardRef<DialogEditTagsHandle, Props>(
 
     return (
       <Dialog open={isOpen} onOpenChange={(b) => !b && close()}>
-        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-hidden flex flex-col bg-white">
+        <DialogContent 
+          aria-describedby="A dialog to edit tags."
+          className="sm:max-w-2xl max-h-[80vh] overflow-hidden flex flex-col bg-white">
           <DialogHeader>
             <DialogTitle
               className={isOverwriteMode ? "text-blue-600" : "text-green-600"}

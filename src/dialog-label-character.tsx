@@ -241,7 +241,9 @@ export const DialogLabelChara = forwardRef<DialogLabelCharaHandle, Props>(
 
     return (
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900">
+        <DialogContent 
+          aria-describedby="A dialog to label character."
+          className="sm:max-w-md bg-white dark:bg-gray-900">
           <DialogHeader>
             <DialogTitle className="text-blue-600">Character Label</DialogTitle>
           </DialogHeader>

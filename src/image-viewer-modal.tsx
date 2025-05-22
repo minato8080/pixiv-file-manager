@@ -4,21 +4,25 @@ import { Trash2, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import type { SearchResult } from "@/bindings/SearchResult";
+import { useDialogDeleteStore } from "./stores/dialog-delete-store";
+import { useTagsSearcherStore } from "./stores/tags-searcher-store";
 
 interface ImageViewerModalProps {
   searchResults: SearchResult[];
   selectedItem: string | null; // file_name as key
   onClose: () => void;
-  onDelete: (item: SearchResult) => void;
 }
 
 export function ImageViewerModal({
   searchResults,
   selectedItem,
   onClose,
-  onDelete,
 }: ImageViewerModalProps) {
   const [currentIndex, setCurrentIndex] = useState<number>(0);
+
+  const { setSelectedFiles } = useTagsSearcherStore();
+  const { openDeleteFilesDialog } = useDialogDeleteStore();
+
   // Find the index of the selected item
   useEffect(() => {
     if (selectedItem && searchResults.length > 0) {
@@ -43,9 +47,11 @@ export function ImageViewerModal({
 
   const handleDelete = useCallback(() => {
     if (currentItem) {
-      onDelete(currentItem);
+      // Handle delete operation
+      setSelectedFiles([currentItem]);
+      openDeleteFilesDialog([currentItem.file_name]);
     }
-  }, [currentItem, onDelete]);
+  }, [currentItem]);
 
   const close = () => {
     setCurrentIndex(-1);

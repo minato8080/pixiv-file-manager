@@ -21,7 +21,7 @@ import { SearchResult } from "@/bindings/SearchResult";
 import { EditTagReq } from "@/bindings/EditTagReq";
 import { TagState } from "./dialog-edit-tags";
 import { TagInfo } from "@/bindings/TagInfo";
-import { InputDropdown } from "./input-dropdown";
+import { InputDropdown } from "../input-dropdown";
 import { EditTag } from "@/bindings/EditTag";
 
 type OverwriteModeHandle = {

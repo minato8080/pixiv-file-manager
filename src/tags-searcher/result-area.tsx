@@ -3,29 +3,23 @@ import { cn } from "@/lib/utils";
 import { ScrollArea } from "@radix-ui/react-scroll-area";
 import { CheckSquare, Square, Search } from "lucide-react";
 import { useEffect, useState } from "react";
-import { VIEW_MODES, ViewModeKey } from "./constants";
+import { VIEW_MODES } from "../constants";
 import { SearchResult } from "@/bindings/SearchResult";
+import { useTagsSearcherStore } from "../stores/tags-searcher-store";
 
-type TagsSearcherResultAreaProps = {
-  searchResults: SearchResult[];
-  currentViewMode: ViewModeKey;
-  operationMode: boolean;
-  selectedFiles: SearchResult[];
-  toggleItemSelection: (item: SearchResult) => void;
-  setSelectedImage: (fileName: string) => void;
-};
-
-export const TagsSearcherResultArea = ({
-  searchResults,
-  currentViewMode,
-  operationMode,
-  selectedFiles,
-  toggleItemSelection,
-  setSelectedImage,
-}: TagsSearcherResultAreaProps) => {
+export const TagsSearcherResultArea = () => {
   const [innerSearchResults, setInnerSearchResults] = useState<SearchResult[]>(
     []
   );
+
+  const {
+    searchResults,
+    selectedFiles,
+    setSelectedFiles,
+    operationMode,
+    currentViewMode,
+    setSelectedImage,
+  } = useTagsSearcherStore();
 
   useEffect(() => {
     // 遅延読み込み
@@ -54,6 +48,17 @@ export const TagsSearcherResultArea = ({
     };
     updateResultsInBatches(searchResults);
   }, [searchResults]);
+
+  // Toggle item selection
+  const toggleItemSelection = (fileName: SearchResult) => {
+    if (operationMode) {
+      setSelectedFiles(
+        selectedFiles.includes(fileName)
+          ? selectedFiles.filter((p) => p !== fileName)
+          : [...selectedFiles, fileName]
+      );
+    }
+  };
 
   return (
     <Card className="flex-1 overflow-hidden border-2 border-gray-200 dark:border-gray-700">

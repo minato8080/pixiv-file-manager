@@ -28,6 +28,7 @@
       "@/lib/*": ["./lib/*"],
       "@/src/*": ["./src/*"],
       "@/styles/*": ["./styles/*"],
+      "@/stores/*": ["./src/stores/*"],
       "@/bindings/*": ["./src-tauri/bindings/*"]
     }
   },

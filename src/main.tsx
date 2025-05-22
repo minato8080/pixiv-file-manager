@@ -2,7 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { FolderSearch, Tags } from "lucide-react";
 import { TabbedInterface, type TabItem } from "@/src/tabbed-interface";
-import TagsSearcher from "./tags-searcher";
+import TagsSearcher from "./tags-searcher/tags-searcher";
 import TagsFetcher from "./tags-fetcher";
 import "@/styles/styles.css";
 

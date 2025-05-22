@@ -18,6 +18,9 @@ export default defineConfig([
   {
     files: ["./src/**/*.{js,mjs,cjs,ts,jsx,tsx}"],
     settings: {
+      react: {
+        version: "detect",
+      },
       "import/resolver": {
         alias: {
           map: [
@@ -27,6 +30,7 @@ export default defineConfig([
             ["@/lib/*", "./lib/*"],
             ["@/src/*", "./src/*"],
             ["@/styles/*", "./styles/*"],
+            ["@/stores/*", "./src/stores/*"],
             ["@/bindings/*", "./src-tauri/bindings/*"],
           ],
           extensions: [".ts", ".tsx", ".js", ".jsx"], // 解決したい拡張子

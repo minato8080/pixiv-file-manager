@@ -19,7 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SearchResult } from "@/bindings/SearchResult";
 import { EditTagReq } from "@/bindings/EditTagReq";
 import { FileTagState } from "./dialog-edit-tags";
-import { InputDropdown } from "./input-dropdown";
+import { InputDropdown } from "../input-dropdown";
 import { TagInfo } from "@/bindings/TagInfo";
 import { EditTag } from "@/bindings/EditTag";
 

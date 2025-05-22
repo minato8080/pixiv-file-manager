@@ -37,6 +37,7 @@ export default defineConfig(async () => ({
       "@/lib": path.resolve(__dirname, "./lib"),
       "@/src": path.resolve(__dirname, "./src"),
       "@/styles": path.resolve(__dirname, "./styles"),
+      "@/stores": path.resolve(__dirname, "./src/stores"),
       "@/bindings": path.resolve(__dirname, "./src-tauri/bindings"),
     },
   },

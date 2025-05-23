@@ -7,12 +7,12 @@ import {
   Trash2,
   User,
 } from "lucide-react";
-import { useTagsSearcherStore } from "../stores/tags-searcher-store";
-import { useDialogDeleteStore } from "../stores/dialog-delete-store";
-import { useDialogMoveStore } from "../stores/dialog-move-store";
-import { useDialogLabelStore } from "../stores/dialog-label-store";
-import { useDropdownStore } from "../stores/dropdown-store";
-import { useDialogEditStore } from "../stores/dialog-edit-store";
+import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
+import { useDialogDeleteStore } from "@/stores/dialog-delete-store";
+import { useDialogMoveStore } from "@/stores/dialog-move-store";
+import { useDialogLabelStore } from "@/stores/dialog-label-store";
+import { useDropdownStore } from "@/stores/dropdown-store";
+import { useDialogEditStore } from "@/stores/dialog-edit-store";
 
 export const OperationArea = () => {
   const {

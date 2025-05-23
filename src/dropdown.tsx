@@ -1,10 +1,4 @@
-import React, {
-  useState,
-  useRef,
-  useEffect,
-  forwardRef,
-  useImperativeHandle,
-} from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,51 +10,46 @@ export type Item = {
   count?: number | null;
 };
 
-type DropdownProps<T> = DropdownSharedProps &
+type DropdownProps<T> = DropdownSharedProps<T> &
   (DropdownMultipleProps<T> | DropdownSingleProps<T>);
 
-type DropdownSharedProps = {
+type DropdownSharedProps<T> = {
   ButtonIcon: React.ReactElement;
   buttonText: string;
   buttonClassName?: string;
   placeholderText?: string;
   badgeClassName?: string;
+  availableItems: T[];
 };
 
 type DropdownMultipleProps<T> = {
   mode: "multiple";
   selectedItem: T[];
-  setSelectedItem: (param: T[]) => void;
+  onClick: (item: T[]) => void;
 };
 
 type DropdownSingleProps<T> = {
   mode: "single";
   selectedItem: T | null;
-  setSelectedItem: (param: T | null) => void;
+  onClick: (item: T) => void;
 };
 
 export type DropdownHandle<T> = {
   addItem: (tag: T) => void;
-  removeItem: (id: string) => void;
-  setAvailableItems: React.Dispatch<React.SetStateAction<T[]>>;
-  availableItems: T[];
 };
 
-function FilterDropdown<T extends Item>(
-  {
-    mode,
-    ButtonIcon,
-    buttonText,
-    selectedItem,
-    setSelectedItem,
-    buttonClassName = "",
-    placeholderText = "Filter...",
-    badgeClassName = "",
-  }: DropdownProps<T>,
-  ref: React.Ref<DropdownHandle<T>>
-) {
+export function FilterDropdown<T extends Item>({
+  mode,
+  ButtonIcon,
+  buttonText,
+  selectedItem,
+  buttonClassName = "",
+  placeholderText = "Filter...",
+  badgeClassName = "",
+  availableItems,
+  onClick,
+}: DropdownProps<T>) {
   // State
-  const [availableItems, setAvailableItems] = useState<T[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState("");
 
@@ -84,29 +73,12 @@ function FilterDropdown<T extends Item>(
 
   const addItem = (item: T) => {
     if (mode === "multiple") {
-      setSelectedItem([...selectedItem, item]);
+      onClick([...selectedItem, item]);
     } else {
-      setSelectedItem(item);
+      onClick(item);
     }
     setIsOpen(false);
   };
-
-  // Remove tag from selected tags
-  const removeItem = (id: string) => {
-    if (mode === "multiple") {
-      setSelectedItem(selectedItem.filter((param) => param.id !== id));
-    } else {
-      setSelectedItem(null);
-    }
-  };
-
-  // Expose handlers to parent component
-  useImperativeHandle(ref, () => ({
-    addItem,
-    removeItem,
-    setAvailableItems,
-    availableItems,
-  }));
 
   // Filter available tags
   const filteredTags = availableItems.filter((tag) => tag.id.includes(filter));
@@ -167,9 +139,3 @@ function FilterDropdown<T extends Item>(
     </div>
   );
 }
-
-export const ForwardedFilterDropdown = forwardRef(FilterDropdown) as <
-  T extends Item
->(
-  props: DropdownProps<T> & React.RefAttributes<DropdownHandle<T>>
-) => React.ReactElement;

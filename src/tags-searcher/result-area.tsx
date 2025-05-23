@@ -5,7 +5,7 @@ import { CheckSquare, Square, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { VIEW_MODES } from "../constants";
 import { SearchResult } from "@/bindings/SearchResult";
-import { useTagsSearcherStore } from "../stores/tags-searcher-store";
+import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
 
 export const TagsSearcherResultArea = () => {
   const [innerSearchResults, setInnerSearchResults] = useState<SearchResult[]>(

@@ -18,9 +18,9 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { SearchResult } from "@/bindings/SearchResult";
 import { AssociateInfo } from "@/bindings/AssociateInfo";
-import { InputDropdown } from "../input-dropdown";
-import { useDialogLabelStore } from "../stores/dialog-label-store";
-import { useTagsSearcher } from "../hooks/use-tags-searcher";
+import { InputDropdown } from "../../input-dropdown";
+import { useDialogLabelStore } from "@/stores/dialog-label-store";
+import { useTagsSearcher } from "../../hooks/use-tags-searcher";
 
 type DialogLabelCharaSubmitParams = {
   characterName: string;

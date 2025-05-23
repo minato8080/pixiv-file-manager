@@ -17,9 +17,9 @@ import { EditTagReq } from "@/bindings/EditTagReq";
 import { OverwriteModeUI } from "./dialog-edit-tags-overwrite-ui";
 import { AddRemoveModeUI } from "./dialog-edit-tags-add-remove-ui";
 import { AssociateInfo } from "@/bindings/AssociateInfo";
-import { useTagsSearcher } from "../hooks/use-tags-searcher";
-import { useDropdownStore } from "../stores/dropdown-store";
-import { useDialogEditStore } from "../stores/dialog-edit-store";
+import { useTagsSearcher } from "../../hooks/use-tags-searcher";
+import { useDropdownStore } from "@/stores/dropdown-store";
+import { useDialogEditStore } from "@/stores/dialog-edit-store";
 
 export type TagState = {
   value: string;

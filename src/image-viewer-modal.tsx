@@ -3,21 +3,12 @@ import { useState, useEffect, useCallback } from "react";
 import { Trash2, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import type { SearchResult } from "@/bindings/SearchResult";
-import { useDialogDeleteStore } from "./stores/dialog-delete-store";
-import { useTagsSearcherStore } from "./stores/tags-searcher-store";
+import { useDialogDeleteStore } from "@/stores/dialog-delete-store";
+import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
 
-interface ImageViewerModalProps {
-  searchResults: SearchResult[];
-  selectedItem: string | null; // file_name as key
-  onClose: () => void;
-}
-
-export function ImageViewerModal({
-  searchResults,
-  selectedItem,
-  onClose,
-}: ImageViewerModalProps) {
+export function ImageViewerModal() {
+  const { searchResults, selectedImage, setSelectedImage } =
+    useTagsSearcherStore();
   const [currentIndex, setCurrentIndex] = useState<number>(0);
 
   const { setSelectedFiles } = useTagsSearcherStore();
@@ -25,15 +16,15 @@ export function ImageViewerModal({
 
   // Find the index of the selected item
   useEffect(() => {
-    if (selectedItem && searchResults.length > 0) {
+    if (selectedImage && searchResults.length > 0) {
       const index = searchResults.findIndex(
-        (item) => item.file_name === selectedItem
+        (item) => item.file_name === selectedImage
       );
       if (index !== -1) {
         setCurrentIndex(index);
       }
     }
-  }, [selectedItem, searchResults]);
+  }, [selectedImage, searchResults]);
 
   const currentItem = searchResults[currentIndex];
 
@@ -55,13 +46,13 @@ export function ImageViewerModal({
 
   const close = () => {
     setCurrentIndex(-1);
-    onClose();
+    setSelectedImage(null);
   };
 
   // Keyboard event handler - only active when modal is open
   useEffect(() => {
     // Only add event listeners if the modal is open
-    if (!selectedItem) return;
+    if (!selectedImage) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       switch (e.key) {
@@ -75,7 +66,7 @@ export function ImageViewerModal({
           handleDelete();
           break;
         case "Escape":
-          onClose();
+          setSelectedImage(null);
           break;
         default:
           break;
@@ -86,12 +77,12 @@ export function ImageViewerModal({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [handlePrevious, handleNext, handleDelete, onClose, selectedItem]);
+  }, [handlePrevious, handleNext, handleDelete, selectedImage]);
 
   if (!currentItem) return null;
 
   return (
-    <Dialog open={!!selectedItem} onOpenChange={(open) => !open && close()}>
+    <Dialog open={!!selectedImage} onOpenChange={(open) => !open && close()}>
       <DialogContent className="p-0 border border-gray-200 shadow-lg rounded-lg overflow-hidden bg-gray-50 backdrop-blur-md bg-opacity-95 max-w-5xl">
         <div className="flex flex-col h-full">
           {/* Title bar with controls in top-right */}
@@ -116,7 +107,7 @@ export function ImageViewerModal({
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 rounded-md hover:bg-gray-100"
-                onClick={onClose}
+                onClick={() => setSelectedImage(null)}
               >
                 <X className="h-4 w-4" />
                 <span className="sr-only">Close</span>

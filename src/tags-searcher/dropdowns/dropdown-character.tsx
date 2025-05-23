@@ -1,0 +1,20 @@
+import { Users } from "lucide-react";
+import { FilterDropdown } from "../../dropdown";
+import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
+import { useDropdownStore } from "../../stores/dropdown-store";
+
+export const DropdownCharacter = () => {
+  const { selectedCharacter, setSelectedCharacter } = useTagsSearcherStore();
+  const { characterDropdownItems } = useDropdownStore();
+
+  return (
+    <FilterDropdown
+      mode="single"
+      ButtonIcon={<Users className="h-4 w-4 mr-1 text-purple-500" />}
+      buttonText={"Chara"}
+      selectedItem={selectedCharacter}
+      availableItems={characterDropdownItems}
+      onClick={(item) => setSelectedCharacter(item)}
+    />
+  );
+};

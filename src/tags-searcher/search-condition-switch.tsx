@@ -1,6 +1,6 @@
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { useTagsSearcherStore } from "../stores/tags-searcher-store";
+import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
 
 export const SearchConditionSwitch = () => {
   const { searchCondition, setSearchCondition } = useTagsSearcherStore();

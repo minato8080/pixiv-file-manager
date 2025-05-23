@@ -15,8 +15,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { AssociateInfo } from "@/bindings/AssociateInfo";
 import { SearchResult } from "@/bindings/SearchResult";
-import { useDialogMoveStore } from "../stores/dialog-move-store";
-import { useTagsSearcher } from "../hooks/use-tags-searcher";
+import { useDialogMoveStore } from "@/stores/dialog-move-store";
+import { useTagsSearcher } from "../../hooks/use-tags-searcher";
 
 export const DialogMoveFiles = () => {
   const {

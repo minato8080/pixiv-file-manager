@@ -1,37 +1,24 @@
 import { listen } from "@tauri-apps/api/event";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
-import {
-  Search,
-  Filter,
-  Trash2,
-  CheckSquare,
-  Square,
-  ChevronDown,
-  User,
-  Users,
-} from "lucide-react";
+import { Search, Trash2, CheckSquare, Square, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { VIEW_MODES, ViewModeKey } from "../constants";
-import { SearchHistory } from "@/bindings/SearchHistory";
-import { DropdownHandle, ForwardedFilterDropdown } from "../dropdown";
-import {
-  AuthorDropdown,
-  CharacterDropdown,
-  TagDropdown,
-} from "../types/app-types";
-import { DialogLabelCharacter } from "./dialog-label-character";
-import { DialogMoveFiles } from "./dialog-move-files";
-import { DialogDeleteFiles } from "./dialog-delete-files";
-import { DropdownHistory, DropdownHistoryHandle } from "./dropdown-history";
-import { DialogEditTags } from "./dialog-edit-tags";
+import { DialogLabelCharacter } from "./dialogs/dialog-label-character";
+import { DialogMoveFiles } from "./dialogs/dialog-move-files";
+import { DialogDeleteFiles } from "./dialogs/dialog-delete-files";
+import { DropdownHistory } from "./dropdowns/dropdown-history";
+import { DialogEditTags } from "./dialogs/dialog-edit-tags";
 import { ImageViewerModal } from "../image-viewer-modal";
 import { TagsSearcherResultArea } from "./result-area";
 import { TagsArea } from "./tags-area";
-import { useTagsSearcherStore } from "../stores/tags-searcher-store";
+import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
 import { SearchConditionSwitch } from "./search-condition-switch";
 import { OperationArea } from "./operation-area";
 import { useTagsSearcher } from "../hooks/use-tags-searcher";
+import { DropdownCharacter } from "./dropdowns/dropdown-character";
+import { DropdownTags } from "./dropdowns/dropdown-tags";
+import { DropdownAuthor } from "./dropdowns/dropdown-author";
 
 export default function TagsSearcher() {
   const {
@@ -41,8 +28,6 @@ export default function TagsSearcher() {
     setOperationMode,
     currentViewMode,
     setCurrentViewMode,
-    selectedImage,
-    setSelectedImage,
     selectedTags,
     setSelectedTags,
     selectedCharacter,
@@ -53,14 +38,6 @@ export default function TagsSearcher() {
     setIsViewModeDropdownOpen,
   } = useTagsSearcherStore();
 
-  // Refs for dropdown
-  const viewModeDropdownRef = useRef<HTMLDivElement>(null);
-  const historyDropdownHandlerRef = useRef<DropdownHistoryHandle>(null);
-  const tagDropdownHandlerRef = useRef<DropdownHandle<TagDropdown>>(null);
-  const charaDropdownHandlerRef =
-    useRef<DropdownHandle<CharacterDropdown>>(null);
-  const authorDropdownHandlerRef = useRef<DropdownHandle<AuthorDropdown>>(null);
-
   const {
     fetchTags,
     fetchCharacters,
@@ -68,7 +45,6 @@ export default function TagsSearcher() {
     fetchSearchHistory,
     handleSearch,
   } = useTagsSearcher();
-
 
   // Call handlers to fetch data using useEffect
   useEffect(() => {
@@ -141,72 +117,18 @@ export default function TagsSearcher() {
     setSelectedAuthor(null);
   };
 
-  // Apply history item
-  const applyHistoryItem = (history: SearchHistory) => {
-    setSelectedTags(history.tags.map((tag) => ({ tag, count: 0 })));
-    setSelectedCharacter(
-      history.character
-        ? {
-            id: history.character,
-            character: history.character,
-            count: null,
-          }
-        : null
-    );
-    setSelectedAuthor(
-      history.author
-        ? {
-            id: history.author.author_id.toString(),
-            label: history.author.author_name,
-            ...history.author,
-          }
-        : null
-    );
-    setSearchCondition(history.condition as "AND" | "OR");
-  };
-
   return (
     <div className="flex flex-col h-full">
       {/* Compact search controls with more color */}
       <div className="flex flex-wrap items-center gap-2 mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md">
         {/* Tags Dropdown */}
-        <ForwardedFilterDropdown
-          mode="multiple"
-          ButtonIcon={<Filter className="h-4 w-4 mr-1 text-blue-500" />}
-          buttonText={"Tag"}
-          selectedItem={selectedTags.map((tag) => ({
-            id: tag.tag,
-            ...tag,
-          }))}
-          setSelectedItem={(items) => {
-            const uniqueItems = items.filter(
-              (item, index, self) =>
-                index === self.findIndex((t) => t.tag === item.tag)
-            );
-            setSelectedTags(uniqueItems.map((item) => ({ ...item })));
-          }}
-          ref={tagDropdownHandlerRef}
-        />
+        <DropdownTags />
 
         {/* Character Dropdown */}
-        <ForwardedFilterDropdown
-          mode="single"
-          ButtonIcon={<Users className="h-4 w-4 mr-1 text-purple-500" />}
-          buttonText={"Chara"}
-          selectedItem={selectedCharacter}
-          setSelectedItem={setSelectedCharacter}
-          ref={charaDropdownHandlerRef}
-        />
+        <DropdownCharacter />
 
         {/* Author Dropdown */}
-        <ForwardedFilterDropdown
-          mode="single"
-          ButtonIcon={<User className="h-4 w-4 mr-1 text-green-500" />}
-          buttonText={"Author"}
-          selectedItem={selectedAuthor}
-          setSelectedItem={setSelectedAuthor}
-          ref={authorDropdownHandlerRef}
-        />
+        <DropdownAuthor />
 
         {/* Condition Switch */}
         <SearchConditionSwitch />
@@ -238,10 +160,7 @@ export default function TagsSearcher() {
         </Button>
 
         {/* History dropdown */}
-        <DropdownHistory
-          applyHistoryItem={applyHistoryItem}
-          ref={historyDropdownHandlerRef}
-        />
+        <DropdownHistory />
 
         <div className="ml-auto flex items-center gap-1">
           {/* View Mode Selector */}
@@ -257,10 +176,7 @@ export default function TagsSearcher() {
             </Button>
 
             {isViewModeDropdownOpen && (
-              <div
-                ref={viewModeDropdownRef}
-                className="absolute z-50 right-0 mt-1 w-40 bg-white dark:bg-gray-800 rounded-md shadow-lg border overflow-hidden"
-              >
+              <div className="absolute z-50 right-0 mt-1 w-40 bg-white dark:bg-gray-800 rounded-md shadow-lg border overflow-hidden">
                 {Object.entries(VIEW_MODES).map(([key, mode]) => (
                   <button
                     key={key}
@@ -303,9 +219,7 @@ export default function TagsSearcher() {
       </div>
 
       {/* Selected Tags */}
-      <TagsArea
-        onRemoveItem={(tag) => tagDropdownHandlerRef.current?.removeItem(tag)}
-      />
+      <TagsArea />
 
       {/* Operation Controls */}
       <OperationArea />
@@ -331,11 +245,7 @@ export default function TagsSearcher() {
 
       <DialogEditTags />
 
-      <ImageViewerModal
-        searchResults={searchResults}
-        selectedItem={selectedImage}
-        onClose={() => setSelectedImage(null)}
-      />
+      <ImageViewerModal />
     </div>
   );
 }

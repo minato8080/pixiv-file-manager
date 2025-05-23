@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { invoke } from "@tauri-apps/api/core";
 import { useDialogDeleteStore } from "@/src/stores/dialog-delete-store";
 import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
-import { useTagsSearcher } from "../hooks/use-tags-searcher";
+import { useTagsSearcher } from "../../hooks/use-tags-searcher";
 
 export const DialogDeleteFiles = () => {
   const {

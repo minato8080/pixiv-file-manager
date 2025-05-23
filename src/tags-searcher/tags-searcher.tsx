@@ -9,7 +9,6 @@ import { DialogMoveFiles } from "./dialogs/dialog-move-files";
 import { DialogDeleteFiles } from "./dialogs/dialog-delete-files";
 import { DropdownHistory } from "./dropdowns/dropdown-history";
 import { DialogEditTags } from "./dialogs/dialog-edit-tags";
-import { ImageViewerModal } from "../image-viewer-modal";
 import { TagsSearcherResultArea } from "./result-area";
 import { TagsArea } from "./tags-area";
 import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
@@ -19,6 +18,7 @@ import { useTagsSearcher } from "../hooks/use-tags-searcher";
 import { DropdownCharacter } from "./dropdowns/dropdown-character";
 import { DropdownTags } from "./dropdowns/dropdown-tags";
 import { DropdownAuthor } from "./dropdowns/dropdown-author";
+import { ImageViewerModal } from "../image-viewer-modal";
 
 export default function TagsSearcher() {
   const {

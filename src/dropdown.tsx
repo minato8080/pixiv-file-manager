@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from "react";
 import { ChevronDown } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 
 export type Item = {
   id: string;

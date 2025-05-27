@@ -6,6 +6,11 @@ module.exports = {
     browser: true,
     es2021: true,
   },
+  settings: {
+    react: {
+      version: "detect",
+    },
+  },
   extends: [
     "eslint:recommended",
     "plugin:@typescript-eslint/recommended-type-checked",
@@ -15,7 +20,14 @@ module.exports = {
     "plugin:react-hooks/recommended",
     "prettier",
   ],
-  ignorePatterns: ["dist", ".eslintrc.cjs", "vite.config.ts"],
+  ignorePatterns: [
+    "dist",
+    ".eslintrc.cjs",
+    "vite.config.ts",
+    "tailwind.config.ts",
+    "/src-tauri/**",
+    "/components/**",
+  ],
   parser: "@typescript-eslint/parser",
   parserOptions: {
     ecmaVersion: "latest",
@@ -23,13 +35,29 @@ module.exports = {
     project: ["./tsconfig.json", "./tsconfig.node.json"],
     tsconfigRootDir: __dirname,
   },
-  plugins: ["react-refresh"],
+  plugins: ["react-refresh", "import"],
   rules: {
     "react-refresh/only-export-components": [
       "warn",
       { allowConstantExport: true },
     ],
     "react/react-in-jsx-scope": "off",
-    "@typescript-eslint/consistent-type-definitions": "off"
+    "@typescript-eslint/consistent-type-definitions": "off",
+    "import/order": [
+      "error",
+      {
+        groups: [
+          ["builtin", "external"], // Node.js built-ins and external modules
+          ["internal"], // Internal modules
+          ["parent", "sibling"], // Parent and sibling imports
+          ["index"], // Index files
+        ],
+        "newlines-between": "always", // Enforce newlines between groups
+        alphabetize: {
+          order: "asc", // Sort imports alphabetically
+          caseInsensitive: true, // Ignore case when sorting
+        },
+      },
+    ],
   },
 };

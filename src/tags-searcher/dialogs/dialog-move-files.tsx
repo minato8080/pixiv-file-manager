@@ -1,6 +1,15 @@
-import { useEffect, useState } from "react";
 import { Label } from "@radix-ui/react-dropdown-menu";
+import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import { Folder } from "lucide-react";
+import { useEffect, useState } from "react";
+
+import { useTagsSearcher } from "../../hooks/use-tags-searcher";
+
+import { AssociateInfo } from "@/bindings/AssociateInfo";
+import { SearchResult } from "@/bindings/SearchResult";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -8,15 +17,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
-import { AssociateInfo } from "@/bindings/AssociateInfo";
-import { SearchResult } from "@/bindings/SearchResult";
 import { useDialogMoveStore } from "@/stores/dialog-move-store";
-import { useTagsSearcher } from "../../hooks/use-tags-searcher";
 
 export const DialogMoveFiles = () => {
   const {
@@ -84,6 +86,7 @@ export const DialogMoveFiles = () => {
   // 保存パス変更時の処理
   useEffect(() => {
     calculatePathChanges();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [moveLinkedFiles, targetFolder, selectedFiles, associateInfo]);
 
   const onOpen = () => {
@@ -107,6 +110,7 @@ export const DialogMoveFiles = () => {
     } else {
       onClose();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMoveFilesDialogOpen]);
 
   // Handle folder selection

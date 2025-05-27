@@ -1,8 +1,10 @@
 import { create } from "zustand";
-import { SearchResult } from "@/bindings/SearchResult";
+
 import { ViewModeKey } from "../constants";
-import { TagInfo } from "@/bindings/TagInfo";
 import { AuthorDropdown, CharacterDropdown } from "../types/app-types";
+
+import { SearchResult } from "@/bindings/SearchResult";
+import { TagInfo } from "@/bindings/TagInfo";
 
 type TagsSearcherStore = {
   searchCondition: "AND" | "OR";

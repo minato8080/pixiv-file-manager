@@ -1,7 +1,9 @@
 import { create } from "zustand";
-import { TagInfo } from "@/bindings/TagInfo";
+
 import { AuthorDropdown, CharacterDropdown } from "../types/app-types";
+
 import { SearchHistory } from "@/bindings/SearchHistory";
+import { TagInfo } from "@/bindings/TagInfo";
 
 type DropdownStore = {
   uniqueTagList: TagInfo[];

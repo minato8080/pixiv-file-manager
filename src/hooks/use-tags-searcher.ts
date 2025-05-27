@@ -1,11 +1,12 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+
 import { AuthorInfo } from "@/bindings/AuthorInfo";
 import { CharacterInfo } from "@/bindings/CharacterInfo";
 import { SearchHistory } from "@/bindings/SearchHistory";
+import { SearchResult } from "@/bindings/SearchResult";
 import { TagInfo } from "@/bindings/TagInfo";
 import { useDropdownStore } from "@/stores/dropdown-store";
 import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
-import { SearchResult } from "@/bindings/SearchResult";
 
 export const useTagsSearcher = () => {
   const {

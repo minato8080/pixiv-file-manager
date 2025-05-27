@@ -1,4 +1,5 @@
 import { create } from "zustand";
+
 import { SearchResult } from "@/bindings/SearchResult";
 
 type DialogMoveStore = {

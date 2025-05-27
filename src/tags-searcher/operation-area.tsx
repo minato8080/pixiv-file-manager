@@ -1,4 +1,3 @@
-import { Button } from "@/components/ui/button";
 import {
   CheckSquare,
   FolderInput,
@@ -7,12 +6,14 @@ import {
   Trash2,
   User,
 } from "lucide-react";
-import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
+
+import { Button } from "@/components/ui/button";
 import { useDialogDeleteStore } from "@/stores/dialog-delete-store";
-import { useDialogMoveStore } from "@/stores/dialog-move-store";
-import { useDialogLabelStore } from "@/stores/dialog-label-store";
-import { useDropdownStore } from "@/stores/dropdown-store";
 import { useDialogEditStore } from "@/stores/dialog-edit-store";
+import { useDialogLabelStore } from "@/stores/dialog-label-store";
+import { useDialogMoveStore } from "@/stores/dialog-move-store";
+import { useDropdownStore } from "@/stores/dropdown-store";
+import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
 
 export const OperationArea = () => {
   const {

@@ -1,7 +1,9 @@
 import { Users } from "lucide-react";
+
 import { FilterDropdown } from "../../dropdown";
-import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
 import { useDropdownStore } from "../../stores/dropdown-store";
+
+import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
 
 export const DropdownCharacter = () => {
   const { selectedCharacter, setSelectedCharacter } = useTagsSearcherStore();

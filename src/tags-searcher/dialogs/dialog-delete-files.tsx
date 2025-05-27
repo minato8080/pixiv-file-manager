@@ -1,3 +1,8 @@
+import { invoke } from "@tauri-apps/api/core";
+
+import { useTagsSearcher } from "../../hooks/use-tags-searcher";
+
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -5,11 +10,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { invoke } from "@tauri-apps/api/core";
 import { useDialogDeleteStore } from "@/src/stores/dialog-delete-store";
 import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
-import { useTagsSearcher } from "../../hooks/use-tags-searcher";
 
 export const DialogDeleteFiles = () => {
   const {

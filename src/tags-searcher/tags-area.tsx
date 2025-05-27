@@ -1,8 +1,9 @@
 // useFormStoreから必要な項目をピックアップして使う
-import { Button } from "@/components/ui/button";
 import { X, Users, User } from "lucide-react";
-import { useTagsSearcherStore } from "@/src/stores/tags-searcher-store";
+
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useTagsSearcherStore } from "@/src/stores/tags-searcher-store";
 
 export const TagsArea = () => {
   const {

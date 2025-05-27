@@ -4,9 +4,19 @@ import React, {
   useState,
   useEffect,
 } from "react";
-import { Button } from "@/components/ui/button";
+
+import { FileTagState } from "./dialog-edit-tags";
+import { InputDropdown } from "../../input-dropdown";
+
+import { EditTag } from "@/bindings/EditTag";
+import { EditTagReq } from "@/bindings/EditTagReq";
+import { SearchResult } from "@/bindings/SearchResult";
+import { TagInfo } from "@/bindings/TagInfo";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -14,14 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { SearchResult } from "@/bindings/SearchResult";
-import { EditTagReq } from "@/bindings/EditTagReq";
-import { FileTagState } from "./dialog-edit-tags";
-import { InputDropdown } from "../../input-dropdown";
-import { TagInfo } from "@/bindings/TagInfo";
-import { EditTag } from "@/bindings/EditTag";
 
 type AddRemoveModeHandle = {
   close: () => void;

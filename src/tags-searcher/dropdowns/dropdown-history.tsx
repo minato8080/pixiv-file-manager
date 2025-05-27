@@ -1,8 +1,9 @@
 import { ChevronDown, History } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+
 import { SearchHistory } from "@/bindings/SearchHistory";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useDropdownStore } from "@/stores/dropdown-store";
 import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
 

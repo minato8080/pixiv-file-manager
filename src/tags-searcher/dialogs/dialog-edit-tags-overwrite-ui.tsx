@@ -1,3 +1,4 @@
+import { X, Plus, Edit, Check } from "lucide-react";
 import React, {
   forwardRef,
   useImperativeHandle,
@@ -5,11 +6,18 @@ import React, {
   useRef,
   useEffect,
 } from "react";
-import { X, Plus, Edit, Check } from "lucide-react";
-import { Button } from "@/components/ui/button";
+
+import { TagState } from "./dialog-edit-tags";
+import { InputDropdown } from "../../input-dropdown";
+
+import { EditTag } from "@/bindings/EditTag";
+import { EditTagReq } from "@/bindings/EditTagReq";
+import { SearchResult } from "@/bindings/SearchResult";
+import { TagInfo } from "@/bindings/TagInfo";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -17,12 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SearchResult } from "@/bindings/SearchResult";
-import { EditTagReq } from "@/bindings/EditTagReq";
-import { TagState } from "./dialog-edit-tags";
-import { TagInfo } from "@/bindings/TagInfo";
-import { InputDropdown } from "../../input-dropdown";
-import { EditTag } from "@/bindings/EditTag";
 
 type OverwriteModeHandle = {
   close: () => void;

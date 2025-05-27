@@ -1,4 +1,16 @@
+import { invoke } from "@tauri-apps/api/core";
 import { useState, useRef, useEffect } from "react";
+
+import { AddRemoveModeUI } from "./dialog-edit-tags-add-remove-ui";
+import { OverwriteModeUI } from "./dialog-edit-tags-overwrite-ui";
+import { useTagsSearcher } from "../../hooks/use-tags-searcher";
+
+import { AssociateInfo } from "@/bindings/AssociateInfo";
+import { EditTagReq } from "@/bindings/EditTagReq";
+import { SearchResult } from "@/bindings/SearchResult";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -6,20 +18,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
-import { invoke } from "@tauri-apps/api/core";
-import { SearchResult } from "@/bindings/SearchResult";
-import { EditTagReq } from "@/bindings/EditTagReq";
-import { OverwriteModeUI } from "./dialog-edit-tags-overwrite-ui";
-import { AddRemoveModeUI } from "./dialog-edit-tags-add-remove-ui";
-import { AssociateInfo } from "@/bindings/AssociateInfo";
-import { useTagsSearcher } from "../../hooks/use-tags-searcher";
-import { useDropdownStore } from "@/stores/dropdown-store";
+import { Switch } from "@/components/ui/switch";
 import { useDialogEditStore } from "@/stores/dialog-edit-store";
+import { useDropdownStore } from "@/stores/dropdown-store";
 
 export type TagState = {
   value: string;
@@ -117,6 +119,7 @@ export const DialogEditTags = () => {
     } else {
       close();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditTagsDialogOpen]);
 
   // Handle form submission

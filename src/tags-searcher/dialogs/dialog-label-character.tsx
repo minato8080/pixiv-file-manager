@@ -1,5 +1,17 @@
+import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
+import { FolderOpen } from "lucide-react";
 import type React from "react";
 import { useState, useEffect } from "react";
+
+import { useTagsSearcher } from "../../hooks/use-tags-searcher";
+import { InputDropdown } from "../../input-dropdown";
+
+import { AssociateInfo } from "@/bindings/AssociateInfo";
+import { SearchResult } from "@/bindings/SearchResult";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -7,20 +19,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { FolderOpen } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { open } from "@tauri-apps/plugin-dialog";
-import { invoke } from "@tauri-apps/api/core";
-import { SearchResult } from "@/bindings/SearchResult";
-import { AssociateInfo } from "@/bindings/AssociateInfo";
-import { InputDropdown } from "../../input-dropdown";
 import { useDialogLabelStore } from "@/stores/dialog-label-store";
-import { useTagsSearcher } from "../../hooks/use-tags-searcher";
 
 type DialogLabelCharaSubmitParams = {
   characterName: string;
@@ -200,22 +202,26 @@ export const DialogLabelCharacter = () => {
     } else {
       onClose();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLabelCharacterDialogOpen]);
 
   // キャラクター名入力変更時の処理
   useEffect(() => {
     calculateLabelChanges();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [characterName, labelCharacterDialogSelectedFiles, associateInfo]);
 
   // 保存パス変更時の処理
   useEffect(() => {
     calculatePathChanges();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [collectDir, labelCharacterDialogSelectedFiles, associateInfo]);
 
   // チェックボックス変更時の処理
   useEffect(() => {
     calculateLabelChanges();
     calculatePathChanges();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isUpdateLinkedFiles, isChangeCollectPath]);
 
   const confirmName = async ({

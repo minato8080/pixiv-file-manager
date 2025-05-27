@@ -1,15 +1,16 @@
-import { listen } from "@tauri-apps/api/event";
-import { useEffect, useState } from "react";
-import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { open } from "@tauri-apps/plugin-dialog";
 import { FolderOpen, Trash2, Play } from "lucide-react";
+import { useEffect, useState } from "react";
+
+import { FileCounts } from "@/bindings/FileCounts";
+import { ProcessStats } from "@/bindings/ProcessStats";
+import { TagProgress } from "@/bindings/TagProgress";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
-import { ProcessStats } from "@/bindings/ProcessStats";
-import { TagProgress } from "@/bindings/TagProgress";
-import { FileCounts } from "@/bindings/FileCounts";
 
 export default function TagsFetcher() {
   const [selectedFolders, setSelectedFolders] = useState<string[]>([]);

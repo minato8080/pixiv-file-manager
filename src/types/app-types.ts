@@ -1,6 +1,7 @@
-import { AuthorInfo } from "@/bindings/AuthorInfo";
 import { Item } from "../dropdown";
 import { Expand } from "./util-types";
+
+import { AuthorInfo } from "@/bindings/AuthorInfo";
 import { CharacterInfo } from "@/bindings/CharacterInfo";
 import { TagInfo } from "@/bindings/TagInfo";
 

@@ -1,50 +1,26 @@
 import { listen } from "@tauri-apps/api/event";
 import { useEffect } from "react";
 
-import { Search, Trash2, CheckSquare, Square, ChevronDown } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { VIEW_MODES, ViewModeKey } from "../constants";
+import { ControlArea } from "./control-area";
+import { DialogDeleteFiles } from "./dialogs/dialog-delete-files";
+import { DialogEditTags } from "./dialogs/dialog-edit-tags";
 import { DialogLabelCharacter } from "./dialogs/dialog-label-character";
 import { DialogMoveFiles } from "./dialogs/dialog-move-files";
-import { DialogDeleteFiles } from "./dialogs/dialog-delete-files";
-import { DropdownHistory } from "./dropdowns/dropdown-history";
-import { DialogEditTags } from "./dialogs/dialog-edit-tags";
+import { ImageViewerModal } from "./image-viewer-modal";
+import { OperationArea } from "./operation-area";
 import { TagsSearcherResultArea } from "./result-area";
 import { TagsArea } from "./tags-area";
-import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
-import { SearchConditionSwitch } from "./search-condition-switch";
-import { OperationArea } from "./operation-area";
 import { useTagsSearcher } from "../hooks/use-tags-searcher";
-import { DropdownCharacter } from "./dropdowns/dropdown-character";
-import { DropdownTags } from "./dropdowns/dropdown-tags";
-import { DropdownAuthor } from "./dropdowns/dropdown-author";
-import { ImageViewerModal } from "../image-viewer-modal";
+
+import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
 
 export default function TagsSearcher() {
-  const {
-    setSearchCondition,
-    searchResults,
-    operationMode,
-    setOperationMode,
-    currentViewMode,
-    setCurrentViewMode,
-    selectedTags,
-    setSelectedTags,
-    selectedCharacter,
-    setSelectedCharacter,
-    selectedAuthor,
-    setSelectedAuthor,
-    isViewModeDropdownOpen,
-    setIsViewModeDropdownOpen,
-  } = useTagsSearcherStore();
+  const { searchResults, currentViewMode, setCurrentViewMode } =
+    useTagsSearcherStore();
 
-  const {
-    fetchTags,
-    fetchCharacters,
-    fetchAuthors,
-    fetchSearchHistory,
-    handleSearch,
-  } = useTagsSearcher();
+  const { fetchTags, fetchCharacters, fetchAuthors, fetchSearchHistory } =
+    useTagsSearcher();
 
   // Call handlers to fetch data using useEffect
   useEffect(() => {
@@ -60,6 +36,7 @@ export default function TagsSearcher() {
     return () => {
       void unlisten.then((f) => f());
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Add keyboard and mouse wheel event listeners for view mode switching
@@ -107,116 +84,13 @@ export default function TagsSearcher() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("wheel", handleWheel);
     };
-  }, [VIEW_MODES[currentViewMode], VIEW_MODES]);
-
-  // Clear all search conditions
-  const clearSearchConditions = () => {
-    setSelectedTags([]);
-    setSearchCondition("AND");
-    setSelectedCharacter(null);
-    setSelectedAuthor(null);
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="flex flex-col h-full">
       {/* Compact search controls with more color */}
-      <div className="flex flex-wrap items-center gap-2 mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md">
-        {/* Tags Dropdown */}
-        <DropdownTags />
-
-        {/* Character Dropdown */}
-        <DropdownCharacter />
-
-        {/* Author Dropdown */}
-        <DropdownAuthor />
-
-        {/* Condition Switch */}
-        <SearchConditionSwitch />
-
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-9 bg-white dark:bg-gray-800"
-          onClick={clearSearchConditions}
-          disabled={
-            selectedTags.length === 0 && !selectedCharacter && !selectedAuthor
-          }
-        >
-          <Trash2 className="h-4 w-4 mr-1 text-red-500" />
-          Clear
-        </Button>
-
-        <Button
-          variant="default"
-          size="sm"
-          className="h-9 bg-blue-600 hover:bg-blue-700 text-white"
-          onClick={handleSearch}
-          disabled={
-            selectedTags.length === 0 && !selectedCharacter && !selectedAuthor
-          }
-        >
-          <Search className="h-4 w-4 mr-1" />
-          Search
-        </Button>
-
-        {/* History dropdown */}
-        <DropdownHistory />
-
-        <div className="ml-auto flex items-center gap-1">
-          {/* View Mode Selector */}
-          <div className="relative">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-9 bg-white dark:bg-gray-800"
-              onClick={() => setIsViewModeDropdownOpen(!isViewModeDropdownOpen)}
-            >
-              {VIEW_MODES[currentViewMode].icon}
-              <ChevronDown className="h-4 w-4 ml-1" />
-            </Button>
-
-            {isViewModeDropdownOpen && (
-              <div className="absolute z-50 right-0 mt-1 w-40 bg-white dark:bg-gray-800 rounded-md shadow-lg border overflow-hidden">
-                {Object.entries(VIEW_MODES).map(([key, mode]) => (
-                  <button
-                    key={key}
-                    onClick={() => {
-                      setCurrentViewMode(key as ViewModeKey);
-                      setIsViewModeDropdownOpen(false);
-                    }}
-                    className={`w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 ${
-                      currentViewMode === key
-                        ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                        : ""
-                    }`}
-                  >
-                    {mode.icon}
-                    <span>{mode.name}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <Button
-            variant={operationMode ? "secondary" : "outline"}
-            size="sm"
-            className={`h-9 ${
-              operationMode
-                ? "bg-blue-100 text-blue-800 border-blue-300"
-                : "bg-white dark:bg-gray-800"
-            }`}
-            onClick={() => setOperationMode(!operationMode)}
-          >
-            {operationMode ? (
-              <CheckSquare className="h-4 w-4 text-blue-600" />
-            ) : (
-              <Square className="h-4 w-4" />
-            )}
-            <span className="ml-1">Select</span>
-          </Button>
-        </div>
-      </div>
+      <ControlArea />
 
       {/* Selected Tags */}
       <TagsArea />
@@ -243,8 +117,10 @@ export default function TagsSearcher() {
       {/* Character Name Input Dialog */}
       <DialogLabelCharacter />
 
+      {/* Edit Tags Dialog */}
       <DialogEditTags />
 
+      {/* Image Viewer */}
       <ImageViewerModal />
     </div>
   );

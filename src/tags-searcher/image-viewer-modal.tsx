@@ -1,12 +1,11 @@
-"use client";
-
+import { Trash2, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 
-import { Trash2, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { SimpleModal } from "../simple-modal";
+
 import { Button } from "@/components/ui/button";
 import { useDialogDeleteStore } from "@/stores/dialog-delete-store";
 import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
-import { SimpleModal } from "./simple-modal";
 
 export function ImageViewerModal() {
   const { searchResults, selectedImage, setSelectedImage } =
@@ -44,7 +43,7 @@ export function ImageViewerModal() {
       setSelectedFiles([currentItem]);
       openDeleteFilesDialog([currentItem.file_name]);
     }
-  }, [currentItem]);
+  }, [currentItem, openDeleteFilesDialog, setSelectedFiles]);
 
   const close = () => {
     setCurrentIndex(-1);

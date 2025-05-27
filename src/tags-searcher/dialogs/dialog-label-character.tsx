@@ -191,7 +191,7 @@ export const DialogLabelCharacter = () => {
     setNamesToUpdate(labelCharacterDialogSelectedFiles.length);
 
     // 紐づけ更新の情報を取得
-    fetchAssociations(labelCharacterDialogSelectedFiles);
+    void fetchAssociations(labelCharacterDialogSelectedFiles);
   };
 
   useEffect(() => {
@@ -333,7 +333,7 @@ export const DialogLabelCharacter = () => {
                       variant="outline"
                       size="sm"
                       className="h-8 w-8 p-0"
-                      onClick={openFolderDialog}
+                      onClick={() => void openFolderDialog()}
                     >
                       <FolderOpen className="h-4 w-4" />
                     </Button>
@@ -445,7 +445,7 @@ export const DialogLabelCharacter = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={handleSubmit}
+            onClick={() => void handleSubmit()}
             disabled={isLabelCharacterDialogSubmitting}
           >
             {isLabelCharacterDialogSubmitting ? "Submitting..." : "OK"}

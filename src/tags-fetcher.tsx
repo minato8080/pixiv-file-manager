@@ -33,7 +33,7 @@ export default function TagsFetcher() {
       setProgress(event.payload);
     });
     return () => {
-      unlisten.then((f) => f());
+      void unlisten.then((f) => f());
     };
   }, []);
 
@@ -96,7 +96,7 @@ export default function TagsFetcher() {
       {/* Control buttons at top */}
       <div className="flex items-center gap-2 mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-100 dark:border-blue-800">
         <Button
-          onClick={selectFolders}
+          onClick={() => void selectFolders()}
           disabled={isProcessing}
           className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
         >
@@ -116,7 +116,7 @@ export default function TagsFetcher() {
 
         <Button
           variant="default"
-          onClick={startProcessing}
+          onClick={() => void startProcessing()}
           disabled={isProcessing || selectedFolders.length === 0}
           className="ml-auto bg-blue-600 hover:bg-blue-700"
         >

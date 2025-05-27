@@ -27,7 +27,7 @@ export function TabbedInterface({
   useEffect(() => {
     const initialized = tabs.map((_, index) => index === defaultTabIndex);
     setInitializedTabs(initialized);
-  }, [tabs.length, defaultTabIndex]);
+  }, [tabs, defaultTabIndex]);
 
   const handleTabClick = (index: number) => {
     setActiveTabIndex(index);

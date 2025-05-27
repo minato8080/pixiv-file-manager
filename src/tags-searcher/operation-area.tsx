@@ -54,7 +54,7 @@ export const OperationArea = () => {
     const { characterDropdownItems } = useDropdownStore.getState();
     const combinedSet = new Set([
       ...(characterDropdownItems.map((iter) => iter.character) || []),
-      ...selectedFiles.flatMap((iter) => iter.tags?.split(",") || []),
+      ...selectedFiles.flatMap((iter) => iter.tags?.split(",") ?? []),
     ]);
 
     const combinedArray: string[] = Array.from(combinedSet);

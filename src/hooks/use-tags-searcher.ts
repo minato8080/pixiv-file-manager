@@ -115,7 +115,7 @@ export const useTagsSearcher = () => {
         console.error("Error search illusts:", error);
       }
     };
-    performSearch();
+    void performSearch();
   };
 
   return {

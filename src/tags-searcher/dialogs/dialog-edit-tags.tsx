@@ -113,7 +113,7 @@ export const DialogEditTags = () => {
 
   useEffect(() => {
     if (isEditTagsDialogOpen) {
-      fetchAssociations(editTagsDialogSelectedFiles);
+      void fetchAssociations(editTagsDialogSelectedFiles);
     } else {
       close();
     }
@@ -233,7 +233,7 @@ export const DialogEditTags = () => {
               Cancel
             </Button>
             <Button
-              onClick={handleSubmit}
+              onClick={() => void handleSubmit()}
               disabled={isEditTagsDialogSubmitting}
               className={
                 isOverwriteMode

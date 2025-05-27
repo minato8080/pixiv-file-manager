@@ -127,10 +127,10 @@ export const TagsSearcherResultArea = () => {
                         {result.author.author_name || "-"}
                       </td>
                       <td className="p-2 text-sm text-gray-600 dark:text-gray-300">
-                        {result.character || "-"}
+                        {result.character ?? "-"}
                       </td>
                       <td className="p-2 text-sm text-gray-600 dark:text-gray-300">
-                        {result.tags || "-"}
+                        {result.tags ?? "-"}
                       </td>
                     </tr>
                   ))}

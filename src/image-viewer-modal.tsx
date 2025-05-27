@@ -79,7 +79,13 @@ export function ImageViewerModal() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [handlePrevious, handleNext, handleDelete, selectedImage]);
+  }, [
+    handlePrevious,
+    handleNext,
+    handleDelete,
+    selectedImage,
+    setSelectedImage,
+  ]);
 
   if (!currentItem) return null;
 

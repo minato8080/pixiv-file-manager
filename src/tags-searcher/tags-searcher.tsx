@@ -48,17 +48,17 @@ export default function TagsSearcher() {
 
   // Call handlers to fetch data using useEffect
   useEffect(() => {
-    fetchTags();
-    fetchCharacters();
-    fetchAuthors();
-    fetchSearchHistory();
+    void fetchTags();
+    void fetchCharacters();
+    void fetchAuthors();
+    void fetchSearchHistory();
     const unlisten = listen<null>("update_db", () => {
-      fetchTags();
-      fetchCharacters();
-      fetchAuthors();
+      void fetchTags();
+      void fetchCharacters();
+      void fetchAuthors();
     });
     return () => {
-      unlisten.then((f) => f());
+      void unlisten.then((f) => f());
     };
   }, []);
 

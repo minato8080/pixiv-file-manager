@@ -87,7 +87,7 @@ export const DialogMoveFiles = () => {
   }, [moveLinkedFiles, targetFolder, selectedFiles, associateInfo]);
 
   const onOpen = () => {
-    fetchAssociations(moveFilesDialogSelectedFiles);
+    void fetchAssociations(moveFilesDialogSelectedFiles);
     setPathsToUpdate(moveFilesDialogSelectedFiles.length);
   };
   const onClose = () => {
@@ -207,7 +207,7 @@ export const DialogMoveFiles = () => {
                 variant="outline"
                 size="icon"
                 className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
-                onClick={handleSelectFolder}
+                onClick={() => void handleSelectFolder()}
               >
                 <Folder className="h-4 w-4" />
               </Button>
@@ -219,7 +219,7 @@ export const DialogMoveFiles = () => {
             Cancel
           </Button>
           <Button
-            onClick={handleSubmit}
+            onClick={() => void handleSubmit()}
             className="bg-blue-600 hover:bg-blue-700 text-white"
             disabled={isMoveFilesDialogSubmitting}
           >

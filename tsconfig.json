@@ -37,7 +37,7 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "eslint.config.js"
+    ".eslintrc.cjs"
   ],
   "exclude": ["node_modules", "vite.config.ts", "vite.config.*.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]

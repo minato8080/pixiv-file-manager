@@ -38,9 +38,9 @@ export const DialogDeleteFiles = () => {
         searchResults.filter((result) => !selectedFiles.includes(result))
       );
       setSelectedFiles([]);
-      fetchTags();
-      fetchCharacters();
-      fetchAuthors();
+      void fetchTags();
+      void fetchCharacters();
+      void fetchAuthors();
     } catch (error) {
       console.error("Error deleting files:", error);
     } finally {
@@ -77,7 +77,7 @@ export const DialogDeleteFiles = () => {
           </Button>
           <Button
             variant="outline"
-            onClick={handleDelete}
+            onClick={() => void handleDelete()}
             disabled={isDeleteFilesDialogSubmitting}
           >
             {isDeleteFilesDialogSubmitting ? "Deleting..." : "Delete"}

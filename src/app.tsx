@@ -4,7 +4,6 @@ import TagsFetcher from "./tags-fetcher";
 import TagsSearcher from "./tags-searcher/tags-searcher";
 
 import { TabbedInterface, type TabItem } from "@/src/tabbed-interface";
-import "@/styles/styles.css";
 
 export function App() {
   const tabs: TabItem[] = [

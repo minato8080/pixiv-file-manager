@@ -1,9 +1,8 @@
 import { Trash2, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 
-import { SimpleModal } from "../simple-modal";
-
 import { Button } from "@/components/ui/button";
+import { SimpleModal } from "@/src/components/simple-modal";
 import { useDialogDeleteStore } from "@/stores/dialog-delete-store";
 import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
 

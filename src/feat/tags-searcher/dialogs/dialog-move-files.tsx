@@ -4,8 +4,6 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { Folder } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { useTagsSearcher } from "../../hooks/use-tags-searcher";
-
 import { AssociateInfo } from "@/bindings/AssociateInfo";
 import { SearchResult } from "@/bindings/SearchResult";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +16,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { useTagsSearcher } from "@/src/hooks/use-tags-searcher";
 import { useDialogMoveStore } from "@/stores/dialog-move-store";
 
 export const DialogMoveFiles = () => {

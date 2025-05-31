@@ -1,7 +1,6 @@
 import { Settings, Trash2, Save, Plus, Edit3 } from "lucide-react";
 import { useState, useEffect } from "react";
 
-import { DropdownInput } from "../dropdown-input";
 import { CollectSummary, mockApi, TagAssignment } from "./mock-api";
 import { getAvailableTags } from "./mock-data";
 
@@ -24,6 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { DropdownInput } from "@/src/components/dropdown-input";
 
 interface EditingState {
   id: string;

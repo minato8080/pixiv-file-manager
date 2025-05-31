@@ -1,9 +1,8 @@
 import { Filter } from "lucide-react";
 
-import { DropdownButton } from "../../dropdown-button";
-import { useDropdownStore } from "../../stores/dropdown-store";
-
 import { TagInfo } from "@/bindings/TagInfo";
+import { DropdownButton } from "@/src/components/dropdown-button";
+import { useDropdownStore } from "@/stores/dropdown-store";
 import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
 
 export const DropdownTags = () => {

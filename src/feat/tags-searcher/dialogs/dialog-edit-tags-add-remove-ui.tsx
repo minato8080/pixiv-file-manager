@@ -6,7 +6,6 @@ import React, {
 } from "react";
 
 import { FileTagState } from "./dialog-edit-tags";
-import { InputDropdown } from "../../input-dropdown";
 
 import { EditTag } from "@/bindings/EditTag";
 import { EditTagReq } from "@/bindings/EditTagReq";
@@ -24,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { InputDropdown } from "@/src/components/input-dropdown";
 
 type AddRemoveModeHandle = {
   close: () => void;

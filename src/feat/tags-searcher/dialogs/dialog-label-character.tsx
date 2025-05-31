@@ -4,9 +4,6 @@ import { FolderOpen } from "lucide-react";
 import type React from "react";
 import { useState, useEffect } from "react";
 
-import { useTagsSearcher } from "../../hooks/use-tags-searcher";
-import { InputDropdown } from "../../input-dropdown";
-
 import { AssociateInfo } from "@/bindings/AssociateInfo";
 import { SearchResult } from "@/bindings/SearchResult";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +19,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { InputDropdown } from "@/src/components/input-dropdown";
+import { useTagsSearcher } from "@/src/hooks/use-tags-searcher";
 import { useDialogLabelStore } from "@/stores/dialog-label-store";
 
 type DialogLabelCharaSubmitParams = {

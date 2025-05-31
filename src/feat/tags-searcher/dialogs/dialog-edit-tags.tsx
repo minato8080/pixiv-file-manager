@@ -3,7 +3,6 @@ import { useState, useRef, useEffect } from "react";
 
 import { AddRemoveModeUI } from "./dialog-edit-tags-add-remove-ui";
 import { OverwriteModeUI } from "./dialog-edit-tags-overwrite-ui";
-import { useTagsSearcher } from "../../hooks/use-tags-searcher";
 
 import { AssociateInfo } from "@/bindings/AssociateInfo";
 import { EditTagReq } from "@/bindings/EditTagReq";
@@ -20,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { useTagsSearcher } from "@/src/hooks/use-tags-searcher";
 import { useDialogEditStore } from "@/stores/dialog-edit-store";
 import { useDropdownStore } from "@/stores/dropdown-store";
 

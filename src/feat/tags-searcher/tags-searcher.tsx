@@ -1,7 +1,6 @@
 import { listen } from "@tauri-apps/api/event";
 import { useEffect } from "react";
 
-import { VIEW_MODES, ViewModeKey } from "../constants";
 import { ControlArea } from "./control-area";
 import { DialogDeleteFiles } from "./dialogs/dialog-delete-files";
 import { DialogEditTags } from "./dialogs/dialog-edit-tags";
@@ -11,8 +10,9 @@ import { ImageViewerModal } from "./image-viewer-modal";
 import { OperationArea } from "./operation-area";
 import { TagsSearcherResultArea } from "./result-area";
 import { TagsArea } from "./tags-area";
-import { useTagsSearcher } from "../hooks/use-tags-searcher";
 
+import { VIEW_MODES, ViewModeKey } from "@/src/constants";
+import { useTagsSearcher } from "@/src/hooks/use-tags-searcher";
 import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
 
 export default function TagsSearcher() {

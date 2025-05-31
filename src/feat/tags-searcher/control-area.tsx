@@ -1,14 +1,14 @@
 import { Search, Trash2, CheckSquare, Square } from "lucide-react";
 
-import { DropdownHistory } from "./dropdowns/dropdown-history";
-import { SearchConditionSwitch } from "./search-condition-switch";
-import { useTagsSearcher } from "../hooks/use-tags-searcher";
 import { DropdownAuthor } from "./dropdowns/dropdown-author";
 import { DropdownCharacter } from "./dropdowns/dropdown-character";
+import { DropdownHistory } from "./dropdowns/dropdown-history";
 import { DropdownTags } from "./dropdowns/dropdown-tags";
 import { DropdownViewMode } from "./dropdowns/dropdown-view-mode";
+import { SearchConditionSwitch } from "./search-condition-switch";
 
 import { Button } from "@/components/ui/button";
+import { useTagsSearcher } from "@/src/hooks/use-tags-searcher";
 import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
 
 export const ControlArea = () => {

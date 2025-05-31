@@ -2,11 +2,10 @@ import { ScrollArea } from "@radix-ui/react-scroll-area";
 import { CheckSquare, Square, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { VIEW_MODES } from "../constants";
-
 import { SearchResult } from "@/bindings/SearchResult";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { VIEW_MODES } from "@/src/constants";
 import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
 
 export const TagsSearcherResultArea = () => {

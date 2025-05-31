@@ -1,7 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
 
-import { useTagsSearcher } from "../../hooks/use-tags-searcher";
-
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,6 +8,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { useTagsSearcher } from "@/src/hooks/use-tags-searcher";
 import { useDialogDeleteStore } from "@/src/stores/dialog-delete-store";
 import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
 

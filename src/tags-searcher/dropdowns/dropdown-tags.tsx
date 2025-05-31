@@ -1,6 +1,6 @@
 import { Filter } from "lucide-react";
 
-import { FilterDropdown } from "../../dropdown";
+import { DropdownButton } from "../../dropdown-button";
 import { useDropdownStore } from "../../stores/dropdown-store";
 
 import { TagInfo } from "@/bindings/TagInfo";
@@ -18,7 +18,7 @@ export const DropdownTags = () => {
   };
 
   return (
-    <FilterDropdown
+    <DropdownButton
       mode="multiple"
       ButtonIcon={<Filter className="h-4 w-4 mr-1 text-blue-500" />}
       buttonText={"Tag"}

@@ -1,4 +1,4 @@
-import { Item } from "../dropdown";
+import { Item } from "../dropdown-button";
 import { Expand } from "./util-types";
 
 import { AuthorInfo } from "@/bindings/AuthorInfo";

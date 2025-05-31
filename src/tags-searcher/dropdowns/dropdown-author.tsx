@@ -1,6 +1,6 @@
 import { User } from "lucide-react";
 
-import { FilterDropdown } from "../../dropdown";
+import { DropdownButton } from "../../dropdown-button";
 import { useDropdownStore } from "../../stores/dropdown-store";
 
 import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
@@ -10,7 +10,7 @@ export const DropdownAuthor = () => {
   const { authorDropdownItems } = useDropdownStore();
 
   return (
-    <FilterDropdown
+    <DropdownButton
       mode="single"
       ButtonIcon={<User className="h-4 w-4 mr-1 text-green-500" />}
       buttonText={"Author"}

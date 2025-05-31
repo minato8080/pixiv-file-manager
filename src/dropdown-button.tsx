@@ -39,7 +39,7 @@ export type DropdownHandle<T> = {
   addItem: (tag: T) => void;
 };
 
-export function FilterDropdown<T extends Item>({
+export function DropdownButton<T extends Item>({
   mode,
   ButtonIcon,
   buttonText,

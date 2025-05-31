@@ -1,6 +1,6 @@
 import { Users } from "lucide-react";
 
-import { FilterDropdown } from "../../dropdown";
+import { DropdownButton } from "../../dropdown-button";
 import { useDropdownStore } from "../../stores/dropdown-store";
 
 import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
@@ -10,7 +10,7 @@ export const DropdownCharacter = () => {
   const { characterDropdownItems } = useDropdownStore();
 
   return (
-    <FilterDropdown
+    <DropdownButton
       mode="single"
       ButtonIcon={<Users className="h-4 w-4 mr-1 text-purple-500" />}
       buttonText={"Chara"}

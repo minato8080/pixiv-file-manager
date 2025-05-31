@@ -1,7 +1,7 @@
 import { FolderSearch, FolderSymlink, Tags } from "lucide-react";
 
-import FileOrganizer from "./file-organizer";
-import TagsFetcher from "./tags-fetcher";
+import FileOrganizer from "./file-organizer/file-organizer";
+import TagsFetcher from "./tags-fetcher/tags-fetcher";
 import TagsSearcher from "./tags-searcher/tags-searcher";
 
 import { TabbedInterface, type TabItem } from "@/src/tabbed-interface";

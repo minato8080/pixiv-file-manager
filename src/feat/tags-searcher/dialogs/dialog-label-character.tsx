@@ -38,7 +38,6 @@ export const DialogLabelCharacter = () => {
     isLabelCharacterDialogSubmitting,
     availableCharacters,
     setAvailableCharacters,
-    openLabelCharacterDialog,
     closeLabelCharacterDialog,
     setLabelCharacterDialogSubmitting,
   } = useDialogLabelStore();
@@ -261,9 +260,7 @@ export const DialogLabelCharacter = () => {
   return (
     <Dialog
       open={isLabelCharacterDialogOpen}
-      onOpenChange={(open) =>
-        open ? openLabelCharacterDialog : closeLabelCharacterDialog
-      }
+      onOpenChange={(open) => (open ? null : closeLabelCharacterDialog())}
     >
       <DialogContent
         aria-describedby="A dialog to label character."

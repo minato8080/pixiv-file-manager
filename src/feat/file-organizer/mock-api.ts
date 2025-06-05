@@ -1,18 +1,10 @@
 import { mockIllustDetail, mockTagInfo, mockDbInfo } from "./mock-data";
 
-export interface TagAssignment {
-  seriesTag: string | null;
-  characterTag: string | null;
-}
+import { CollectSummary } from "@/bindings/CollectSummary";
 
-export interface CollectSummary {
-  id: string;
-  seriesTag: string | null;
-  characterTag: string | null;
-  beforeCount: number;
-  afterCount: number;
-  newPath: string;
-  isNewlyAdded: boolean;
+export interface TagAssignment {
+  series_tag: string | null;
+  character_tag: string | null;
 }
 
 export interface CollectStats {
@@ -24,12 +16,12 @@ export interface CollectStats {
 // モックAPI関数
 export const mockApi = {
   async assignTag(
-    seriesTag: string | null,
-    characterTag: string | null
+    series_tag: string | null,
+    character_tag: string | null
   ): Promise<{ success: boolean; message: string }> {
     await new Promise((resolve) => setTimeout(resolve, 200));
-    const seriesText = seriesTag ?? "Unset";
-    const characterText = characterTag ?? "Unset";
+    const seriesText = series_tag ?? "Unset";
+    const characterText = character_tag ?? "Unset";
     return {
       success: true,
       message: `Series tag "${seriesText}", Character tag "${characterText}" assigned`,
@@ -60,8 +52,8 @@ export const mockApi = {
       string,
       {
         count: number;
-        seriesTag: string | null;
-        characterTag: string | null;
+        series_tag: string | null;
+        character_tag: string | null;
       }
     >();
     const totalIllusts = mockIllustDetail.length;
@@ -70,28 +62,28 @@ export const mockApi = {
     assignments.forEach((assignment) => {
       let illustCount = 0;
 
-      if (assignment.seriesTag) {
+      if (assignment.series_tag) {
         const seriesIllusts = mockTagInfo
-          .filter((tagInfo) => tagInfo.tag === assignment.seriesTag)
+          .filter((tagInfo) => tagInfo.tag === assignment.series_tag)
           .map((tagInfo) => tagInfo.illust_id);
         illustCount += seriesIllusts.length;
       }
 
-      if (assignment.characterTag) {
+      if (assignment.character_tag) {
         const characterIllusts = mockTagInfo
-          .filter((tagInfo) => tagInfo.tag === assignment.characterTag)
+          .filter((tagInfo) => tagInfo.tag === assignment.character_tag)
           .map((tagInfo) => tagInfo.illust_id);
         illustCount += characterIllusts.length;
       }
 
-      const key = `${assignment.seriesTag ?? "null"}-${
-        assignment.characterTag ?? "null"
+      const key = `${assignment.series_tag ?? "null"}-${
+        assignment.character_tag ?? "null"
       }`;
 
       combinationMap.set(key, {
         count: illustCount,
-        seriesTag: assignment.seriesTag,
-        characterTag: assignment.characterTag,
+        series_tag: assignment.series_tag,
+        character_tag: assignment.character_tag,
       });
 
       assignedCount += illustCount;
@@ -106,35 +98,35 @@ export const mockApi = {
     if (afterUncollected > 0) {
       result.push({
         id: "uncollected",
-        seriesTag: null,
-        characterTag: null,
-        beforeCount: beforeUncollected,
-        afterCount: afterUncollected,
-        newPath: "temp/uncollected",
-        isNewlyAdded: false,
+        series_tag: null,
+        character_tag: null,
+        before_count: beforeUncollected,
+        after_count: afterUncollected,
+        new_path: "temp/uncollected",
+        is_new: false,
       });
     }
 
     combinationMap.forEach((data, key) => {
-      const isNewlyAdded = !previousIds.has(key);
+      const isNew = !previousIds.has(key);
       let newPath = "root";
 
-      if (data.seriesTag && data.characterTag) {
-        newPath = `root/${data.seriesTag}/${data.characterTag}`;
-      } else if (data.seriesTag) {
-        newPath = `root/${data.seriesTag}`;
-      } else if (data.characterTag) {
-        newPath = `root/${data.characterTag}`;
+      if (data.series_tag && data.character_tag) {
+        newPath = `root/${data.series_tag}/${data.character_tag}`;
+      } else if (data.series_tag) {
+        newPath = `root/${data.series_tag}`;
+      } else if (data.character_tag) {
+        newPath = `root/${data.character_tag}`;
       }
 
       result.push({
         id: key,
-        seriesTag: data.seriesTag,
-        characterTag: data.characterTag,
-        beforeCount: 0,
-        afterCount: data.count,
-        newPath,
-        isNewlyAdded,
+        series_tag: data.series_tag,
+        character_tag: data.character_tag,
+        before_count: 0,
+        after_count: data.count,
+        new_path: newPath,
+        is_new: isNew,
       });
     });
 

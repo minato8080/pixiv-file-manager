@@ -23,6 +23,7 @@ export const TagsSearcherResultArea = () => {
   } = useTagsSearcherStore();
 
   useEffect(() => {
+    setInnerSearchResults([]);
     // 遅延読み込み
     const updateResultsInBatches = (results: SearchResult[]) => {
       let index = 0;

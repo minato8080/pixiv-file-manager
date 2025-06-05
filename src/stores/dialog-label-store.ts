@@ -42,6 +42,7 @@ export const useDialogLabelStore = create<DialogLabelStore>((set) => ({
       isLabelCharacterDialogOpen: false,
       labelCharacterDialogSelectedFiles: [],
       isLabelCharacterDialogSubmitting: false,
+      availableCharacters: [],
     }),
   setLabelCharacterDialogSubmitting: (submitting: boolean) =>
     set({ isLabelCharacterDialogSubmitting: submitting }),

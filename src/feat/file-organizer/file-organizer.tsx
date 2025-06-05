@@ -1,9 +1,10 @@
+import { invoke } from "@tauri-apps/api/core";
 import { Settings, Trash2, Save, Plus, Edit3 } from "lucide-react";
 import { useState, useEffect } from "react";
 
-import { CollectSummary, mockApi, TagAssignment } from "./mock-api";
-import { getAvailableTags } from "./mock-data";
+import { mockApi, TagAssignment } from "./mock-api";
 
+import { CollectSummary } from "@/bindings/CollectSummary";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -24,10 +25,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DropdownInput } from "@/src/components/dropdown-input";
+import { useDropdownStore } from "@/src/stores/dropdown-store";
 
 interface EditingState {
   id: string;
-  field: "seriesTag" | "characterTag";
+  field: "series_tag" | "character_tag";
 }
 
 export default function FileOrganizer() {
@@ -40,14 +42,20 @@ export default function FileOrganizer() {
   const [rootPath, setRootPath] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const availableTags = getAvailableTags();
-  const usedSeriesTags = tagAssignments.map((a) => a.seriesTag).filter(Boolean);
-  const usedCharacterTags = tagAssignments
-    .map((a) => a.characterTag)
+  const { uniqueTagList } = useDropdownStore();
+  const usedSeriesTags = tagAssignments
+    .map((a) => a.series_tag)
     .filter(Boolean);
-  const unassignedTags = availableTags.filter(
-    (tag) => !usedSeriesTags.includes(tag) && !usedCharacterTags.includes(tag)
-  );
+  const usedCharacterTags = tagAssignments
+    .map((a) => a.character_tag)
+    .filter(Boolean);
+  const unassignedTags = uniqueTagList
+    .filter(
+      (tag) =>
+        !usedSeriesTags.includes(tag.tag) &&
+        !usedCharacterTags.includes(tag.tag)
+    )
+    .map((tag) => tag.tag);
 
   useEffect(() => {
     const initialize = async () => {
@@ -59,15 +67,6 @@ export default function FileOrganizer() {
         } else {
           setRootPath(root);
         }
-
-        const savedAssignments = await mockApi.loadAssignments();
-        setTagAssignments(savedAssignments);
-
-        const { summary } = await mockApi.getCollectSummary(
-          savedAssignments,
-          []
-        );
-        setCollectSummary(summary);
       } finally {
         setLoading(false);
       }
@@ -79,10 +78,8 @@ export default function FileOrganizer() {
   const updateSummary = async () => {
     setLoading(true);
     try {
-      const { summary } = await mockApi.getCollectSummary(
-        tagAssignments,
-        collectSummary
-      );
+      const summary: CollectSummary[] = await invoke("load_assignments");
+      console.log("summary:", summary);
       setCollectSummary(summary);
     } finally {
       setLoading(false);
@@ -96,12 +93,12 @@ export default function FileOrganizer() {
 
     setLoading(true);
     try {
-      const seriesTag = selectedSeriesTag || null;
-      const characterTag = selectedCharacterTag || null;
+      const series_tag = selectedSeriesTag || null;
+      const character_tag = selectedCharacterTag || null;
 
-      const result = await mockApi.assignTag(seriesTag, characterTag);
+      const result = await mockApi.assignTag(series_tag, character_tag);
       if (result.success) {
-        setTagAssignments((prev) => [...prev, { seriesTag, characterTag }]);
+        setTagAssignments((prev) => [...prev, { series_tag, character_tag }]);
         setSelectedSeriesTag("");
         setSelectedCharacterTag("");
       }
@@ -126,8 +123,8 @@ export default function FileOrganizer() {
         prev.filter(
           (a) =>
             !(
-              a.seriesTag === item.seriesTag &&
-              a.characterTag === item.characterTag
+              a.series_tag === item.series_tag &&
+              a.character_tag === item.character_tag
             )
         )
       );
@@ -136,7 +133,7 @@ export default function FileOrganizer() {
 
   const updateItemField = (
     itemId: string,
-    field: "seriesTag" | "characterTag",
+    field: "series_tag" | "character_tag",
     value: string
   ) => {
     const item = collectSummary.find((s) => s.id === itemId);
@@ -145,8 +142,8 @@ export default function FileOrganizer() {
       setTagAssignments((prev) =>
         prev.map((a) => {
           if (
-            a.seriesTag === item.seriesTag &&
-            a.characterTag === item.characterTag
+            a.series_tag === item.series_tag &&
+            a.character_tag === item.character_tag
           ) {
             return {
               ...a,
@@ -200,7 +197,7 @@ export default function FileOrganizer() {
 
   const renderEditableField = (
     item: CollectSummary,
-    field: "seriesTag" | "characterTag"
+    field: "series_tag" | "character_tag"
   ) => {
     const isEditing =
       editingState?.id === item.id && editingState?.field === field;
@@ -224,9 +221,9 @@ export default function FileOrganizer() {
           </SelectTrigger>
           <SelectContent className="bg-white">
             <SelectItem value="__unset__">Unset</SelectItem>
-            {options.map((option) => (
-              <SelectItem key={option} value={option} className="text-xs">
-                {option}
+            {options.map((tag) => (
+              <SelectItem key={tag} value={tag} className="text-xs">
+                {tag}
               </SelectItem>
             ))}
           </SelectContent>
@@ -237,9 +234,9 @@ export default function FileOrganizer() {
     return (
       <span
         className={`cursor-pointer hover:bg-gray-100 px-1 rounded text-xs whitespace-nowrap ${
-          item.isNewlyAdded ? "bg-blue-200 text-blue-800" : ""
+          item.is_new ? "bg-blue-200 text-blue-800" : ""
         } ${!value ? "text-gray-400" : ""} ${
-          field === "seriesTag" ? "text-blue-700" : "text-green-700"
+          field === "series_tag" ? "text-blue-700" : "text-green-700"
         }`}
         onClick={() =>
           item.id !== "uncollected" && setEditingState({ id: item.id, field })
@@ -252,11 +249,11 @@ export default function FileOrganizer() {
   };
 
   return (
-    <div className="h-screen p-2 bg-gray-50 flex flex-col">
+    <div className="h-screen p-2 flex flex-col">
       {/* 上部コントロール */}
       <div className="flex gap-4 mb-2">
         {/* ルート設定 */}
-        <div className="flex items-center gap-3 bg-white p-2 rounded border">
+        <div className="flex items-center gap-3  p-2 rounded border">
           <Settings className="w-3 h-3 text-orange-600" />
           <Checkbox
             id="change-root"
@@ -284,7 +281,7 @@ export default function FileOrganizer() {
         </div>
 
         {/* タグ振り分け - プルダウン上にラベル */}
-        <div className="bg-white p-2 rounded border">
+        <div className="p-2 rounded border">
           <div className="flex items-end gap-2">
             <div className="flex flex-col">
               <Label className="text-xs text-blue-700 mb-1">Series</Label>
@@ -344,7 +341,7 @@ export default function FileOrganizer() {
       </div>
 
       {/* 振り分け状況一覧 */}
-      <div className="flex-1 bg-white border rounded overflow-hidden">
+      <div className="flex-1  border rounded overflow-hidden">
         <div className="h-full overflow-auto">
           <Table>
             <TableHeader className="sticky top-0 bg-gray-100">
@@ -369,25 +366,25 @@ export default function FileOrganizer() {
               {collectSummary.map((item) => (
                 <TableRow key={item.id} className="hover:bg-gray-50">
                   <TableCell className="py-0.5">
-                    {renderEditableField(item, "seriesTag")}
+                    {renderEditableField(item, "series_tag")}
                   </TableCell>
                   <TableCell className="py-0.5">
-                    {renderEditableField(item, "characterTag")}
+                    {renderEditableField(item, "character_tag")}
                   </TableCell>
                   <TableCell className="text-xs text-right py-0.5">
-                    {item.beforeCount}
+                    {item.before_count}
                   </TableCell>
                   <TableCell className="text-xs text-right py-0.5">
                     <span
                       className={
-                        item.afterCount > 0 ? "text-green-700 font-medium" : ""
+                        item.after_count > 0 ? "text-green-700 font-medium" : ""
                       }
                     >
-                      {item.afterCount}
+                      {item.after_count}
                     </span>
                   </TableCell>
                   <TableCell className="text-xs py-0.5 text-gray-800 font-mono whitespace-nowrap">
-                    {item.newPath}
+                    {item.new_path}
                   </TableCell>
                   <TableCell className="py-0.5">
                     {item.id !== "uncollected" && (

@@ -43,6 +43,17 @@
   - `collect_dir`: TEXT - コレクションディレクトリ
   - `series`: TEXT - シリーズ名
   - **PRIMARY KEY**: (`character`)
+  -
+
+- **COLLECT_WORK**
+
+  - `series`: TEXT - シリーズ名
+  - `character`: TEXT NOT NULL - キャラクター名
+  - `collect_dir`: TEXT - コレクションディレクトリ
+  - `before_count`: INTEGER
+  - `after_count`: INTEGER
+  - `unsave`: BOOLEAN
+  - **PRIMARY KEY**: (`character`)
 
 - **AUTHOR_INFO**
 

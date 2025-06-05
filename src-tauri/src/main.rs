@@ -12,6 +12,7 @@ mod service;
 use commands::catalog::{
     delete_files, edit_tags, get_associated_info, label_character_name, move_files,
 };
+use commands::collect::load_assignments;
 use rusqlite::{params, Connection, Result};
 use std::sync::Mutex;
 use tauri::Manager;
@@ -63,6 +64,7 @@ fn main() {
             delete_files,
             count_files_in_dir,
             get_associated_info,
+            load_assignments,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -123,6 +125,19 @@ fn initialize_db(conn: &Connection) -> Result<()> {
             character TEXT NOT NULL,
             collect_dir TEXT,
             series TEXT,
+            PRIMARY KEY (character)
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS COLLECT_WORK (
+            series TEXT,
+            character TEXT NOT NULL,
+            collect_dir TEXT,
+            before_count INTEGER,
+            after_count INTEGER,
+            unsave BOOLEAN,
             PRIMARY KEY (character)
         )",
         [],

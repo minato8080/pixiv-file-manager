@@ -47,8 +47,9 @@
 
 - **COLLECT_WORK**
 
+  - `id`: INTEGER NOT NULL
   - `series`: TEXT - シリーズ名
-  - `character`: TEXT NOT NULL - キャラクター名
+  - `character`: TEXT NOT NULL- キャラクター名
   - `collect_dir`: TEXT - コレクションディレクトリ
   - `before_count`: INTEGER
   - `after_count`: INTEGER

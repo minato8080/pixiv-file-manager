@@ -1,10 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
-import { Settings, Trash2, Save, Plus, Edit3 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
+import { Settings, Trash2, Save, Plus, Edit3, FolderOpen } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 
-import { mockApi, TagAssignment } from "./mock-api";
+import { mockApi } from "./mock-api";
 
 import { CollectSummary } from "@/bindings/CollectSummary";
+import { GeneralResponse } from "@/bindings/GeneralResponse";
+import { TagAssignment } from "@/bindings/TagAssignment";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -24,11 +27,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { DropdownInput } from "@/src/components/dropdown-input";
+import { InputDropdown } from "@/src/components/input-dropdown";
 import { useDropdownStore } from "@/src/stores/dropdown-store";
 
 interface EditingState {
-  id: string;
+  id: number;
   field: "series_tag" | "character_tag";
 }
 
@@ -41,6 +44,7 @@ export default function FileOrganizer() {
   const [isChangeRoot, setIsChangeRoot] = useState(false);
   const [rootPath, setRootPath] = useState("");
   const [loading, setLoading] = useState(false);
+  const maxCount = useRef(0);
 
   const { uniqueTagList } = useDropdownStore();
   const usedSeriesTags = tagAssignments
@@ -61,12 +65,13 @@ export default function FileOrganizer() {
     const initialize = async () => {
       setLoading(true);
       try {
-        const root = await mockApi.getRoot();
+        const root: string | null = await invoke("get_root");
         if (!root) {
           setIsChangeRoot(true);
         } else {
           setRootPath(root);
         }
+        await loadSummary();
       } finally {
         setLoading(false);
       }
@@ -75,10 +80,12 @@ export default function FileOrganizer() {
     void initialize();
   }, []);
 
-  const updateSummary = async () => {
+  const loadSummary = async () => {
     setLoading(true);
     try {
       const summary: CollectSummary[] = await invoke("load_assignments");
+      maxCount.current =
+        Math.max(...summary.map((item) => item.after_count)) + 1;
       console.log("summary:", summary);
       setCollectSummary(summary);
     } finally {
@@ -93,15 +100,17 @@ export default function FileOrganizer() {
 
     setLoading(true);
     try {
-      const series_tag = selectedSeriesTag || null;
-      const character_tag = selectedCharacterTag || null;
-
-      const result = await mockApi.assignTag(series_tag, character_tag);
-      if (result.success) {
-        setTagAssignments((prev) => [...prev, { series_tag, character_tag }]);
-        setSelectedSeriesTag("");
-        setSelectedCharacterTag("");
-      }
+      const assignment: TagAssignment = {
+        id: (maxCount.current += 1),
+        series_tag: selectedSeriesTag || null,
+        character_tag: selectedCharacterTag || null,
+      };
+      const summary: CollectSummary[] = await invoke("assign_tag", {
+        assignment,
+      });
+      setCollectSummary(summary);
+      setSelectedSeriesTag("");
+      setSelectedCharacterTag("");
     } finally {
       setLoading(false);
     }
@@ -116,45 +125,45 @@ export default function FileOrganizer() {
     }
   };
 
-  const removeAssignment = (itemId: string) => {
-    const item = collectSummary.find((s) => s.id === itemId);
-    if (item) {
-      setTagAssignments((prev) =>
-        prev.filter(
-          (a) =>
-            !(
-              a.series_tag === item.series_tag &&
-              a.character_tag === item.character_tag
-            )
-        )
-      );
+  const removeAssignment = async (itemId: number) => {
+    setLoading(true);
+    try {
+      const assignment: TagAssignment = {
+        id: itemId,
+        series_tag: null,
+        character_tag: null,
+      };
+      const summary: CollectSummary[] = await invoke("assign_tag", {
+        assignment,
+      });
+      setCollectSummary(summary);
+      setSelectedSeriesTag("");
+      setSelectedCharacterTag("");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const updateItemField = (
-    itemId: string,
+  const updateItemField = async (
+    itemId: number,
     field: "series_tag" | "character_tag",
     value: string
   ) => {
-    const item = collectSummary.find((s) => s.id === itemId);
-    if (item) {
-      const newValue = value === "__unset__" ? null : value;
-      setTagAssignments((prev) =>
-        prev.map((a) => {
-          if (
-            a.series_tag === item.series_tag &&
-            a.character_tag === item.character_tag
-          ) {
-            return {
-              ...a,
-              [field]: newValue,
-            };
-          }
-          return a;
-        })
-      );
-      setEditingState(null);
-    }
+    const newItem = collectSummary.find((item) =>
+      item.id === itemId ? { ...item, [field]: value } : item
+    );
+    if (!newItem) return;
+
+    setCollectSummary((prev) => [...prev, newItem]);
+    const assignment: TagAssignment = {
+      id: newItem.id,
+      series_tag: newItem.series_tag,
+      character_tag: newItem.character_tag,
+    };
+    console.log(newItem, assignment, field, value);
+    await invoke("assign_tag", {
+      assignment,
+    });
   };
 
   const performCollect = async () => {
@@ -182,9 +191,12 @@ export default function FileOrganizer() {
 
     setLoading(true);
     try {
-      const result = await mockApi.setRoot(rootPath);
+      const result: GeneralResponse = await invoke("set_root", {
+        root: rootPath,
+      });
       if (result.success) {
         setIsChangeRoot(false);
+        void loadSummary();
       }
     } finally {
       setLoading(false);
@@ -192,8 +204,23 @@ export default function FileOrganizer() {
   };
 
   useEffect(() => {
-    void updateSummary();
-  }, [tagAssignments]);
+    void loadSummary();
+  }, []);
+
+  // Function to select folders
+  const selectFolders = async () => {
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: true,
+        title: "Select folders containing images",
+      });
+      if (!selected) return;
+      setRootPath(selected[0]);
+    } catch (error) {
+      console.error("Error selecting folders:", error);
+    }
+  };
 
   const renderEditableField = (
     item: CollectSummary,
@@ -209,7 +236,7 @@ export default function FileOrganizer() {
         <Select
           value={value ?? "__unset__"}
           onValueChange={(newValue) =>
-            updateItemField(item.id, field, newValue)
+            void updateItemField(item.id, field, newValue)
           }
           onOpenChange={(open) => {
             if (!open) setEditingState(null);
@@ -239,11 +266,11 @@ export default function FileOrganizer() {
           field === "series_tag" ? "text-blue-700" : "text-green-700"
         }`}
         onClick={() =>
-          item.id !== "uncollected" && setEditingState({ id: item.id, field })
+          item.id !== -1 && setEditingState({ id: item.id, field })
         }
       >
         {value ?? "-"}
-        {item.id !== "uncollected" && <Edit3 className="w-2 h-2 inline ml-1" />}
+        {item.id !== -1 && <Edit3 className="w-2 h-2 inline ml-1" />}
       </span>
     );
   };
@@ -252,32 +279,41 @@ export default function FileOrganizer() {
     <div className="h-screen p-2 flex flex-col">
       {/* 上部コントロール */}
       <div className="flex gap-4 mb-2">
-        {/* ルート設定 */}
-        <div className="flex items-center gap-3  p-2 rounded border">
-          <Settings className="w-3 h-3 text-orange-600" />
-          <Checkbox
-            id="change-root"
-            checked={isChangeRoot}
-            onCheckedChange={(checked) => setIsChangeRoot(checked === true)}
-          />
-          <Label htmlFor="change-root" className="text-xs">
-            Change Root
-          </Label>
+        <div className="items-center gap-3  p-2 rounded border">
+          {/* ルート設定 */}
+          <div className="flex items-center gap-3 pb-2">
+            <Settings className="w-3 h-3 text-orange-600" />
+            <Checkbox
+              id="change-root"
+              checked={isChangeRoot}
+              onCheckedChange={(checked) => setIsChangeRoot(checked === true)}
+            />
+            <Label htmlFor="change-root" className="text-xs">
+              Change Root
+            </Label>
+            <Button
+              onClick={() => void selectFolders()}
+              disabled={loading || !isChangeRoot}
+              className="flex items-center h-6 bg-green-600 hover:bg-green-700"
+            >
+              <FolderOpen className="h-2 w-2" />
+            </Button>
+            <Button
+              onClick={() => void setRoot()}
+              disabled={loading || !isChangeRoot}
+              size="sm"
+              className="h-6 text-xs bg-orange-600 hover:bg-orange-700"
+            >
+              Set
+            </Button>
+          </div>
           <Input
             value={rootPath}
             onChange={(e) => setRootPath(e.target.value)}
             placeholder=""
-            className="text-xs h-6 w-40"
+            className="text-xs h-6 w-80"
             disabled={!isChangeRoot}
-          />
-          <Button
-            onClick={() => void setRoot}
-            disabled={loading}
-            size="sm"
-            className="h-6 text-xs bg-orange-600 hover:bg-orange-700"
-          >
-            Set
-          </Button>
+          />{" "}
         </div>
 
         {/* タグ振り分け - プルダウン上にラベル */}
@@ -285,23 +321,25 @@ export default function FileOrganizer() {
           <div className="flex items-end gap-2">
             <div className="flex flex-col">
               <Label className="text-xs text-blue-700 mb-1">Series</Label>
-              <DropdownInput
+              <InputDropdown
                 value={selectedSeriesTag}
-                onValueChange={setSelectedSeriesTag}
-                options={unassignedTags}
+                onChange={setSelectedSeriesTag}
+                items={unassignedTags}
                 placeholder="Select tag"
-                className="h-6 text-xs w-28"
+                valueKey={(item) => item}
+                inputClassName="border-blue-200 dark:border-blue-800 h-8"
               />
             </div>
 
             <div className="flex flex-col">
               <Label className="text-xs text-green-700 mb-1">Character</Label>
-              <DropdownInput
+              <InputDropdown
                 value={selectedCharacterTag}
-                onValueChange={setSelectedCharacterTag}
-                options={unassignedTags}
+                onChange={setSelectedCharacterTag}
+                items={unassignedTags}
                 placeholder="Select tag"
-                className="h-6 text-xs w-28"
+                valueKey={(item) => item}
+                inputClassName="border-green-200 dark:border-green-800 h-8"
               />
             </div>
 
@@ -311,7 +349,7 @@ export default function FileOrganizer() {
                 (!selectedSeriesTag && !selectedCharacterTag) || loading
               }
               size="sm"
-              className="h-6 text-xs bg-blue-600 hover:bg-blue-700"
+              className="text-xs bg-blue-600 hover:bg-blue-700"
             >
               <Plus className="w-3 h-3 mr-1" />
               Add
@@ -322,7 +360,7 @@ export default function FileOrganizer() {
               disabled={loading || tagAssignments.length === 0}
               size="sm"
               variant="outline"
-              className="h-6 text-xs"
+              className="text-xs"
             >
               <Save className="w-3 h-3 mr-1" />
               Save
@@ -332,7 +370,7 @@ export default function FileOrganizer() {
               onClick={() => void performCollect()}
               disabled={loading || tagAssignments.length === 0}
               size="sm"
-              className="h-6 text-xs bg-purple-600 hover:bg-purple-700"
+              className="text-xs bg-purple-600 hover:bg-purple-700"
             >
               Execute
             </Button>
@@ -387,9 +425,9 @@ export default function FileOrganizer() {
                     {item.new_path}
                   </TableCell>
                   <TableCell className="py-0.5">
-                    {item.id !== "uncollected" && (
+                    {item.id !== -1 && (
                       <Button
-                        onClick={() => removeAssignment(item.id)}
+                        onClick={() => void removeAssignment(item.id)}
                         size="sm"
                         variant="ghost"
                         className="h-5 w-5 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"

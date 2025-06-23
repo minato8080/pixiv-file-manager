@@ -8,8 +8,7 @@ use tauri::{Emitter, State};
 use trash::delete;
 
 use crate::models::fetch::{
-    FileDetail, IdInfo, PostConvSequentialInfo, PreConvSequentialInfo, ProcessStats,
-    TagProgress,
+    FileDetail, IdInfo, PostConvSequentialInfo, PreConvSequentialInfo, ProcessStats, TagProgress,
 };
 use crate::models::global::AppState;
 use crate::models::pixiv::{PixivApi, RealPixivApi};
@@ -133,40 +132,37 @@ fn prepare_work_table(
     conn: &Connection,
     file_details: &Vec<FileDetail>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    // テーブル初期化
     conn.execute("DELETE FROM ILLUST_INFO_WORK;", ())?;
 
-    fn to_sql_ref<T: ToSql>(value: &T) -> &dyn ToSql {
-        value
+    // Prepared Statement を事前に用意
+    let sql = "INSERT OR IGNORE INTO ILLUST_INFO_WORK (
+        illust_id, suffix, extension, save_dir,
+        created_time, file_size, delete_flg, insert_flg, ignore_flg
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    let mut stmt = conn.prepare(sql)?;
+
+    // チャンクサイズ（バルクインサート）
+    const BATCH_SIZE: usize = 100;
+
+    for chunk in file_details.chunks(BATCH_SIZE) {
+        for file_detail in chunk {
+            stmt.execute(params![
+                file_detail.id,
+                file_detail.suffix,
+                file_detail.extension,
+                file_detail.save_dir,
+                file_detail.created_time,
+                file_detail.file_size,
+                0, // delete_flg
+                1, // insert_flg
+                0, // ignore_flg
+            ])?;
+        }
     }
-    let values = file_details
-        .iter()
-        .map(|_| "(?, ?, ?, ?, ?, ?, ?, ?, ?)")
-        .collect::<Vec<_>>()
-        .join(", ");
-    let params: Vec<&dyn ToSql> = file_details
-        .iter()
-        .flat_map(|file_detail| {
-            vec![
-                to_sql_ref(&file_detail.id),
-                to_sql_ref(&file_detail.suffix),
-                to_sql_ref(&file_detail.extension),
-                to_sql_ref(&file_detail.save_dir),
-                to_sql_ref(&file_detail.created_time),
-                to_sql_ref(&file_detail.file_size),
-                to_sql_ref(&0),
-                to_sql_ref(&1),
-                to_sql_ref(&0),
-            ]
-        })
-        .collect();
 
-    let sql = format!(
-        "INSERT INTO ILLUST_INFO_WORK (illust_id, suffix, extension, save_dir, created_time, file_size, delete_flg, insert_flg, ignore_flg) VALUES {}",
-        values
-    );
-    conn.execute(&sql, params_from_iter(params))?;
-
-    update_flags(&conn)?;
+    // フラグ更新（この関数が外部ならそのまま呼び出し）
+    update_flags(conn)?;
 
     Ok(())
 }
@@ -376,12 +372,7 @@ fn insert_illust_info_with_defaults(
     let mut stmt = conn.prepare(
         "INSERT INTO ILLUST_DETAIL (illust_id, author_id, character, control_num) VALUES (?1, ?2, ?3, ?4)"
     )?;
-    stmt.execute(params![
-        id_info.illust_id,
-        0,
-        None::<String>,
-        0,
-    ])?;
+    stmt.execute(params![id_info.illust_id, 0, None::<String>, 0,])?;
     Ok(())
 }
 

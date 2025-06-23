@@ -1,11 +1,7 @@
 import { mockIllustDetail, mockTagInfo, mockDbInfo } from "./mock-data";
 
 import { CollectSummary } from "@/bindings/CollectSummary";
-
-export interface TagAssignment {
-  series_tag: string | null;
-  character_tag: string | null;
-}
+import { TagAssignment } from "@/bindings/TagAssignment";
 
 export interface CollectStats {
   beforeUncollected: number;

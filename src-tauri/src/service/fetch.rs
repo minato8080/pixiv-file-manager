@@ -1,5 +1,6 @@
 use pixieve_rs::pixiv::result::illustration_proxy::IllustrationProxy;
-use rusqlite::{params, params_from_iter, Connection, Result, ToSql};
+use regex::Regex;
+use rusqlite::{params, Connection, Result};
 use std::fs;
 use std::path::Path;
 use std::time::Instant;
@@ -17,13 +18,15 @@ pub fn extract_dir_detail<P: AsRef<Path>>(folder: P) -> Vec<FileDetail> {
     let mut details = Vec::new();
 
     fn visit_dirs(dir: &Path, details: &mut Vec<FileDetail>) {
+        let re = Regex::new(r"^(\d+)_p(\d+)\.(jpg|png)$").unwrap();
         if let Ok(entries) = fs::read_dir(dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if path.is_dir() {
                     visit_dirs(&path, details);
-                } else if let Some(filename) = entry.file_name().to_str() {
-                    if filename.ends_with(".jpg") || filename.ends_with(".png") {
+                } else if let Some(file_name) = entry.file_name().to_str() {
+                    if let Some(caps) = re.captures(file_name) {
+                        let filename = caps.get(0).unwrap().as_str(); // 全体のマッチ
                         if let Some(id) = filename.split('_').next() {
                             let suffix = filename
                                 .split("_p")

@@ -28,7 +28,7 @@ export const TagsSearcherResultArea = () => {
     const updateResultsInBatches = (results: SearchResult[]) => {
       let index = 0;
       const batchSize = 10; // N件ずつ処理
-      const delay = 300; // N秒間隔で処理
+      const delay = 1000; // N秒間隔で処理
 
       const processBatch = () => {
         // 50件ずつ取り出してURL変換

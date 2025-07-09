@@ -255,14 +255,19 @@ pub fn search_by_criteria(
                 None => format!("{}.{}", id, extension),
             };
             let pathbuf = Path::new(&save_dir).join(&file_name);
-            let path = pathbuf.to_str().unwrap().to_string();
+            let mut path = pathbuf.to_str().unwrap().to_string();
 
             let update_time: String = {
-                let metadata = std::fs::metadata(&path)
-                    .map_err(|_e| rusqlite::Error::InvalidPath(pathbuf.clone()))?;
-                let modified_time = metadata.modified().unwrap();
-                let datetime: chrono::DateTime<chrono::Local> = modified_time.into();
-                datetime.format("%Y-%m-%d %H:%M:%S").to_string()
+                match std::fs::metadata(&pathbuf).and_then(|m| m.modified()) {
+                    Ok(modified_time) => {
+                        let datetime: chrono::DateTime<chrono::Local> = modified_time.into();
+                        datetime.format("%Y-%m-%d %H:%M:%S").to_string()
+                    }
+                    Err(_) => {
+                        path = "".to_string();
+                        String::from("1970-01-01 00:00:00")
+                    }
+                }
             };
 
             let author_info = AuthorInfo {

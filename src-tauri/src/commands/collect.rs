@@ -18,14 +18,14 @@ pub fn assign_tag(
     let mut conn = state.db.lock().unwrap();
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
+    tx.execute(
+        "DELETE FROM COLLECT_WORK WHERE id = ?1",
+        params![assignment.id,],
+    )
+    .map_err(|e| e.to_string())?;
+
     match (&assignment.series_tag, &assignment.character_tag) {
-        (None, None) => {
-            tx.execute(
-                "DELETE FROM COLLECT_WORK WHERE id = ?1",
-                params![assignment.id,],
-            )
-            .map_err(|e| e.to_string())?;
-        }
+        (None, None) => {}
         _ => {
             // DB_INFO.root を取得（なければ None）
             let root: Option<String> = tx

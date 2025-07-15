@@ -1,14 +1,45 @@
-use rusqlite::params;
-use rusqlite::Connection;
-use rusqlite::OptionalExtension;
-use rusqlite::Transaction;
+use rusqlite::{params, OptionalExtension};
 use tauri::{command, State};
 
-use crate::models::global::GeneralResponse;
-use crate::models::{
-    collect::{CollectSummary, TagAssignment},
-    global::AppState,
+use crate::service::collect::{
+    collect_character_info, collect_illust_detail, collect_illust_info,
+    create_original_illust_info, get_collect_summary, move_illust_files, prepare_collect_work,
+    update_after_count,
 };
+use crate::{
+    models::{
+        collect::{CollectSummary, TagAssignment},
+        global::{AppState, GeneralResponse},
+    },
+    service::collect::resort_collect_work_ids,
+};
+
+#[command]
+pub fn get_related_tags(tag: &str, state: State<AppState>) -> Result<Vec<String>, String> {
+    let conn = state.db.lock().unwrap();
+    let mut stmt = conn
+        .prepare(
+            r#"
+        SELECT DISTINCT T2.tag
+        FROM TAG_INFO T1
+        JOIN TAG_INFO T2
+          ON T1.illust_id = T2.illust_id
+         AND T1.control_num = T2.control_num
+        WHERE T1.tag = ?1
+          AND T2.tag != ?1
+        ORDER BY T2.tag COLLATE NOCASE
+        "#,
+        )
+        .map_err(|e| e.to_string())?;
+
+    let tags = stmt
+        .query_map([tag], |row| row.get(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<String>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    Ok(tags)
+}
 
 #[command]
 pub fn assign_tag(
@@ -18,15 +49,12 @@ pub fn assign_tag(
     let mut conn = state.db.lock().unwrap();
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
-    tx.execute(
-        "DELETE FROM COLLECT_WORK WHERE id = ?1",
-        params![assignment.id,],
-    )
-    .map_err(|e| e.to_string())?;
-
     match (&assignment.series_tag, &assignment.character_tag) {
         (None, None) => {}
         _ => {
+            tx.execute("DELETE FROM COLLECT_WORK WHERE id = ?1", [assignment.id])
+                .map_err(|e| e.to_string())?;
+
             // DB_INFO.root を取得（なければ None）
             let root: Option<String> = tx
                 .query_row("SELECT root FROM DB_INFO LIMIT 1", [], |row| row.get(0))
@@ -44,11 +72,10 @@ pub fn assign_tag(
                 },
             };
 
-            // INSERT OR IGNORE
             tx.execute(
-                "INSERT OR IGNORE INTO COLLECT_WORK (
+                "INSERT OR REPLACE INTO COLLECT_WORK (
                 id, series, character, collect_dir, before_count, after_count, unsave
-            ) VALUES (?1, ?2, ?3, ?4, 0, 0, false)",
+            ) VALUES (?1, ?2, ?3, ?4, 0, 0, true)",
                 params![
                     assignment.id,
                     assignment.series_tag,
@@ -63,17 +90,48 @@ pub fn assign_tag(
     // after_countを計算
     update_after_count(&tx).map_err(|e| e.to_string())?;
 
+    // ソートし直す
+    resort_collect_work_ids(&tx).map_err(|e| e.to_string())?;
+
     // コミット
     tx.commit().map_err(|e| e.to_string())?;
 
     get_collect_summary(&conn)
 }
 
-fn update_after_count(tx: &Transaction) -> Result<(), String> {
-    let sql = include_str!("sql/update_after_count.sql");
-    tx.execute_batch(sql).map_err(|e| e.to_string())?;
+#[command]
+pub fn delete_collect(
+    character: String,
+    state: State<AppState>,
+) -> Result<Vec<CollectSummary>, String> {
+    let mut conn = state.db.lock().unwrap();
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
 
-    Ok(())
+    // CHARACTER_INFO から削除
+    tx.execute(
+        "DELETE FROM CHARACTER_INFO WHERE character = ?1",
+        params![character],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // ILLUST_DETAIL から削除
+    tx.execute(
+        "DELETE FROM ILLUST_DETAIL WHERE character = ?1",
+        params![character],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // COLLECT_WORK から削除
+    tx.execute(
+        "DELETE FROM COLLECT_WORK WHERE character = ?1",
+        params![character],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // コミット
+    tx.commit().map_err(|e| e.to_string())?;
+
+    get_collect_summary(&conn)
 }
 
 #[command]
@@ -81,150 +139,50 @@ pub fn load_assignments(state: State<AppState>) -> Result<Vec<CollectSummary>, S
     let mut conn = state.db.lock().unwrap();
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
-    // COLLECT_WORKテーブルをトランケイト
-    tx.execute("DELETE FROM COLLECT_WORK", [])
-        .map_err(|e| e.to_string())?;
-    {
-        // CHARACTER_INFOの現在の状態を取得し、before_countにファイル数を設定
-        let mut stmt = tx
-            .prepare(
-                "WITH root_value AS (
-                SELECT root FROM DB_INFO LIMIT 1
-                )
-                SELECT 
-                ROW_NUMBER() OVER () AS row_num,
-                C.series,
-                C.character,
-                CASE
-                    WHEN R.root IS NULL THEN NULL
-                    WHEN C.series IS NULL THEN R.root || '\\' || C.character
-                    ELSE R.root || '\\' || C.series || '\\' || C.character
-                END AS new_path,
-                COUNT(I.illust_id) AS before_count
-                FROM CHARACTER_INFO C
-                CROSS JOIN root_value R
-                LEFT JOIN ILLUST_DETAIL D ON C.character = D.character
-                LEFT JOIN ILLUST_INFO I 
-                ON I.illust_id = D.illust_id
-                AND I.save_dir = (
-                    CASE
-                    WHEN R.root IS NULL THEN NULL
-                    WHEN C.series IS NULL THEN R.root || '\\' || C.character
-                    ELSE R.root || '\\' || C.series || '\\' || C.character
-                    END
-                )
-                GROUP BY C.series, C.character;
-                ",
-            )
-            .map_err(|e| e.to_string())?;
-        let character_info_iter = stmt
-            .query_map([], |row| {
-                Ok(CollectSummary {
-                    id: row.get(0)?,
-                    series_tag: row.get::<_, Option<String>>(1)?,
-                    character_tag: row.get(2)?,
-                    new_path: row.get::<_, Option<String>>(3)?,
-                    before_count: row.get(4)?,
-                    after_count: row.get(4)?,
-                    is_new: false,
-                })
-            })
-            .map_err(|e| e.to_string())?;
-
-        // COLLECT_WORKにロード
-        for character_info in character_info_iter {
-            let info = character_info.map_err(|e| e.to_string())?;
-            tx.execute(
-                "INSERT INTO COLLECT_WORK (id, series, character, collect_dir, before_count, after_count, unsave) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                params![info.id, info.series_tag, info.character_tag, info.new_path, info.before_count, info.after_count, false],
-            ).map_err(|e| e.to_string())?;
-        }
-
-        // 「未割り当てイラスト」のカウントを取得して、1件追加
-        let unassigned_count: i64 = tx
-            .query_row(
-                "WITH total_after AS (
-                SELECT SUM(after_count) AS total_after_count
-                FROM COLLECT_WORK
-                ),
-                total_illusts AS (
-                    SELECT COUNT(DISTINCT I.illust_id) AS total_illust_count
-                    FROM ILLUST_INFO I
-                )
-                SELECT
-                    (I.total_illust_count - T.total_after_count) AS missing_after_count
-                FROM total_after T, total_illusts I;",
-                [],
-                |row| row.get(0),
-            )
-            .map_err(|e| e.to_string())?;
-
-        tx.execute(
-            "INSERT INTO COLLECT_WORK (id, series, character, collect_dir, before_count, after_count, unsave)
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            params![
-                -1,
-                None::<String>,
-                "",
-                None::<String>,
-                unassigned_count,
-                unassigned_count,
-                false
-            ],
-        ).map_err(|e| e.to_string())?;
-    }
+    // COLLECT_WORKを準備
+    prepare_collect_work(&tx).map_err(|e| e.to_string())?;
 
     // after_countを計算
     update_after_count(&tx).map_err(|e| e.to_string())?;
 
     tx.commit().map_err(|e| e.to_string())?;
 
+    // 結果を返却
     get_collect_summary(&conn)
 }
 
-fn get_collect_summary(conn: &Connection) -> Result<Vec<CollectSummary>, String> {
-    // COLLECT_WORKの結果を取得して返す
-    let mut stmt = conn
-        .prepare(
-            "SELECT
-                id,
-                series,
-                character,
-                collect_dir,
-                before_count,
-                after_count,
-                unsave
-            FROM COLLECT_WORK
-            ORDER BY id ASC
-            ;",
-        )
-        .map_err(|e| e.to_string())?;
-    let collect_work_iter = stmt
-        .query_map([], |row| {
-            Ok(CollectSummary {
-                id: row.get(0)?,
-                series_tag: row.get::<_, Option<String>>(1)?,
-                character_tag: row.get(2)?,
-                new_path: row.get::<_, Option<String>>(3)?,
-                before_count: row.get(4)?,
-                after_count: row.get(5)?,
-                is_new: row.get(6)?,
-            })
-        })
-        .map_err(|e| e.to_string())?;
-
-    let mut results = Vec::new();
-    for collect_work in collect_work_iter {
-        results.push(collect_work.map_err(|e| e.to_string())?);
-    }
-
-    Ok(results)
-}
-
 #[command]
-pub fn perform_collect(state: State<AppState>) -> Result<String, String> {
-    // コレクションを実行する処理を実装
-    Ok("Collection process completed (DB save & file move executed)".to_string())
+pub fn perform_collect(state: State<AppState>) -> Result<Vec<CollectSummary>, String> {
+    let mut conn = state.db.lock().unwrap();
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+
+    // COLLECT_WORKから、unsave = false のレコードをすべて削除する
+    tx.execute("DELETE FROM COLLECT_WORK WHERE unsave = false", [])
+        .map_err(|e| e.to_string())?;
+
+    collect_character_info(&tx).map_err(|e| e.to_string())?;
+
+    collect_illust_detail(&tx).map_err(|e| e.to_string())?;
+
+    create_original_illust_info(&tx).map_err(|e| e.to_string())?;
+
+    collect_illust_info(&tx).map_err(|e| e.to_string())?;
+
+    move_illust_files(&tx).map_err(|e| e.to_string())?;
+
+    tx.commit().map_err(|e| e.to_string())?;
+
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    // COLLECT_WORKを準備
+    prepare_collect_work(&tx).map_err(|e| e.to_string())?;
+
+    // after_countを計算
+    update_after_count(&tx).map_err(|e| e.to_string())?;
+
+    tx.commit().map_err(|e| e.to_string())?;
+
+    // 結果を返却
+    get_collect_summary(&conn)
 }
 
 #[command]

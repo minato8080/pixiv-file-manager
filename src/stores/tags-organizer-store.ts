@@ -4,14 +4,18 @@ import { CollectSummary } from "@/bindings/CollectSummary";
 
 type TagsOrganizerStore = {
   collectSummary: CollectSummary[];
-  unassignedTags: string[];
   setCollectSummary: (summary: CollectSummary[]) => void;
-  setUnassignedTags: (tags: string[]) => void;
+  loading: boolean;
+  setLoading: (bool: boolean) => void;
+  // associatedTagList: string[];
+  // setAssociatedTagList: (list: string[]) => void;
 };
 
 export const useTagsOrganizerStore = create<TagsOrganizerStore>((set) => ({
   collectSummary: [],
-  unassignedTags: [],
   setCollectSummary: (summary) => set({ collectSummary: summary }),
-  setUnassignedTags: (tags) => set({ unassignedTags: tags }),
+  loading: false,
+  setLoading: (bool) => set({ loading: bool }),
+  // associatedTagList: [],
+  // setAssociatedTagList: (list) => set({ associatedTagList: list }),
 }));

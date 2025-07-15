@@ -26,6 +26,8 @@ use constants::DB_NAME;
 use models::global::AppState;
 use models::pixiv::{PixivApi, RealPixivApi};
 
+use crate::commands::collect::{delete_collect, get_related_tags, perform_collect};
+
 fn main() {
     dotenv::dotenv().ok();
     tauri::Builder::default()
@@ -65,7 +67,10 @@ fn main() {
             count_files_in_dir,
             get_associated_info,
             load_assignments,
+            get_related_tags,
             assign_tag,
+            delete_collect,
+            perform_collect,
             get_root,
             set_root,
         ])

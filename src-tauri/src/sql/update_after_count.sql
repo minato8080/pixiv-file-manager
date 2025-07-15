@@ -24,10 +24,13 @@ HAVING COUNT(*) = 1;
 DROP TABLE IF EXISTS temp.character_illust_counts;
 CREATE TEMP TABLE character_illust_counts AS
 SELECT
-  character,
-  COUNT(DISTINCT illust_id || '-' || control_num) AS cnt
-FROM unique_character_illusts
-GROUP BY character;
+  u.character,
+  COUNT(DISTINCT i.illust_id || '-' || i.suffix) AS cnt
+FROM unique_character_illusts u
+JOIN ILLUST_INFO i
+  ON u.illust_id = i.illust_id
+-- control_numはマッチしている前提なので、suffix単位で数える
+GROUP BY u.character;
 
 -- COLLECT_WORK の after_count を更新
 UPDATE COLLECT_WORK
@@ -36,15 +39,16 @@ SET after_count = (
 )
 WHERE character IN (SELECT character FROM character_illust_counts);
 
--- 他キャラクターの after_count の合計を求める
-WITH other_counts AS (
-  SELECT SUM(after_count) AS total
-  FROM COLLECT_WORK
-  WHERE id > 0
-)
--- id = -1 の after_count を更新（before_count から差し引く）
+-- id = -1 の after_count を更新
 UPDATE COLLECT_WORK
-SET after_count = before_count - (
-  SELECT IFNULL(total, 0) FROM other_counts
+SET after_count = (
+  SELECT
+    IFNULL(SUM(before_count), 0) -
+    IFNULL((
+      SELECT SUM(after_count)
+      FROM COLLECT_WORK
+      WHERE id > 0
+    ), 0)
+  FROM COLLECT_WORK
 )
 WHERE id = -1;

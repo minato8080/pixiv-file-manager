@@ -14,7 +14,7 @@ pub struct TagAssignment {
 pub struct CollectSummary {
     pub id: i32,
     pub series_tag: Option<String>,
-    pub character_tag: Option<String>,
+    pub character_tag: String,
     pub before_count: i32,
     pub after_count: i32,
     pub new_path: Option<String>,

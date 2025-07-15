@@ -1,9 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { Settings, Save, Plus, FolderOpen } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { Settings, Plus, FolderOpen } from "lucide-react";
+import { useState, useEffect, useRef, useMemo } from "react";
 
-import { mockApi } from "./mock-api";
 import { ResultArea } from "./result-area";
 
 import { CollectSummary } from "@/bindings/CollectSummary";
@@ -18,36 +17,26 @@ import { useDropdownStore } from "@/src/stores/dropdown-store";
 import { useTagsOrganizerStore } from "@/src/stores/tags-organizer-store";
 
 export default function FileOrganizer() {
-  const { unassignedTags, setCollectSummary, setUnassignedTags } =
-    useTagsOrganizerStore();
+  const { setCollectSummary, loading, setLoading } = useTagsOrganizerStore();
+  const { uniqueTagList } = useDropdownStore();
 
-  const [tagAssignments, setTagAssignments] = useState<TagAssignment[]>([]);
   const [selectedSeriesTag, setSelectedSeriesTag] = useState<string>("");
   const [selectedCharacterTag, setSelectedCharacterTag] = useState<string>("");
   const [isChangeRoot, setIsChangeRoot] = useState(false);
   const [rootPath, setRootPath] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [seriesTagList, setSeriesTagList] = useState<string[]>([]);
+  const [characterTagList, setCharacterTagList] = useState<string[]>([]);
 
   const maxCount = useRef(0);
 
-  const { uniqueTagList } = useDropdownStore();
-
+  const uniqueTags = useMemo(
+    () => uniqueTagList.map((item) => item.tag),
+    [uniqueTagList]
+  );
   useEffect(() => {
-    const usedSeriesTags = tagAssignments
-      .map((a) => a.series_tag)
-      .filter(Boolean);
-    const usedCharacterTags = tagAssignments
-      .map((a) => a.character_tag)
-      .filter(Boolean);
-    const unassignedTags = uniqueTagList
-      .filter(
-        (tag) =>
-          !usedSeriesTags.includes(tag.tag) &&
-          !usedCharacterTags.includes(tag.tag)
-      )
-      .map((tag) => tag.tag);
-    setUnassignedTags(unassignedTags);
-  }, [setUnassignedTags, tagAssignments, uniqueTagList]);
+    setSeriesTagList(uniqueTags);
+    setCharacterTagList(uniqueTags);
+  }, [uniqueTags]);
 
   useEffect(() => {
     const initialize = async () => {
@@ -98,54 +87,18 @@ export default function FileOrganizer() {
         assignment,
       });
       setCollectSummary(summary);
-      setSelectedSeriesTag("");
+      // setSelectedSeriesTag("");
       setSelectedCharacterTag("");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const removeAssignment = async (itemId: number) => {
-    setLoading(true);
-    try {
-      const assignment: TagAssignment = {
-        id: itemId,
-        series_tag: null,
-        character_tag: null,
-      };
-      const summary: CollectSummary[] = await invoke("assign_tag", {
-        assignment,
-      });
-      setCollectSummary(summary);
-      setSelectedSeriesTag("");
-      setSelectedCharacterTag("");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveAssignments = async () => {
-    setLoading(true);
-    try {
-      await mockApi.saveAssignments(tagAssignments);
     } finally {
       setLoading(false);
     }
   };
 
   const performCollect = async () => {
-    if (tagAssignments.length === 0) {
-      return;
-    }
-
     setLoading(true);
     try {
-      const result = await mockApi.performCollect();
-      if (result.success) {
-        setTagAssignments([]);
-        const { summary } = await mockApi.getCollectSummary([], []);
-        setCollectSummary(summary);
-      }
+      const summary: CollectSummary[] = await invoke("perform_collect");
+      setCollectSummary(summary);
     } finally {
       setLoading(false);
     }
@@ -190,6 +143,26 @@ export default function FileOrganizer() {
     }
   };
 
+  const onChangeSeriesPulldown = async (value: string) => {
+    setSelectedSeriesTag(value);
+    try {
+      const list: string[] = await invoke("get_related_tags", { tag: value });
+      setCharacterTagList(list.length > 0 ? list : uniqueTags);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const onChangeCharacterPulldown = async (value: string) => {
+    setSelectedCharacterTag(value);
+    try {
+      const list: string[] = await invoke("get_related_tags", { tag: value });
+      setSeriesTagList(list.length > 0 ? list : uniqueTags);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   return (
     <div className="h-screen p-2 flex flex-col">
       {/* 上部コントロール */}
@@ -226,7 +199,7 @@ export default function FileOrganizer() {
             value={rootPath}
             onChange={(e) => setRootPath(e.target.value)}
             placeholder=""
-            className="text-xs h-6 w-80"
+            className="text-xs h-6 w-100"
             disabled={!isChangeRoot}
           />{" "}
         </div>
@@ -238,10 +211,9 @@ export default function FileOrganizer() {
               <Label className="text-xs text-blue-700 mb-1">Series</Label>
               <InputDropdown
                 value={selectedSeriesTag}
-                onChange={setSelectedSeriesTag}
-                items={unassignedTags}
+                onChange={(v) => void onChangeSeriesPulldown(v)}
+                items={seriesTagList}
                 placeholder="Select tag"
-                valueKey={(item) => item}
                 inputClassName="border-blue-200 dark:border-blue-800 h-8"
               />
             </div>
@@ -250,10 +222,9 @@ export default function FileOrganizer() {
               <Label className="text-xs text-green-700 mb-1">Character</Label>
               <InputDropdown
                 value={selectedCharacterTag}
-                onChange={setSelectedCharacterTag}
-                items={unassignedTags}
+                onChange={(v) => void onChangeCharacterPulldown(v)}
+                items={characterTagList}
                 placeholder="Select tag"
-                valueKey={(item) => item}
                 inputClassName="border-green-200 dark:border-green-800 h-8"
               />
             </div>
@@ -271,19 +242,8 @@ export default function FileOrganizer() {
             </Button>
 
             <Button
-              onClick={() => void saveAssignments()}
-              disabled={loading || tagAssignments.length === 0}
-              size="sm"
-              variant="outline"
-              className="text-xs"
-            >
-              <Save className="w-3 h-3 mr-1" />
-              Save
-            </Button>
-
-            <Button
               onClick={() => void performCollect()}
-              disabled={loading || tagAssignments.length === 0}
+              disabled={loading}
               size="sm"
               className="text-xs bg-purple-600 hover:bg-purple-700"
             >
@@ -292,7 +252,7 @@ export default function FileOrganizer() {
           </div>
         </div>
       </div>
-      <ResultArea removeAssignment={removeAssignment} />
+      <ResultArea />
     </div>
   );
 }

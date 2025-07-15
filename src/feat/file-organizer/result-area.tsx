@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { Edit3, Trash2 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { CollectSummary } from "@/bindings/CollectSummary";
 import { TagAssignment } from "@/bindings/TagAssignment";
@@ -14,6 +14,7 @@ import {
   Table,
 } from "@/components/ui/table";
 import { VirtualizedSelect } from "@/src/components/virtualized-select";
+import { useDropdownStore } from "@/src/stores/dropdown-store";
 import { useTagsOrganizerStore } from "@/src/stores/tags-organizer-store";
 
 interface EditingState {
@@ -21,16 +22,29 @@ interface EditingState {
   field: "series_tag" | "character_tag";
 }
 
-export const ResultArea = ({
-  removeAssignment,
-}: {
-  removeAssignment: (itemId: number) => Promise<void>;
-}) => {
-  const { unassignedTags, collectSummary, setCollectSummary } =
+export const ResultArea = () => {
+  const { collectSummary, setCollectSummary, setLoading } =
     useTagsOrganizerStore();
+  const { uniqueTagList } = useDropdownStore();
+  const options = useMemo(
+    () => uniqueTagList.map((item) => item.tag),
+    [uniqueTagList]
+  );
 
   const [editingState, setEditingState] = useState<EditingState | null>(null);
   const anchorRef = useRef<HTMLDivElement>(null);
+
+  const removeAssignment = async (item: CollectSummary) => {
+    setLoading(true);
+    try {
+      const summary: CollectSummary[] = await invoke("delete_collect", {
+        character: item.character_tag,
+      });
+      setCollectSummary(summary);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const updateItemField = async (
     itemId: number,
@@ -51,10 +65,15 @@ export const ResultArea = ({
       character_tag: updatedItem.character_tag,
     };
 
-    const summary: CollectSummary[] = await invoke("assign_tag", {
-      assignment,
-    });
-    setCollectSummary(summary);
+    setLoading(true);
+    try {
+      const summary: CollectSummary[] = await invoke("assign_tag", {
+        assignment,
+      });
+      setCollectSummary(summary);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const renderEditableField = (
@@ -70,7 +89,7 @@ export const ResultArea = ({
         <div className="relative" ref={anchorRef}>
           <VirtualizedSelect
             value={value ?? "__unset__"}
-            options={unassignedTags}
+            options={options}
             onChange={(newValue) =>
               void updateItemField(item.id, field, newValue)
             }
@@ -145,7 +164,7 @@ export const ResultArea = ({
                 <TableCell className="py-0.5">
                   {item.id !== -1 && (
                     <Button
-                      onClick={() => void removeAssignment(item.id)}
+                      onClick={() => void removeAssignment(item)}
                       size="sm"
                       variant="ghost"
                       className="h-5 w-5 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"

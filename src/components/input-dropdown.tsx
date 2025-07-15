@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface InputDropdownProps<T> {
   items: T[];
-  valueKey: (item: T) => string;
+  valueKey?: (item: T) => string;
   labelKey?: (item: T) => string;
   value?: string;
   defaultValue?: string;
@@ -24,7 +24,7 @@ interface InputDropdownProps<T> {
 
 export function InputDropdown<T>({
   items,
-  valueKey,
+  valueKey = (v) => v as string,
   labelKey = valueKey,
   value: controlledValue,
   defaultValue = "",
@@ -65,7 +65,8 @@ export function InputDropdown<T>({
           : items
       );
     }
-  }, [value, items, isComposing, valueKey]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, items, isComposing]);
 
   // 外部クリックでドロップダウンを閉じる
   useEffect(() => {

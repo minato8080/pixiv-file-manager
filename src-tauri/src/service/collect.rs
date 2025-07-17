@@ -6,26 +6,28 @@ use rusqlite::Connection;
 
 use crate::models::collect::CollectSummary;
 
-pub fn prepare_collect_work(conn: &Connection) -> Result<()> {
-    let sql = include_str!("../sql/prepare_collect_work.sql");
+pub fn prepare_collect_ui_work(conn: &Connection) -> Result<()> {
+    let sql = include_str!("../sql/prepare_collect_ui_work.sql");
     conn.execute_batch(sql)?;
     Ok(())
 }
 
-pub fn update_after_count(conn: &Connection) -> Result<()> {
+pub fn reflesh_collect_work(conn: &Connection) -> Result<()> {
+    let sql = include_str!("../sql/prepare_collect_filter_work.sql");
+    conn.execute_batch(sql)?;
     let sql = include_str!("../sql/update_after_count.sql");
     conn.execute_batch(sql)?;
     Ok(())
 }
 
-pub fn resort_collect_work_ids(conn: &Connection) -> Result<()> {
-    let sql = include_str!("../sql/resort_collect_work_ids.sql");
+pub fn sort_collect_work(conn: &Connection) -> Result<()> {
+    let sql = include_str!("../sql/sort_collect_work.sql");
     conn.execute_batch(sql)?;
     Ok(())
 }
 
 pub fn get_collect_summary(conn: &Connection) -> Result<Vec<CollectSummary>, String> {
-    // COLLECT_WORKの結果を取得して返す
+    // COLLECT_UI_WORKの結果を取得して返す
     let mut stmt = conn
         .prepare(
             "SELECT
@@ -36,7 +38,7 @@ pub fn get_collect_summary(conn: &Connection) -> Result<Vec<CollectSummary>, Str
                 before_count,
                 after_count,
                 unsave
-            FROM COLLECT_WORK
+            FROM COLLECT_UI_WORK
             ORDER BY id ASC
             ;",
         )
@@ -70,29 +72,8 @@ pub fn collect_character_info(conn: &Connection) -> Result<()> {
 }
 
 pub fn collect_illust_detail(conn: &Connection) -> Result<()> {
-    let sql = include_str!("../sql/update_illust_detail_from_collect_work.sql");
+    let sql = include_str!("../sql/collect_illust_detail.sql");
     conn.execute_batch(sql)?;
-
-    Ok(())
-}
-
-/// ILLUST_INFO の保存先を退避する temp.original_illust_info を作成
-pub fn create_original_illust_info(conn: &Connection) -> Result<()> {
-    conn.execute_batch(
-        r#"
-        DROP TABLE IF EXISTS temp.original_illust_info;
-
-        CREATE TEMP TABLE original_illust_info AS
-        SELECT
-            illust_id,
-            suffix,
-            extension,
-            save_dir,
-            control_num
-        FROM ILLUST_INFO
-        WHERE save_dir IS NOT NULL;
-        "#,
-    )?;
 
     Ok(())
 }
@@ -104,15 +85,9 @@ pub fn collect_illust_info(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-/// ILLUST_INFO_WORK → ILLUST_INFO.save_dir へファイル移動
 pub fn move_illust_files(conn: &Connection) -> Result<()> {
     let mut stmt = conn.prepare(
-        r#"
-        SELECT O.illust_id, O.suffix, O.extension, O.save_dir, I.save_dir
-        FROM temp.original_illust_info O
-        JOIN ILLUST_INFO I
-          ON O.illust_id = I.illust_id AND O.suffix = I.suffix AND O.extension = I.extension
-        "#,
+        "SELECT illust_id, suffix, extension, save_dir, collect_dir FROM COLLECT_FILTER_WORK",
     )?;
 
     let rows = stmt.query_map([], |row| {

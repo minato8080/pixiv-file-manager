@@ -45,9 +45,9 @@
   - **PRIMARY KEY**: (`character`)
   -
 
-- **COLLECT_WORK**
+- **COLLECT_UI_WORK**
 
-  - `id`: INTEGER NOT NULL
+  - `id`: INTEGER NOT NULL API 用の連番
   - `series`: TEXT - シリーズ名
   - `character`: TEXT NOT NULL- キャラクター名
   - `collect_dir`: TEXT - コレクションディレクトリ
@@ -55,6 +55,15 @@
   - `after_count`: INTEGER
   - `unsave`: BOOLEAN
   - **PRIMARY KEY**: (`character`)
+
+- **COLLECT_FILTER_WORK**
+
+  - `illust_id`: INTEGER NOT NULL - イラストの識別子
+  - `control_num`: INTEGER NOT NULL - タグ用の管理番号
+  - `character`: TEXT NOT NULL - イラストのキャラクター名
+  - `save_dir`: TEXT - イラストが保存されているディレクトリのパス
+  - `collect_dir`: TEXT - コレクションディレクトリ
+  - **PRIMARY KEY**: (`illust_id`, `control_num`)
 
 - **AUTHOR_INFO**
 

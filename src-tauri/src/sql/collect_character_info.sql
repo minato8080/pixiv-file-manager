@@ -3,14 +3,14 @@ WITH root_value AS (
 ),
 work_with_path AS (
     SELECT
-        CW.character,
-        CW.series,
+        CU.character,
+        CU.series,
         CASE
             WHEN R.root IS NULL THEN NULL
-            WHEN CW.series IS NULL THEN R.root || '\' || CW.character
-            ELSE R.root || '\' || CW.series || '\' || CW.character
+            WHEN CU.series IS NULL THEN R.root || '\' || CU.character
+            ELSE R.root || '\' || CU.series || '\' || CU.character
         END AS collect_dir
-    FROM COLLECT_WORK CW
+    FROM COLLECT_UI_WORK CU
     CROSS JOIN root_value R
 )
 INSERT OR REPLACE INTO CHARACTER_INFO (character, series, collect_dir)

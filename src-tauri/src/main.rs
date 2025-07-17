@@ -139,7 +139,7 @@ fn initialize_db(conn: &Connection) -> Result<()> {
     )?;
 
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS COLLECT_WORK (
+        "CREATE TABLE IF NOT EXISTS COLLECT_UI_WORK (
             id INTEGER NOT NULL,
             series TEXT,
             character TEXT NOT NULL,
@@ -148,6 +148,18 @@ fn initialize_db(conn: &Connection) -> Result<()> {
             after_count INTEGER,
             unsave BOOLEAN,
             PRIMARY KEY (character)
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS COLLECT_FILTER_WORK (
+            illust_id INTEGER NOT NULL,
+            control_num INTEGER NOT NULL,
+            character TEXT NOT NULL,
+            save_dir TEXT,
+            collect_dir TEXT,
+            PRIMARY KEY (illust_id, control_num)
         )",
         [],
     )?;

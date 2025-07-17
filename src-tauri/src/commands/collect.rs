@@ -2,16 +2,15 @@ use rusqlite::{params, OptionalExtension};
 use tauri::{command, State};
 
 use crate::service::collect::{
-    collect_character_info, collect_illust_detail, collect_illust_info,
-    create_original_illust_info, get_collect_summary, move_illust_files, prepare_collect_work,
-    update_after_count,
+    collect_character_info, collect_illust_detail, collect_illust_info, get_collect_summary,
+    move_illust_files, prepare_collect_ui_work, reflesh_collect_work,
 };
 use crate::{
     models::{
         collect::{CollectSummary, TagAssignment},
         global::{AppState, GeneralResponse},
     },
-    service::collect::resort_collect_work_ids,
+    service::collect::sort_collect_work,
 };
 
 #[command]
@@ -52,7 +51,7 @@ pub fn assign_tag(
     match (&assignment.series_tag, &assignment.character_tag) {
         (None, None) => {}
         _ => {
-            tx.execute("DELETE FROM COLLECT_WORK WHERE id = ?1", [assignment.id])
+            tx.execute("DELETE FROM COLLECT_UI_WORK WHERE id = ?1", [assignment.id])
                 .map_err(|e| e.to_string())?;
 
             // DB_INFO.root を取得（なければ None）
@@ -73,7 +72,7 @@ pub fn assign_tag(
             };
 
             tx.execute(
-                "INSERT OR REPLACE INTO COLLECT_WORK (
+                "INSERT OR REPLACE INTO COLLECT_UI_WORK (
                 id, series, character, collect_dir, before_count, after_count, unsave
             ) VALUES (?1, ?2, ?3, ?4, 0, 0, true)",
                 params![
@@ -87,11 +86,11 @@ pub fn assign_tag(
         }
     }
 
-    // after_countを計算
-    update_after_count(&tx).map_err(|e| e.to_string())?;
-
     // ソートし直す
-    resort_collect_work_ids(&tx).map_err(|e| e.to_string())?;
+    sort_collect_work(&tx).map_err(|e| e.to_string())?;
+
+    // after_countを計算
+    reflesh_collect_work(&tx).map_err(|e| e.to_string())?;
 
     // コミット
     tx.commit().map_err(|e| e.to_string())?;
@@ -121,9 +120,9 @@ pub fn delete_collect(
     )
     .map_err(|e| e.to_string())?;
 
-    // COLLECT_WORK から削除
+    // COLLECT_UI_WORK から削除
     tx.execute(
-        "DELETE FROM COLLECT_WORK WHERE character = ?1",
+        "DELETE FROM COLLECT_UI_WORK WHERE character = ?1",
         params![character],
     )
     .map_err(|e| e.to_string())?;
@@ -139,11 +138,11 @@ pub fn load_assignments(state: State<AppState>) -> Result<Vec<CollectSummary>, S
     let mut conn = state.db.lock().unwrap();
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
-    // COLLECT_WORKを準備
-    prepare_collect_work(&tx).map_err(|e| e.to_string())?;
+    // COLLECT_UI_WORKを準備
+    prepare_collect_ui_work(&tx).map_err(|e| e.to_string())?;
 
     // after_countを計算
-    update_after_count(&tx).map_err(|e| e.to_string())?;
+    reflesh_collect_work(&tx).map_err(|e| e.to_string())?;
 
     tx.commit().map_err(|e| e.to_string())?;
 
@@ -156,15 +155,13 @@ pub fn perform_collect(state: State<AppState>) -> Result<Vec<CollectSummary>, St
     let mut conn = state.db.lock().unwrap();
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
-    // COLLECT_WORKから、unsave = false のレコードをすべて削除する
-    tx.execute("DELETE FROM COLLECT_WORK WHERE unsave = false", [])
+    // COLLECT_UI_WORKから、unsave = false のレコードをすべて削除する
+    tx.execute("DELETE FROM COLLECT_UI_WORK WHERE unsave = false", [])
         .map_err(|e| e.to_string())?;
 
     collect_character_info(&tx).map_err(|e| e.to_string())?;
 
     collect_illust_detail(&tx).map_err(|e| e.to_string())?;
-
-    create_original_illust_info(&tx).map_err(|e| e.to_string())?;
 
     collect_illust_info(&tx).map_err(|e| e.to_string())?;
 
@@ -173,11 +170,12 @@ pub fn perform_collect(state: State<AppState>) -> Result<Vec<CollectSummary>, St
     tx.commit().map_err(|e| e.to_string())?;
 
     let tx = conn.transaction().map_err(|e| e.to_string())?;
-    // COLLECT_WORKを準備
-    prepare_collect_work(&tx).map_err(|e| e.to_string())?;
+
+    // COLLECT_UI_WORKを準備
+    prepare_collect_ui_work(&tx).map_err(|e| e.to_string())?;
 
     // after_countを計算
-    update_after_count(&tx).map_err(|e| e.to_string())?;
+    reflesh_collect_work(&tx).map_err(|e| e.to_string())?;
 
     tx.commit().map_err(|e| e.to_string())?;
 

@@ -182,10 +182,10 @@
    1. 追加後の `series`, `character`をパラメータにしてコレクト一覧取得処理を呼び出す。
    2. 取得した値をアフターカウントに格納する。
 3. **(APP)** コレクト実行処理
-   1. `COLLECT_WORK` と実際の DB の差分をチェックし、処理不要のレコードを削除する。
-   2. `CHARACTER_INFO` に `COLLECT_WORK` の `series`, `character` を追加し、
+   1. `COLLECT_UI_WORK` と実際の DB の差分をチェックし、処理不要のレコードを削除する。
+   2. `CHARACTER_INFO` に `COLLECT_UI_WORK` の `series`, `character` を追加し、
       root が設定されていれば、`CHARACTER_INFO.collect_dir` に {root}/series/character を設定する。
-   3. `ILLUST_DETAIL` に `COLLECT_WORK` の `series`, `character` を設定する。
+   3. `ILLUST_DETAIL` に `COLLECT_UI_WORK` の `series`, `character` を設定する。
    4. `ILLUST_INFO.save_dir` に {root}/series/character を設定する。
    5. {root}/series/character となるようにファイルを移動する。
    6. コミットを発行し、結果をクライアントに返却する。

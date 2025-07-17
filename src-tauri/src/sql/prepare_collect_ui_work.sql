@@ -1,7 +1,7 @@
--- truncate COLLECT_WORK
-DELETE FROM COLLECT_WORK;
+-- truncate COLLECT_UI_WORK
+DELETE FROM COLLECT_UI_WORK;
 
--- キャラクター単位で件数集計し、COLLECT_WORKへ挿入
+-- キャラクター単位で件数集計し、COLLECT_UI_WORKへ挿入
 WITH root_value AS (
     SELECT root FROM DB_INFO LIMIT 1
 ),
@@ -31,7 +31,7 @@ character_summary AS (
     GROUP BY C.series, C.character
     ORDER BY C.series, C.character
 )
-INSERT INTO COLLECT_WORK (
+INSERT INTO COLLECT_UI_WORK (
     id, series, character, collect_dir, before_count, after_count, unsave
 )
 SELECT
@@ -45,7 +45,7 @@ SELECT
 FROM character_summary;
 
 -- 未割り当て件数の集計と挿入
-INSERT INTO COLLECT_WORK (
+INSERT INTO COLLECT_UI_WORK (
     id, series, character, collect_dir, before_count, after_count, unsave
 )
 SELECT
@@ -58,7 +58,7 @@ SELECT
     0
 FROM (
     SELECT SUM(after_count) AS total_after_count
-    FROM COLLECT_WORK
+    FROM COLLECT_UI_WORK
 ) T,
 (
     SELECT COUNT(DISTINCT illust_id || '-' || suffix) AS total_illust_count

@@ -47,8 +47,8 @@ pub fn get_collect_summary(conn: &Connection) -> Result<Vec<CollectSummary>, Str
         .query_map([], |row| {
             Ok(CollectSummary {
                 id: row.get(0)?,
-                series_tag: row.get::<_, Option<String>>(1)?,
-                character_tag: row.get(2)?,
+                series: row.get(1)?,
+                character: row.get(2)?,
                 new_path: row.get::<_, Option<String>>(3)?,
                 before_count: row.get(4)?,
                 after_count: row.get(5)?,

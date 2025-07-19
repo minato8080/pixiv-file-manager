@@ -12,7 +12,8 @@ character_summary AS (
         C.character,
         CASE
             WHEN R.root IS NULL THEN NULL
-            WHEN C.series IS NULL THEN R.root || '\' || C.character
+            WHEN C.series = '-' THEN R.root || '\' || C.character
+            WHEN C.character = '-' THEN R.root || '\' || C.series
             ELSE R.root || '\' || C.series || '\' || C.character
         END AS new_path,
         COUNT(I.illust_id) AS count
@@ -24,7 +25,8 @@ character_summary AS (
         AND I.save_dir = (
             CASE
                 WHEN R.root IS NULL THEN NULL
-                WHEN C.series IS NULL THEN R.root || '\' || C.character
+                WHEN C.series = '-' THEN R.root || '\' || C.character
+                WHEN C.character = '-' THEN R.root || '\' || C.series
                 ELSE R.root || '\' || C.series || '\' || C.character
             END
         )
@@ -40,7 +42,7 @@ SELECT
     character,
     new_path,
     count,
-    count,
+    0,
     0
 FROM character_summary;
 
@@ -50,11 +52,11 @@ INSERT INTO COLLECT_UI_WORK (
 )
 SELECT
     -1,
+    '-',
+    '-',
     NULL,
-    '',
-    NULL,
-    (I.total_illust_count - T.total_after_count),
-    (I.total_illust_count - T.total_after_count),
+    (I.total_illust_count - COALESCE(T.total_after_count, 0)),
+    0,
     0
 FROM (
     SELECT SUM(after_count) AS total_after_count

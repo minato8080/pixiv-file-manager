@@ -96,6 +96,7 @@ fn initialize_db(conn: &Connection) -> Result<()> {
             illust_id INTEGER NOT NULL,
             control_num INTEGER NOT NULL,
             author_id INTEGER NOT NULL,
+            series TEXT,
             character TEXT,
             PRIMARY KEY (illust_id, control_num)
         )",
@@ -130,10 +131,10 @@ fn initialize_db(conn: &Connection) -> Result<()> {
 
     conn.execute(
         "CREATE TABLE IF NOT EXISTS CHARACTER_INFO (
+            series TEXT NOT NULL,
             character TEXT NOT NULL,
             collect_dir TEXT,
-            series TEXT,
-            PRIMARY KEY (character)
+            PRIMARY KEY (character, series)
         )",
         [],
     )?;
@@ -141,13 +142,13 @@ fn initialize_db(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS COLLECT_UI_WORK (
             id INTEGER NOT NULL,
-            series TEXT,
+            series TEXT NOT NULL,
             character TEXT NOT NULL,
             collect_dir TEXT,
             before_count INTEGER,
             after_count INTEGER,
             unsave BOOLEAN,
-            PRIMARY KEY (character)
+            PRIMARY KEY (series, character)
         )",
         [],
     )?;

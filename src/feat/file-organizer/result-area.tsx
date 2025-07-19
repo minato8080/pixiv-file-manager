@@ -19,7 +19,7 @@ import { useTagsOrganizerStore } from "@/src/stores/tags-organizer-store";
 
 interface EditingState {
   id: number;
-  field: "series_tag" | "character_tag";
+  field: "series" | "character";
 }
 
 export const ResultArea = () => {
@@ -38,7 +38,7 @@ export const ResultArea = () => {
     setLoading(true);
     try {
       const summary: CollectSummary[] = await invoke("delete_collect", {
-        character: item.character_tag,
+        assignment: item,
       });
       setCollectSummary(summary);
     } finally {
@@ -48,7 +48,7 @@ export const ResultArea = () => {
 
   const updateItemField = async (
     itemId: number,
-    field: "series_tag" | "character_tag",
+    field: "series" | "character",
     value: string
   ) => {
     const index = collectSummary.findIndex((item) => item.id === itemId);
@@ -61,8 +61,8 @@ export const ResultArea = () => {
 
     const assignment: TagAssignment = {
       id: updatedItem.id,
-      series_tag: updatedItem.series_tag,
-      character_tag: updatedItem.character_tag,
+      series: updatedItem.series,
+      character: updatedItem.character,
     };
 
     setLoading(true);
@@ -78,7 +78,7 @@ export const ResultArea = () => {
 
   const renderEditableField = (
     item: CollectSummary,
-    field: "series_tag" | "character_tag"
+    field: "series" | "character"
   ) => {
     const isEditing =
       editingState?.id === item.id && editingState?.field === field;
@@ -107,13 +107,13 @@ export const ResultArea = () => {
         className={`cursor-pointer hover:bg-gray-100 px-1 rounded text-xs whitespace-nowrap ${
           item.is_new ? "bg-blue-200 text-blue-800" : ""
         } ${!value ? "text-gray-400" : ""} ${
-          field === "series_tag" ? "text-blue-700" : "text-green-700"
+          field === "series" ? "text-blue-700" : "text-green-700"
         }`}
         onClick={() =>
           item.id !== -1 && setEditingState({ id: item.id, field })
         }
       >
-        {value ?? "-"}
+        {value}
         {item.id !== -1 && <Edit3 className="w-2 h-2 inline ml-1" />}
       </span>
     );
@@ -141,10 +141,10 @@ export const ResultArea = () => {
             {collectSummary.map((item) => (
               <TableRow key={item.id} className="hover:bg-gray-50">
                 <TableCell className="py-0.5" id={item.id.toString()}>
-                  {renderEditableField(item, "series_tag")}
+                  {renderEditableField(item, "series")}
                 </TableCell>
                 <TableCell className="py-0.5" id={item.id.toString()}>
-                  {renderEditableField(item, "character_tag")}
+                  {renderEditableField(item, "character")}
                 </TableCell>
                 <TableCell className="text-xs text-right py-0.5">
                   {item.before_count}

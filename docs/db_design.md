@@ -14,6 +14,7 @@
   - `illust_id`: INTEGER NOT NULL - イラストの識別子
   - `control_num`: INTEGER NOT NULL - タグ用の管理番号
   - `author_id`: INTEGER NOT NULL - 作者の識別子
+  - `series`: TEXT - シリーズ名
   - `character`: TEXT - イラストのキャラクター名
   - **PRIMARY KEY**: (`illust_id`, `control_num`)
 
@@ -39,27 +40,27 @@
 
 - **CHARACTER_INFO**
 
+  - `series`: TEXT NOT NULL - シリーズ名
   - `character`: TEXT NOT NULL - キャラクター名
   - `collect_dir`: TEXT - コレクションディレクトリ
-  - `series`: TEXT - シリーズ名
-  - **PRIMARY KEY**: (`character`)
-  -
+  - **PRIMARY KEY**: (`character`, `series`)
 
 - **COLLECT_UI_WORK**
 
   - `id`: INTEGER NOT NULL API 用の連番
-  - `series`: TEXT - シリーズ名
+  - `series`: TEXT NOT NULL - シリーズ名
   - `character`: TEXT NOT NULL- キャラクター名
   - `collect_dir`: TEXT - コレクションディレクトリ
   - `before_count`: INTEGER
   - `after_count`: INTEGER
   - `unsave`: BOOLEAN
-  - **PRIMARY KEY**: (`character`)
+  - **PRIMARY KEY**: (`character`, `series`)
 
 - **COLLECT_FILTER_WORK**
 
   - `illust_id`: INTEGER NOT NULL - イラストの識別子
   - `control_num`: INTEGER NOT NULL - タグ用の管理番号
+  - `series`: TEXT NOT NULL - シリーズ名
   - `character`: TEXT NOT NULL - イラストのキャラクター名
   - `save_dir`: TEXT - イラストが保存されているディレクトリのパス
   - `collect_dir`: TEXT - コレクションディレクトリ

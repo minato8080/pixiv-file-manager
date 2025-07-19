@@ -45,46 +45,57 @@ pub fn assign_tag(
     assignment: TagAssignment,
     state: State<AppState>,
 ) -> Result<Vec<CollectSummary>, String> {
+    // バリデーションチェック
+    if assignment.series.trim().is_empty() || assignment.character.trim().is_empty() {
+        return Err("シリーズまたはキャラクターが未指定です".to_string());
+    }
+    if assignment.series == "-" && assignment.character == "-" {
+        return Err("シリーズまたはキャラクターが未指定です".to_string());
+    }
+
+    // 本処理
     let mut conn = state.db.lock().unwrap();
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
-    match (&assignment.series_tag, &assignment.character_tag) {
-        (None, None) => {}
-        _ => {
-            tx.execute("DELETE FROM COLLECT_UI_WORK WHERE id = ?1", [assignment.id])
-                .map_err(|e| e.to_string())?;
-
-            // DB_INFO.root を取得（なければ None）
-            let root: Option<String> = tx
-                .query_row("SELECT root FROM DB_INFO LIMIT 1", [], |row| row.get(0))
-                .ok(); // 存在しないときは None
-
-            let collect_dir = match root {
-                None => None, // rootがNoneならcollect_dirはNone
-                Some(r) => match (&assignment.series_tag, &assignment.character_tag) {
-                    (Some(series), Some(character)) => {
-                        Some(format!("{}\\{}\\{}", r, series, character))
-                    }
-                    (Some(series), None) => Some(format!("{}\\{}", r, series)),
-                    (None, Some(character)) => Some(format!("{}\\{}", r, character)),
-                    (None, None) => None,
-                },
-            };
-
-            tx.execute(
-                "INSERT OR REPLACE INTO COLLECT_UI_WORK (
-                id, series, character, collect_dir, before_count, after_count, unsave
-            ) VALUES (?1, ?2, ?3, ?4, 0, 0, true)",
-                params![
-                    assignment.id,
-                    assignment.series_tag,
-                    assignment.character_tag,
-                    collect_dir,
-                ],
-            )
+    // id指定時は洗い替え
+    if let Some(id) = assignment.id {
+        tx.execute("DELETE FROM COLLECT_UI_WORK WHERE id = ?1", [id])
             .map_err(|e| e.to_string())?;
-        }
     }
+
+    // DB_INFO.root を取得（なければ None）
+    let root: Option<String> = tx
+        .query_row("SELECT root FROM DB_INFO LIMIT 1", [], |row| row.get(0))
+        .ok(); // 存在しないときは None
+
+    let collect_dir = root.map(|r| {
+        let mut parts = vec![r];
+
+        if assignment.series != "-" {
+            parts.push(assignment.series.clone());
+        }
+
+        if assignment.character != "-" {
+            parts.push(assignment.character.clone());
+        }
+
+        parts.join("\\")
+    });
+
+    // キャラクターは重複禁止のため洗い替え
+    tx.execute(
+        "DELETE FROM COLLECT_UI_WORK WHERE character = ?1 AND character <> '-'",
+        params![assignment.character],
+    )
+    .map_err(|e| e.to_string())?;
+
+    tx.execute(
+        "INSERT OR REPLACE INTO COLLECT_UI_WORK (
+                id, series, character, collect_dir, before_count, after_count, unsave
+            ) VALUES (0, ?1, ?2, ?3, 0, 0, true)",
+        params![assignment.series, assignment.character, collect_dir],
+    )
+    .map_err(|e| e.to_string())?;
 
     // ソートし直す
     sort_collect_work(&tx).map_err(|e| e.to_string())?;
@@ -100,32 +111,38 @@ pub fn assign_tag(
 
 #[command]
 pub fn delete_collect(
-    character: String,
+    assignment: TagAssignment,
     state: State<AppState>,
 ) -> Result<Vec<CollectSummary>, String> {
     let mut conn = state.db.lock().unwrap();
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
+    // COLLECT_UI_WORK から削除
+    tx.execute(
+        "DELETE FROM COLLECT_UI_WORK WHERE series = ?1 AND character = ?2",
+        params![assignment.series, assignment.character],
+    )
+    .map_err(|e| e.to_string())?;
+
     // CHARACTER_INFO から削除
     tx.execute(
-        "DELETE FROM CHARACTER_INFO WHERE character = ?1",
-        params![character],
+        "DELETE FROM CHARACTER_INFO WHERE series = ?1 AND character = ?2",
+        params![assignment.series, assignment.character],
     )
     .map_err(|e| e.to_string())?;
 
     // ILLUST_DETAIL から削除
     tx.execute(
-        "DELETE FROM ILLUST_DETAIL WHERE character = ?1",
-        params![character],
+        "UPDATE ILLUST_DETAIL SET character = NULL WHERE character = ?1",
+        params![assignment.character],
     )
     .map_err(|e| e.to_string())?;
 
-    // COLLECT_UI_WORK から削除
-    tx.execute(
-        "DELETE FROM COLLECT_UI_WORK WHERE character = ?1",
-        params![character],
-    )
-    .map_err(|e| e.to_string())?;
+    // ソートし直す
+    sort_collect_work(&tx).map_err(|e| e.to_string())?;
+
+    // after_countを計算
+    reflesh_collect_work(&tx).map_err(|e| e.to_string())?;
 
     // コミット
     tx.commit().map_err(|e| e.to_string())?;
@@ -210,7 +227,7 @@ pub fn set_root(root: String, state: State<AppState>) -> GeneralResponse {
 pub fn get_root(state: State<AppState>) -> Result<Option<String>, String> {
     let conn = state.db.lock().unwrap();
     let mut stmt = conn
-        .prepare("SELECT root FROM DB_INFO")
+        .prepare("SELECT root FROM DB_INFO LIMIT 1")
         .map_err(|e| e.to_string())?;
     let root_path: Option<String> = stmt
         .query_row([], |row| row.get(0))

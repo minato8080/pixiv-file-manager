@@ -1,8 +1,8 @@
 -- 一時テーブルの削除
-DROP TABLE IF EXISTS temp.valid_character_tags;
+DROP TABLE IF EXISTS temp.valid_characters;
 
 -- 一時テーブルの作成
-CREATE TEMP TABLE valid_character_tags AS
+CREATE TEMP TABLE valid_characters AS
 SELECT
     D.illust_id,
     D.control_num,
@@ -30,7 +30,7 @@ SELECT
     V.character,
     I.save_dir,
     V.collect_dir
-FROM valid_character_tags V
+FROM valid_characters V
 JOIN ILLUST_INFO I
     ON I.illust_id = V.illust_id AND I.control_num = V.control_num
 GROUP BY

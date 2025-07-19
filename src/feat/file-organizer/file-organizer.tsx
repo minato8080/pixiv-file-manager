@@ -79,15 +79,15 @@ export default function FileOrganizer() {
     setLoading(true);
     try {
       const assignment: TagAssignment = {
-        id: (maxCount.current += 1),
-        series_tag: selectedSeriesTag || null,
-        character_tag: selectedCharacterTag || null,
+        id: null,
+        series: selectedSeriesTag || "-",
+        character: selectedCharacterTag || "-",
       };
       const summary: CollectSummary[] = await invoke("assign_tag", {
         assignment,
       });
       setCollectSummary(summary);
-      // setSelectedSeriesTag("");
+      if (!selectedCharacterTag) setSelectedSeriesTag("");
       setSelectedCharacterTag("");
     } finally {
       setLoading(false);

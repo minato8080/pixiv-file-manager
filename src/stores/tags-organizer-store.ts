@@ -3,19 +3,15 @@ import { create } from "zustand";
 import { CollectSummary } from "@/bindings/CollectSummary";
 
 type TagsOrganizerStore = {
-  collectSummary: CollectSummary[];
-  setCollectSummary: (summary: CollectSummary[]) => void;
   loading: boolean;
+  collectSummary: CollectSummary[];
   setLoading: (bool: boolean) => void;
-  // associatedTagList: string[];
-  // setAssociatedTagList: (list: string[]) => void;
+  setCollectSummary: (summary: CollectSummary[]) => void;
 };
 
 export const useTagsOrganizerStore = create<TagsOrganizerStore>((set) => ({
-  collectSummary: [],
-  setCollectSummary: (summary) => set({ collectSummary: summary }),
   loading: false,
+  collectSummary: [],
   setLoading: (bool) => set({ loading: bool }),
-  // associatedTagList: [],
-  // setAssociatedTagList: (list) => set({ associatedTagList: list }),
+  setCollectSummary: (summary) => set({ collectSummary: summary }),
 }));

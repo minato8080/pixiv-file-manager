@@ -1,6 +1,6 @@
 import { ScrollArea } from "@radix-ui/react-scroll-area";
 import { CheckSquare, Square, Search } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { SearchResult } from "@/bindings/SearchResult";
 import { Card } from "@/components/ui/card";
@@ -13,6 +13,8 @@ export const TagsSearcherResultArea = () => {
     []
   );
 
+  const timeoutId = useRef<NodeJS.Timeout | null>(null);
+
   const {
     searchResults,
     selectedFiles,
@@ -23,6 +25,9 @@ export const TagsSearcherResultArea = () => {
   } = useTagsSearcherStore();
 
   useEffect(() => {
+    if (searchResults.length === 0) return;
+    if (timeoutId.current) clearTimeout(timeoutId.current);
+
     setInnerSearchResults([]);
     // 遅延読み込み
     const updateResultsInBatches = (results: SearchResult[]) => {
@@ -41,7 +46,7 @@ export const TagsSearcherResultArea = () => {
 
         // 全ての結果を処理し終えたら停止
         if (index < results.length) {
-          setTimeout(processBatch, delay);
+          timeoutId.current = setTimeout(processBatch, delay);
         }
       };
 

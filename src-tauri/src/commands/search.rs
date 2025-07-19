@@ -12,7 +12,14 @@ pub fn get_unique_tag_list(state: State<AppState>) -> Result<Vec<TagInfo>, Strin
     let conn = state.db.lock().unwrap();
 
     let mut stmt = conn
-        .prepare("SELECT tag, COUNT(tag) as count FROM TAG_INFO GROUP BY tag ORDER BY count DESC")
+        .prepare(
+            "SELECT T.tag, COUNT(DISTINCT I.illust_id || '-' || I.suffix) AS count
+         FROM TAG_INFO T
+         JOIN ILLUST_INFO I
+           ON T.illust_id = I.illust_id AND T.control_num = I.control_num
+         GROUP BY T.tag
+         ORDER BY count DESC, T.tag ASC",
+        )
         .map_err(|e| e.to_string())?;
 
     let tag_iter = stmt
@@ -39,17 +46,18 @@ pub fn get_unique_characters(state: State<AppState>) -> Result<Vec<CharacterInfo
     let mut stmt = conn
         .prepare(
             "
-                SELECT 
-                    C.character,
-                    COUNT(DISTINCT I.illust_id) AS illust_count
-                FROM 
-                    CHARACTER_INFO C
-                LEFT JOIN 
-                    ILLUST_DETAIL D ON C.character = D.character
-                LEFT JOIN 
-                    ILLUST_INFO I ON D.illust_id = I.illust_id
-                GROUP BY 
-                    C.character
+            SELECT 
+                C.character,
+                COUNT(DISTINCT I.illust_id || '-' || I.suffix) AS illust_count
+            FROM 
+                CHARACTER_INFO C
+            LEFT JOIN 
+                ILLUST_DETAIL D ON C.character = D.character
+            LEFT JOIN 
+                ILLUST_INFO I ON D.illust_id = I.illust_id
+            GROUP BY 
+                C.character
+            ORDER BY illust_count DESC, C.character ASC
         ",
         )
         .map_err(|e| e.to_string())?;
@@ -81,7 +89,7 @@ pub fn get_unique_authors(state: State<AppState>) -> Result<Vec<AuthorInfo>, Str
                 A.author_id,
                 A.author_name,
                 A.author_account,
-                COUNT(I.illust_id) AS illust_count
+                COUNT(DISTINCT I.illust_id || '-' || I.suffix) AS illust_count
             FROM 
                 ILLUST_INFO I
             INNER JOIN 
@@ -90,6 +98,7 @@ pub fn get_unique_authors(state: State<AppState>) -> Result<Vec<AuthorInfo>, Str
                 ILLUST_DETAIL D ON I.illust_id = D.illust_id AND I.control_num = D.control_num
             GROUP BY 
                 A.author_id, A.author_name, A.author_account
+            ORDER BY illust_count DESC, A.author_id ASC
         ",
         )
         .map_err(|e| e.to_string())?;
@@ -129,184 +138,119 @@ pub fn search_by_criteria(
     author: Option<u32>,
 ) -> Result<Vec<SearchResult>, String> {
     let conn = state.db.lock().unwrap();
-    let mut query = String::from(
-        "SELECT 
-        F.illust_id, 
-        F.suffix, 
-        F.extension, 
-        F.author_id, 
-        F.character, 
-        F.save_dir, 
-        A.author_name, 
-        A.author_account, 
-        GROUP_CONCAT(T.tag, ',') AS tags
-     FROM 
-        (
-            SELECT 
-                I.illust_id, 
-                I.suffix, 
-                I.extension, 
-                D.author_id, 
-                D.character, 
-                I.save_dir, 
-                I.control_num
-            FROM ILLUST_INFO AS I
-            LEFT JOIN ILLUST_DETAIL AS D ON I.illust_id = D.illust_id AND I.control_num = D.control_num
-        ) AS F
-     LEFT JOIN 
-        AUTHOR_INFO AS A ON F.author_id = A.author_id
-     LEFT JOIN 
-        TAG_INFO AS T ON F.illust_id = T.illust_id AND F.control_num = T.control_num
-    ",
-    );
+    let mut params: Vec<Box<dyn ToSql>> = vec![];
 
-    let mut params: Vec<Box<dyn ToSql>> = Vec::new();
-    let mut where_clauses: Vec<String> = Vec::new();
+    let sql_template = include_str!("../sql/search_by_criteria.sql");
 
-    if !tags.is_empty() {
-        // タグで対象のイラストIDを絞る
-        let placeholders = std::iter::repeat("?")
-            .take(tags.len())
-            .collect::<Vec<_>>()
-            .join(", ");
+    let subquery_where_clause = if tags.len() > 0 {
+        let tag_placeholders = tags.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+        format!("WHERE T.tag IN ({})", tag_placeholders)
+    } else {
+        "".to_string()
+    };
 
-        query = format!(
-            "SELECT F.illust_id,
-                suffix,
-                extension,
-                F.author_id,
-                character,
-                save_dir,
-                author_name,
-                author_account,
-                GROUP_CONCAT(T.tag, ',') AS tags
-             FROM (
-                SELECT  I.illust_id, 
-                        I.suffix, 
-                        I.extension, 
-                        D.author_id, 
-                        D.character, 
-                        I.save_dir, 
-                        I.control_num, 
-                        A.author_name, 
-                        A.author_account
-                FROM ILLUST_INFO AS I
-                JOIN ILLUST_DETAIL AS D ON I.illust_id = D.illust_id AND I.control_num = D.control_num
-                JOIN AUTHOR_INFO AS A ON D.author_id = A.author_id
-                JOIN TAG_INFO AS T ON I.illust_id = T.illust_id AND I.control_num = T.control_num
-                WHERE T.tag IN ({})
-                GROUP BY I.illust_id, I.suffix
-                {}
-            ) AS F
-            LEFT JOIN TAG_INFO AS T ON F.illust_id = T.illust_id
-            AND F.control_num = T.control_num ",
-            placeholders,
-            match condition.as_str() {
-                "AND" => format!("HAVING COUNT(DISTINCT T.tag) = {}", tags.len()),
-                "OR" => "".to_string(),
-                _ => panic!("Unknown condition: {}", condition),
-            }
-        );
-
-        for tag in &tags {
-            params.push(Box::new(tag.clone()));
-        }
+    for tag in &tags {
+        params.push(Box::new(tag.clone()));
     }
 
-    // character, author 条件
-    if character.is_some() || author.is_some() {
-        where_clauses.clear(); // 新しい外側クエリ用
-        if let Some(c) = character.clone() {
-            where_clauses.push("F.character = ?".to_string());
-            params.push(Box::new(c));
+    let having_clause = if tags.len() > 0 {
+        match condition.as_str() {
+            "AND" => format!("HAVING COUNT(DISTINCT T.tag) = {}", tags.len()),
+            "OR" => "".to_string(),
+            _ => return Err("不正な条件指定".to_string()),
         }
-        if let Some(a) = author {
-            where_clauses.push("F.author_id = ?".to_string());
-            params.push(Box::new(a));
-        }
+    } else {
+        "".to_string()
+    };
+
+    let mut where_clauses = vec![];
+
+    if let Some(c) = &character {
+        where_clauses.push("F.character = ?".to_string());
+        params.push(Box::new(c.clone()));
     }
 
-    if !where_clauses.is_empty() {
-        query.push_str(" WHERE ");
-        query.push_str(&where_clauses.join(" AND "));
+    if let Some(a) = author {
+        where_clauses.push("F.author_id = ?".to_string());
+        params.push(Box::new(a));
     }
 
-    query.push_str(" GROUP BY F.illust_id, suffix");
-    query.push_str(" ORDER BY F.illust_id ASC, suffix ASC");
-    query.push_str(" LIMIT 500");
-    let mut stmt = conn.prepare(&query).map_err(|e| e.to_string())?;
+    let where_clause = if !where_clauses.is_empty() {
+        format!("WHERE {}", where_clauses.join(" AND "))
+    } else {
+        "".to_string()
+    };
 
-    // Convert params to Vec<&dyn ToSql>
+    let sql = sql_template
+        .replace("/*:subquery_where_clause*/", &subquery_where_clause)
+        .replace("/*:having_clause*/", &having_clause)
+        .replace("/*:where_clause*/", &where_clause);
+
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
     let param_refs: Vec<&dyn ToSql> = params.iter().map(|p| p.as_ref()).collect();
 
-    let detail_iter = stmt
+    let rows = stmt
         .query_map(&*param_refs, |row| {
             let id: u32 = row.get(0)?;
             let suffix: Option<u8> = row.get(1)?;
-            let extension: String = row.get(2)?;
+            let ext: String = row.get(2)?;
             let author_id: u32 = row.get(3)?;
             let character: Option<String> = row.get(4)?;
             let save_dir: String = row.get(5)?;
             let author_name: String = row.get(6)?;
             let author_account: String = row.get(7)?;
             let tags: Option<String> = row.get(8)?;
+
             let file_name = match suffix {
-                Some(s) => format!("{}_p{}.{}", id, s, extension),
-                None => format!("{}.{}", id, extension),
+                Some(s) => format!("{}_p{}.{}", id, s, ext),
+                None => format!("{}.{}", id, ext),
             };
+
             let pathbuf = Path::new(&save_dir).join(&file_name);
-            let mut path = pathbuf.to_str().unwrap().to_string();
+            let path_str = pathbuf.to_str().unwrap_or("").to_string();
 
-            let update_time: String = {
-                match std::fs::metadata(&pathbuf).and_then(|m| m.modified()) {
-                    Ok(modified_time) => {
-                        let datetime: chrono::DateTime<chrono::Local> = modified_time.into();
-                        datetime.format("%Y-%m-%d %H:%M:%S").to_string()
-                    }
-                    Err(_) => {
-                        path = "".to_string();
-                        String::from("1970-01-01 00:00:00")
-                    }
-                }
-            };
-
-            let author_info = AuthorInfo {
-                author_id,
-                author_name: author_name.clone(),
-                author_account: author_account.clone(),
-                count: None,
+            let update_time = match std::fs::metadata(&pathbuf).and_then(|m| m.modified()) {
+                Ok(t) => chrono::DateTime::<chrono::Local>::from(t)
+                    .format("%Y-%m-%d %H:%M:%S")
+                    .to_string(),
+                Err(_) => "1970-01-01 00:00:00".to_string(),
             };
 
             Ok(SearchResult {
                 id,
                 file_name,
-                author: author_info,
+                author: AuthorInfo {
+                    author_id,
+                    author_name,
+                    author_account,
+                    count: None,
+                },
                 character,
                 save_dir,
                 update_time,
-                thumbnail_url: path,
+                thumbnail_url: path_str,
                 tags,
             })
         })
         .map_err(|e| e.to_string())?;
 
-    let mut results = Vec::new();
-    for detail in detail_iter {
-        results.push(detail.map_err(|e| e.to_string())?);
+    let mut results = vec![];
+    for row in rows {
+        results.push(row.map_err(|e| e.to_string())?);
     }
 
     let author_info = author.and_then(|author_id| {
         results
             .iter()
-            .find(|result| result.author.author_id == author_id)
-            .map(|result| result.author.clone())
+            .find(|r| r.author.author_id == author_id)
+            .map(|r| r.author.clone())
     });
 
     save_search_history(
         &conn,
         SearchHistory {
             tags,
-            condition: condition.clone(),
+            condition,
             timestamp: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
             result_count: results.len() as u32,
             character,

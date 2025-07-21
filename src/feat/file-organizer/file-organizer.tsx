@@ -87,8 +87,10 @@ export default function FileOrganizer() {
         assignment,
       });
       setCollectSummary(summary);
-      if (!selectedCharacterTag) setSelectedSeriesTag("");
-      setSelectedCharacterTag("");
+      if (!selectedCharacterTag) {
+        void onChangeSeriesPulldown("");
+      }
+      void onChangeCharacterPulldown("");
     } finally {
       setLoading(false);
     }

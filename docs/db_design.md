@@ -60,11 +60,12 @@
 
   - `illust_id`: INTEGER NOT NULL - イラストの識別子
   - `control_num`: INTEGER NOT NULL - タグ用の管理番号
+  - `collect_type`: INTEGER NOT NULL - 0: キャラクター, 1: シリーズ
   - `series`: TEXT NOT NULL - シリーズ名
   - `character`: TEXT NOT NULL - イラストのキャラクター名
   - `save_dir`: TEXT - イラストが保存されているディレクトリのパス
   - `collect_dir`: TEXT - コレクションディレクトリ
-  - **PRIMARY KEY**: (`illust_id`, `control_num`)
+  - **PRIMARY KEY**: (`illust_id`, `control_num`, `collect_type`)
 
 - **AUTHOR_INFO**
 

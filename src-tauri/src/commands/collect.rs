@@ -19,14 +19,19 @@ pub fn get_related_tags(tag: &str, state: State<AppState>) -> Result<Vec<String>
     let mut stmt = conn
         .prepare(
             r#"
-        SELECT DISTINCT T2.tag
+        SELECT 
+          T2.tag,
+          COUNT(DISTINCT I.illust_id || '-' || I.suffix) AS count
         FROM TAG_INFO T1
         JOIN TAG_INFO T2
           ON T1.illust_id = T2.illust_id
-         AND T1.control_num = T2.control_num
+          AND T1.control_num = T2.control_num
+        JOIN ILLUST_INFO I
+          ON T2.illust_id = I.illust_id AND T2.control_num = I.control_num
         WHERE T1.tag = ?1
           AND T2.tag != ?1
-        ORDER BY T2.tag COLLATE NOCASE
+        GROUP BY T2.tag
+        ORDER BY count DESC, T2.tag COLLATE NOCASE;
         "#,
         )
         .map_err(|e| e.to_string())?;
@@ -82,6 +87,8 @@ pub fn assign_tag(
         parts.join("\\")
     });
 
+    let collect_type = if assignment.character == "-" { 1 } else { 2 };
+
     // キャラクターは重複禁止のため洗い替え
     tx.execute(
         "DELETE FROM COLLECT_UI_WORK WHERE character = ?1 AND character <> '-'",
@@ -91,9 +98,14 @@ pub fn assign_tag(
 
     tx.execute(
         "INSERT OR REPLACE INTO COLLECT_UI_WORK (
-                id, series, character, collect_dir, before_count, after_count, unsave
-            ) VALUES (0, ?1, ?2, ?3, 0, 0, true)",
-        params![assignment.series, assignment.character, collect_dir],
+                id, series, character, collect_dir, before_count, after_count, unsave, collect_type
+            ) VALUES (0, ?1, ?2, ?3, 0, 0, true, ?4)",
+        params![
+            assignment.series,
+            assignment.character,
+            collect_dir,
+            collect_type
+        ],
     )
     .map_err(|e| e.to_string())?;
 

@@ -148,6 +148,7 @@ fn initialize_db(conn: &Connection) -> Result<()> {
             before_count INTEGER,
             after_count INTEGER,
             unsave BOOLEAN,
+            collect_type INTEGER NOT NULL,
             PRIMARY KEY (series, character)
         )",
         [],
@@ -157,10 +158,12 @@ fn initialize_db(conn: &Connection) -> Result<()> {
         "CREATE TABLE IF NOT EXISTS COLLECT_FILTER_WORK (
             illust_id INTEGER NOT NULL,
             control_num INTEGER NOT NULL,
+            series TEXT NOT NULL,
             character TEXT NOT NULL,
             save_dir TEXT,
             collect_dir TEXT,
-            PRIMARY KEY (illust_id, control_num)
+            collect_type INTEGER NOT NULL,
+            PRIMARY KEY (illust_id, control_num, collect_type)
         )",
         [],
     )?;

@@ -87,7 +87,16 @@ pub fn collect_illust_info(conn: &Connection) -> Result<()> {
 
 pub fn move_illust_files(conn: &Connection) -> Result<()> {
     let mut stmt = conn.prepare(
-        "SELECT illust_id, suffix, extension, save_dir, collect_dir FROM COLLECT_FILTER_WORK",
+        "SELECT
+            F.illust_id,
+            I.suffix,
+            I.extension,
+            F.save_dir,
+            F.collect_dir
+            FROM COLLECT_FILTER_WORK F
+            JOIN ILLUST_INFO I
+            ON F.illust_id = I.illust_id
+            AND F.control_num = I.control_num",
     )?;
 
     let rows = stmt.query_map([], |row| {

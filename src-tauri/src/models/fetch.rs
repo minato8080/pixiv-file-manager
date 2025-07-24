@@ -6,7 +6,7 @@ use ts_rs::TS;
 pub struct ProcessStats {
     pub total_files: usize,
     pub failed_files: usize,
-    pub processing_time_ms: u128,
+    pub process_time_ms: u128,
     pub failed_file_paths: Vec<String>,
 }
 
@@ -42,7 +42,7 @@ pub struct FolderCount {
 pub struct FileCounts {
     pub folders: Vec<FolderCount>,
     pub total: i32,
-    pub processing_time: String,
+    pub process_time: String,
 }
 
 #[derive(Debug)]

@@ -1,7 +1,88 @@
-# Tauri + React + Typescript
+# Pixiv ファイルマネージャー
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+[xuejianxianzun](https://github.com/xuejianxianzun)氏作成の[拡張機能](https://github.com/xuejianxianzun/PixivBatchDownloader)で収集したファイルを整理する GUI アプリ。
 
-## Recommended IDE Setup
+---r
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+## 機能一覧
+
+### 1. タグ取得画面
+
+- フォルダ内の画像を読み込み、タグ情報を API から取得・保存
+- 重複画像の削除とファイル情報の DB 更新
+- DB の同期処理、整理処理の実行
+
+### 2. タグ検索画面
+
+- タグや作者、キャラクター名による検索
+- ファイルの移動・削除・名前登録の支援
+- 検索履歴の管理
+
+### 3. ファイル整理画面
+
+- シリーズ・キャラクター単位での集計と表示
+- 一括コレクト処理によるタグ整理
+- 保存先ルートの設定
+
+---
+
+## 各画面詳細
+
+### タグ取得画面
+
+#### 主な処理
+
+- フォルダ選択 → ファイル情報を取得し DB へ登録
+- タグ取得 → API 通信でタグを取得し、DB に反映
+- 重
+-
+- 複ファイルを自動判定し削除確認を表示
+- DB とファイルの整合性チェック・同期・整理機能
+
+#### DB 同期処理
+
+- DB に登録済みで、対象フォルダに存在しない画像の削除
+- 保存ルートパス の設定と更新
+
+---
+
+### タグ検索画面
+
+#### 検索機能
+
+- タグ・キャラ・作者など複数条件での AND/OR 検索
+- 検索履歴の保存と再利用
+- 結果はサムネイル付き一覧表示
+
+#### ファイル操作機能
+
+- 移動：保存ディレクトリの更新＋物理ファイルの移動
+- 削除：DB・物理ファイルともに削除、未使用タグも整理
+- 名前登録：キャラクター情報と保存先を指定し更新可能
+
+---
+
+### ファイル整理画面
+
+#### 一覧表示
+
+- 整理状態を集計
+
+#### 一括コレクト処理
+
+- タグ選択 → シリーズ/キャラクターへの一括分類
+- 必要な DB 更新とファイル移動を実行
+
+#### ルート設定
+
+- 保存ルートパスの更新機能
+
+---
+
+## 技術スタック
+
+フロントエンド：React, TypeScript
+
+バックエンド：Tauri + Rust
+
+データベース：SQLite3

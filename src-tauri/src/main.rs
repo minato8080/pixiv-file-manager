@@ -24,9 +24,10 @@ use commands::search::{
 };
 use constants::DB_NAME;
 use models::global::AppState;
-use models::pixiv::{PixivApi, RealPixivApi};
 
+use crate::api::pixiv::create_api;
 use crate::commands::collect::{delete_collect, get_related_tags, perform_collect};
+use crate::commands::fetch::recapture_illust_detail;
 
 fn main() {
     dotenv::dotenv().ok();
@@ -41,7 +42,7 @@ fn main() {
                 eprintln!("Failed to open database connection: {}", err);
                 std::process::exit(1);
             });
-            let app_pixiv_api = RealPixivApi::create_api().ok();
+            let app_pixiv_api = create_api().ok();
 
             // Initialize database
             initialize_db(&conn).unwrap();
@@ -58,6 +59,7 @@ fn main() {
             search_by_criteria,
             get_search_history,
             capture_illust_detail,
+            recapture_illust_detail,
             get_unique_characters,
             get_unique_authors,
             move_files,
@@ -104,7 +106,7 @@ fn initialize_db(conn: &Connection) -> Result<()> {
     )?;
 
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS ILLUST_INFO_WORK (
+        "CREATE TABLE IF NOT EXISTS ILLUST_FETCH_WORK (
             illust_id INTEGER NOT NULL,
             suffix INTEGER NOT NULL,
             extension TEXT NOT NULL,

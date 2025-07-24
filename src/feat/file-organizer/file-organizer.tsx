@@ -166,7 +166,7 @@ export default function FileOrganizer() {
   };
 
   return (
-    <div className="h-screen p-2 flex flex-col">
+    <div className="h-screen p-2 pb-18 flex flex-col">
       {/* 上部コントロール */}
       <div className="flex gap-4 mb-2">
         <div className="items-center gap-3  p-2 rounded border">

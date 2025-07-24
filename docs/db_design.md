@@ -18,7 +18,7 @@
   - `character`: TEXT - イラストのキャラクター名
   - **PRIMARY KEY**: (`illust_id`, `control_num`)
 
-- **ILLUST_INFO_WORK**
+- **ILLUST_FETCH_WORK**
 
   - `illust_id`: INTEGER NOT NULL - イラストの識別子
   - `suffix`: INTEGER NOT NULL - イラストのサフィックス

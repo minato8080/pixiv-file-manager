@@ -19,14 +19,14 @@
    1. [検索]ボタン押下時、検索処理を実行する。
    2. [処理経過]ビューに処理状況を表示する。
 4. **(APP)** 検索処理
-   1. `ILLUST_INFO_WORK`を TRUNCATE する。
-   2. フォルダ配下の画像ファイルからファイル情報を一括取得して`ILLUST_INFO_WORK`に INSERT する。
-   3. `ILLUST_INFO`に`illust_id`がある場合、`ILLUST_INFO_WORK`を以下条件で UPDATE する。
-      1. `illust_id`,`suffix`が一致する場合、`ILLUST_INFO_WORK.igonre_flg`を 1 にする。
-      2. `illust_id`が一致し,`suffix`が一致しない場合、`ILLUST_INFO_WORK.insert_flg`を 1 にする。
-   4. `ILLUST_INFO`に`illust_id`、`suffix`がない場合、以下の優先順位で`ILLUST_INFO_WORK.delete_flg`を 0 とし、残りを 1 に設定する。
-      1. `ILLUST_INFO_WORK.file_size`が最も小さい
-      2. 上記が同じ場合、`ILLUST_INFO_WORK.created_time`が最も古い
+   1. `ILLUST_FETCH_WORK`を TRUNCATE する。
+   2. フォルダ配下の画像ファイルからファイル情報を一括取得して`ILLUST_FETCH_WORK`に INSERT する。
+   3. `ILLUST_INFO`に`illust_id`がある場合、`ILLUST_FETCH_WORK`を以下条件で UPDATE する。
+      1. `illust_id`,`suffix`が一致する場合、`ILLUST_FETCH_WORK.igonre_flg`を 1 にする。
+      2. `illust_id`が一致し,`suffix`が一致しない場合、`ILLUST_FETCH_WORK.insert_flg`を 1 にする。
+   4. `ILLUST_INFO`に`illust_id`、`suffix`がない場合、以下の優先順位で`ILLUST_FETCH_WORK.delete_flg`を 0 とし、残りを 1 に設定する。
+      1. `ILLUST_FETCH_WORK.file_size`が最も小さい
+      2. 上記が同じ場合、`ILLUST_FETCH_WORK.created_time`が最も古い
       3. 上記が同じ場合、列インデックスが最も小さい
    5. 一意の id を取得して配列に格納する。
    6. 配列をループして以下処理を行う。
@@ -48,8 +48,8 @@
       2. [いいえ]押下時、処理結果を表示する。
    2. 重複ファイルがない場合、処理結果を表示する。
 6. **(APP)** 重複削除処理
-   1. `ILLUST_INFO_WORK.delete_flg`が 1 の実体ファイルを削除する。
-   2. `ILLUST_INFO_WORK`を TRUNCATE する。
+   1. `ILLUST_FETCH_WORK.delete_flg`が 1 の実体ファイルを削除する。
+   2. `ILLUST_FETCH_WORK`を TRUNCATE する。
    3. コミットを発行し、結果をクライアントに返却する。
 7. **(画面)** 結果表示
    1. 処理結果を表示する。
@@ -65,8 +65,8 @@
    1. パラメータチェック。`root`が取得できない場合、エラー。
    2. パラメータに root が設定されている場合、`DB_INFO.root`パスを設定する。
    3. 検索処理を実行する。
-   4. `save_dir`を比較し、`ILLUST_INFO`に登録があり`ILLUST_INFO_WORK`に存在しない場合、配列に格納する。
-   5. `ILLUST_INFO_WORK`を truncate する。
+   4. `save_dir`を比較し、`ILLUST_INFO`に登録があり`ILLUST_FETCH_WORK`に存在しない場合、配列に格納する。
+   5. `ILLUST_FETCH_WORK`を truncate する。
    6. コミットを発行し、結果をクライアントに返却する。
 3. **(画面)**
    1. 削除確認ダイアログを表示し、[はい]の場合、DB 整理処理を実行。

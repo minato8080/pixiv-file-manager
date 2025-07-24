@@ -1,20 +1,21 @@
+use std::collections::HashSet;
 use std::path::Path;
 use std::vec::Vec;
 use tauri::State;
 use walkdir::WalkDir;
 
-use crate::models::fetch::{
-    FileCounts, FileDetail, ProcessStats,
-};
+use crate::models::fetch::{FileCounts, FileDetail, ProcessStats};
 use crate::models::global::AppState;
 
 use crate::models::fetch::FolderCount;
-use crate::service::fetch::{extract_dir_detail, process_image_ids_detail};
+use crate::service::fetch::{
+    delete_missing_tags, extract_dir_detail, extract_missing_files, fetch_illust_detail,
+};
 
-// Start of Selection
 #[tauri::command]
-pub fn count_files_in_dir(_state: State<AppState>, dir_paths: Vec<String>) -> FileCounts {
-    let folder_counts: Vec<FolderCount> = dir_paths
+pub fn count_files_in_dir(folders: Vec<String>) -> FileCounts {
+    // フォルダ数
+    let folder_counts: Vec<FolderCount> = folders
         .iter()
         .map(|dir_path| {
             let path = Path::new(dir_path);
@@ -39,27 +40,36 @@ pub fn count_files_in_dir(_state: State<AppState>, dir_paths: Vec<String>) -> Fi
         })
         .collect();
 
+    // ファイル数
     let total_files = folder_counts
         .iter()
         .map(|fc| fc.base_count + fc.sub_dir_count)
         .sum();
 
+    // idを抜き出して処理時間を予測
+    let file_details: Vec<FileDetail> = folders
+        .iter()
+        .flat_map(|folder| extract_dir_detail(folder))
+        .collect();
+    let unique_ids: HashSet<u32> = file_details.iter().map(|f| f.id).collect();
+    let unique_count = unique_ids.len();
+
     let interval = std::env::var("INTERVAL_MILL_SEC")
         .ok()
-        .and_then(|val| val.parse::<i32>().ok())
+        .and_then(|val| val.parse::<u32>().ok())
         .unwrap_or(1000);
 
-    let total_processing_time_secs = (interval + 200) * total_files / 1000;
-    let hours = total_processing_time_secs / 3600;
-    let minutes = (total_processing_time_secs % 3600) / 60;
-    let seconds = total_processing_time_secs % 60;
+    let estimate_process_time = (interval + 200) * unique_count as u32 / 1000;
+    let hours = estimate_process_time / 3600;
+    let minutes = (estimate_process_time % 3600) / 60;
+    let seconds = estimate_process_time % 60;
 
-    let processing_time = format!("{:02}:{:02}:{:02}", hours, minutes, seconds);
+    let process_time = format!("{:02}:{:02}:{:02}", hours, minutes, seconds);
 
     FileCounts {
         folders: folder_counts,
         total: total_files,
-        processing_time,
+        process_time,
     }
 }
 
@@ -69,13 +79,46 @@ pub fn capture_illust_detail(
     window: tauri::Window,
     folders: Vec<String>,
 ) -> Result<ProcessStats, String> {
+    let mut conn = state.db.lock().unwrap();
+
+    // 対象を取得
     let file_details: Vec<FileDetail> = folders
         .iter()
         .flat_map(|folder| extract_dir_detail(folder))
         .collect();
-    // 画像IDを処理し、結果を返す
-    match process_image_ids_detail(state, window, file_details) {
-        Ok(stats) => Ok(stats),       // 成功時は ProcessStats を返す
-        Err(e) => Err(e.to_string()), // 失敗時はエラーメッセージを文字列として返す
+
+    // 再取得実行
+    if let Some(app_pixiv_api) = &state.app_pixiv_api {
+        let result = fetch_illust_detail(&mut conn, app_pixiv_api, window, file_details)
+            .map_err(|e| e.to_string())?;
+
+        // 削除を実行
+        delete_missing_tags(&conn).map_err(|e| e.to_string())?;
+        return Ok(result);
+    } else {
+        return Err("API is unavailable.".to_string());
+    }
+}
+
+#[tauri::command]
+pub fn recapture_illust_detail(
+    state: State<'_, AppState>,
+    window: tauri::Window,
+) -> Result<ProcessStats, String> {
+    let mut conn = state.db.lock().unwrap();
+
+    // 失敗ファイルを抽出
+    let file_details = extract_missing_files(&conn).map_err(|e| e.to_string())?;
+
+    // 再取得実行
+    if let Some(app_pixiv_api) = &state.app_pixiv_api {
+        let result = fetch_illust_detail(&mut conn, app_pixiv_api, window, file_details)
+            .map_err(|e| e.to_string())?;
+
+        // 取得できたレコードのMissingタグ削除を実行
+        delete_missing_tags(&conn).map_err(|e| e.to_string())?;
+        Ok(result)
+    } else {
+        return Err("Pixiv API is unavailable.".to_string());
     }
 }

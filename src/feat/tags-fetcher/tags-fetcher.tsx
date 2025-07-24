@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
-import { FolderOpen, Trash2, Play } from "lucide-react";
+import { FolderOpen, Trash2, Play, RotateCw } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { FileCounts } from "@/bindings/FileCounts";
@@ -17,7 +17,7 @@ export default function TagsFetcher() {
   const [fileCounts, setFileCounts] = useState<FileCounts>({
     folders: [],
     total: 0,
-    processing_time: "",
+    process_time: "",
   });
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState<TagProgress>({
@@ -30,11 +30,17 @@ export default function TagsFetcher() {
   const [showFailedDetails, setShowFailedDetails] = useState(false);
 
   useEffect(() => {
-    const unlisten = listen<TagProgress>("tag_progress", (event) => {
-      setProgress(event.payload);
-    });
+    let unlisten: (() => void) | undefined;
+
+    const setup = async () => {
+      unlisten = await listen<TagProgress>("tag_progress", (event) => {
+        setProgress(event.payload);
+      });
+    };
+    void setup();
+
     return () => {
-      void unlisten.then((f) => f());
+      if (unlisten) unlisten();
     };
   }, []);
 
@@ -50,7 +56,7 @@ export default function TagsFetcher() {
 
       const nextState = [...selectedFolders, ...selected];
       const filesCounts: FileCounts = await invoke("count_files_in_dir", {
-        dirPaths: nextState,
+        folders: nextState,
       });
       setFileCounts(filesCounts);
 
@@ -92,6 +98,30 @@ export default function TagsFetcher() {
     }
   };
 
+  // Function to start processing
+  const startRecaputure = async () => {
+    setIsProcessing(true);
+    setProgress({
+      success: 0,
+      fail: 0,
+      current: 0,
+      total: 0,
+    });
+    setStats(null);
+
+    try {
+      const result = await invoke<ProcessStats>("recapture_illust_detail", {
+        folders: selectedFolders,
+      });
+
+      setStats(result);
+    } catch (error) {
+      console.error("Error processing tags:", error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Control buttons at top */}
@@ -99,7 +129,7 @@ export default function TagsFetcher() {
         <Button
           onClick={() => void selectFolders()}
           disabled={isProcessing}
-          className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+          className=" bg-green-600 hover:bg-green-700"
         >
           <FolderOpen className="h-4 w-4" />
           Add Folders
@@ -116,13 +146,23 @@ export default function TagsFetcher() {
         </Button>
 
         <Button
+          variant="outline"
+          onClick={() => void startRecaputure()}
+          disabled={isProcessing}
+          className="bg-white hover:bg-blue-400"
+        >
+          <RotateCw className="h-4 w-4 mr-1" />
+          Retry
+        </Button>
+
+        <Button
           variant="default"
           onClick={() => void startProcessing()}
           disabled={isProcessing || selectedFolders.length === 0}
           className="ml-auto bg-blue-600 hover:bg-blue-700"
         >
           <Play className="h-4 w-4 mr-1" />
-          {isProcessing ? "Processing..." : "Process Tags"}
+          Process Tags
         </Button>
       </div>
 
@@ -176,7 +216,7 @@ export default function TagsFetcher() {
                     </Badge>
                   </div>
                   <div className="text-xs font-medium text-blue-700 dark:text-blue-300">
-                    Est. processing time: {fileCounts.processing_time}
+                    Est. processing time: {fileCounts.process_time}
                   </div>
                 </div>
               )}
@@ -240,7 +280,7 @@ export default function TagsFetcher() {
             </div>
             <div className="p-2 rounded-md bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800">
               <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
-                {(Number(stats.processing_time_ms) / 1000).toFixed(1)}s
+                {(Number(stats.process_time_ms) / 1000).toFixed(1)}s
               </div>
               <div className="text-xs text-blue-600 dark:text-blue-400">
                 Processing Time

@@ -7,21 +7,21 @@ use rusqlite::Connection;
 use crate::models::collect::CollectSummary;
 
 pub fn prepare_collect_ui_work(conn: &Connection) -> Result<()> {
-    let sql = include_str!("../sql/prepare_collect_ui_work.sql");
+    let sql = include_str!("../sql/collect/prepare_collect_ui_work.sql");
     conn.execute_batch(sql)?;
     Ok(())
 }
 
 pub fn reflesh_collect_work(conn: &Connection) -> Result<()> {
-    let sql = include_str!("../sql/prepare_collect_filter_work.sql");
+    let sql = include_str!("../sql/collect/prepare_collect_filter_work.sql");
     conn.execute_batch(sql)?;
-    let sql = include_str!("../sql/update_after_count.sql");
+    let sql = include_str!("../sql/collect/update_after_count.sql");
     conn.execute_batch(sql)?;
     Ok(())
 }
 
 pub fn sort_collect_work(conn: &Connection) -> Result<()> {
-    let sql = include_str!("../sql/sort_collect_work.sql");
+    let sql = include_str!("../sql/collect/sort_collect_work.sql");
     conn.execute_batch(sql)?;
     Ok(())
 }
@@ -66,13 +66,13 @@ pub fn get_collect_summary(conn: &Connection) -> Result<Vec<CollectSummary>, Str
 }
 
 pub fn collect_character_info(conn: &Connection) -> Result<()> {
-    let sql = include_str!("../sql/collect_character_info.sql");
+    let sql = include_str!("../sql/collect/collect_character_info.sql");
     conn.execute_batch(sql)?;
     Ok(())
 }
 
 pub fn collect_illust_detail(conn: &Connection) -> Result<()> {
-    let sql = include_str!("../sql/collect_illust_detail.sql");
+    let sql = include_str!("../sql/collect/collect_illust_detail.sql");
     conn.execute_batch(sql)?;
 
     Ok(())
@@ -80,7 +80,7 @@ pub fn collect_illust_detail(conn: &Connection) -> Result<()> {
 
 /// ILLUST_INFO.save_dir に {root}/{series}/{character} を設定
 pub fn collect_illust_info(conn: &Connection) -> Result<()> {
-    let sql = include_str!("../sql/collect_illust_info.sql");
+    let sql = include_str!("../sql/collect/collect_illust_info.sql");
     conn.execute_batch(sql)?;
     Ok(())
 }

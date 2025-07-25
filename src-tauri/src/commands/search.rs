@@ -140,7 +140,7 @@ pub fn search_by_criteria(
     let conn = state.db.lock().unwrap();
     let mut params: Vec<Box<dyn ToSql>> = vec![];
 
-    let sql_template = include_str!("../sql/search_by_criteria.sql");
+    let sql_template = include_str!("../sql/search/search_by_criteria.sql");
 
     let subquery_where_clause = if tags.len() > 0 {
         let tag_placeholders = tags.iter().map(|_| "?").collect::<Vec<_>>().join(", ");

@@ -19,7 +19,7 @@ use tauri::Manager;
 
 use commands::fetch::{capture_illust_detail, count_files_in_dir};
 use commands::search::{
-    get_search_history, get_unique_authors, get_unique_characters, get_unique_tag_list,
+    get_search_history, get_unique_authors, get_unique_characters, get_unique_tags,
     search_by_criteria,
 };
 use constants::DB_NAME;
@@ -55,7 +55,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_unique_tag_list,
+            get_unique_tags,
             search_by_criteria,
             get_search_history,
             capture_illust_detail,

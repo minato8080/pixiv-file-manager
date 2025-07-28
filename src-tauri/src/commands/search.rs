@@ -1,28 +1,23 @@
 use std::path::Path;
 
-use crate::models::{
-    global::AppState,
-    search::{AuthorInfo, CharacterInfo, SearchHistory, SearchResult, TagInfo},
+use crate::{
+    models::{
+        global::AppState,
+        search::{AuthorInfo, CharacterInfo, SearchHistory, SearchResult, TagInfo},
+    },
+    service::search::save_search_history,
 };
-use rusqlite::{params, Result, ToSql};
+use rusqlite::{Result, ToSql};
 use tauri::State;
 
 #[tauri::command]
-pub fn get_unique_tag_list(state: State<AppState>) -> Result<Vec<TagInfo>, String> {
+pub fn get_unique_tags(state: State<AppState>) -> Result<Vec<TagInfo>, String> {
     let conn = state.db.lock().unwrap();
 
-    let mut stmt = conn
-        .prepare(
-            "SELECT T.tag, COUNT(DISTINCT I.illust_id || '-' || I.suffix) AS count
-         FROM TAG_INFO T
-         JOIN ILLUST_INFO I
-           ON T.illust_id = I.illust_id AND T.control_num = I.control_num
-         GROUP BY T.tag
-         ORDER BY count DESC, T.tag ASC",
-        )
-        .map_err(|e| e.to_string())?;
+    let sql = include_str!("../sql/search/get_unique_tags.sql");
+    let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
 
-    let tag_iter = stmt
+    let iter = stmt
         .query_map([], |row| {
             Ok(TagInfo {
                 tag: row.get(0)?,
@@ -31,10 +26,7 @@ pub fn get_unique_tag_list(state: State<AppState>) -> Result<Vec<TagInfo>, Strin
         })
         .map_err(|e| e.to_string())?;
 
-    let mut tags = Vec::new();
-    for tag in tag_iter {
-        tags.push(tag.map_err(|e| e.to_string())?);
-    }
+    let tags = iter.into_iter().filter_map(|tag| tag.ok()).collect();
 
     Ok(tags)
 }
@@ -43,26 +35,10 @@ pub fn get_unique_tag_list(state: State<AppState>) -> Result<Vec<TagInfo>, Strin
 pub fn get_unique_characters(state: State<AppState>) -> Result<Vec<CharacterInfo>, String> {
     let conn = state.db.lock().unwrap();
 
-    let mut stmt = conn
-        .prepare(
-            "
-            SELECT 
-                C.character,
-                COUNT(DISTINCT I.illust_id || '-' || I.suffix) AS illust_count
-            FROM 
-                CHARACTER_INFO C
-            LEFT JOIN 
-                ILLUST_DETAIL D ON C.character = D.character
-            LEFT JOIN 
-                ILLUST_INFO I ON D.illust_id = I.illust_id
-            GROUP BY 
-                C.character
-            ORDER BY illust_count DESC, C.character ASC
-        ",
-        )
-        .map_err(|e| e.to_string())?;
+    let sql = include_str!("../sql/search/get_unique_characters.sql");
+    let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
 
-    let character_iter = stmt
+    let iter = stmt
         .query_map([], |row| {
             let character: String = row.get(0)?;
             let count: Option<u32> = row.get(1)?;
@@ -70,7 +46,7 @@ pub fn get_unique_characters(state: State<AppState>) -> Result<Vec<CharacterInfo
         })
         .map_err(|e| e.to_string())?;
 
-    let characters: Vec<CharacterInfo> = character_iter
+    let characters = iter
         .into_iter()
         .filter_map(|character| character.ok())
         .collect();
@@ -82,28 +58,10 @@ pub fn get_unique_characters(state: State<AppState>) -> Result<Vec<CharacterInfo
 pub fn get_unique_authors(state: State<AppState>) -> Result<Vec<AuthorInfo>, String> {
     let conn = state.db.lock().unwrap();
 
-    let mut stmt = conn
-        .prepare(
-            "
-            SELECT 
-                A.author_id,
-                A.author_name,
-                A.author_account,
-                COUNT(DISTINCT I.illust_id || '-' || I.suffix) AS illust_count
-            FROM 
-                ILLUST_INFO I
-            INNER JOIN 
-                AUTHOR_INFO A ON A.author_id = D.author_id
-            INNER JOIN 
-                ILLUST_DETAIL D ON I.illust_id = D.illust_id AND I.control_num = D.control_num
-            GROUP BY 
-                A.author_id, A.author_name, A.author_account
-            ORDER BY illust_count DESC, A.author_id ASC
-        ",
-        )
-        .map_err(|e| e.to_string())?;
+    let sql = include_str!("../sql/search/get_unique_authors.sql");
+    let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
 
-    let author_iter = stmt
+    let iter = stmt
         .query_map([], |row| {
             let author_id: u32 = row.get(0)?;
             let author_name: String = row.get(1)?;
@@ -118,13 +76,7 @@ pub fn get_unique_authors(state: State<AppState>) -> Result<Vec<AuthorInfo>, Str
         })
         .map_err(|e| e.to_string())?;
 
-    let mut authors = Vec::new();
-    for author in author_iter {
-        let author_info = author.map_err(|e| e.to_string())?;
-        if author_info.count.unwrap_or(0) > 0 {
-            authors.push(author_info);
-        }
-    }
+    let authors = iter.into_iter().filter_map(|author| author.ok()).collect();
 
     Ok(authors)
 }
@@ -304,28 +256,4 @@ pub fn get_search_history(state: State<AppState>) -> Result<Vec<SearchHistory>, 
     }
 
     Ok(history)
-}
-
-fn save_search_history(
-    conn: &std::sync::MutexGuard<'_, rusqlite::Connection>,
-    history: SearchHistory,
-) -> Result<(), String> {
-    let tags_json = serde_json::to_string(&history.tags).map_err(|e| e.to_string())?;
-    let author_json = serde_json::to_string(&history.author).map_err(|e| e.to_string())?;
-    conn.execute(
-        "INSERT INTO SEARCH_HISTORY (tags, character, author_info, condition, timestamp, result_count) VALUES (?, ?, ?, ?, ?, ?)",
-        params![tags_json, history.character, author_json, history.condition, history.timestamp, history.result_count],
-    )
-    .map_err(|e| e.to_string())?;
-
-    // 履歴は10件まで保存
-    conn.execute(
-        "DELETE FROM SEARCH_HISTORY WHERE ROWID NOT IN (
-            SELECT ROWID FROM SEARCH_HISTORY ORDER BY timestamp DESC LIMIT 10
-            )",
-        [],
-    )
-    .map_err(|e| e.to_string())?;
-
-    Ok(())
 }

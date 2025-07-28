@@ -7,6 +7,8 @@ type TagsOrganizerStore = {
   collectSummary: CollectSummary[];
   setLoading: (bool: boolean) => void;
   setCollectSummary: (summary: CollectSummary[]) => void;
+  uniqueTagList: string[];
+  setUniqueTagList: (list: string[]) => void;
 };
 
 export const useTagsOrganizerStore = create<TagsOrganizerStore>((set) => ({
@@ -14,4 +16,8 @@ export const useTagsOrganizerStore = create<TagsOrganizerStore>((set) => ({
   collectSummary: [],
   setLoading: (bool) => set({ loading: bool }),
   setCollectSummary: (summary) => set({ collectSummary: summary }),
+  filteredSeriesTagList: [],
+  filteredCharacterTagList: [],
+  uniqueTagList: [],
+  setUniqueTagList: (list) => set({ uniqueTagList: list }),
 }));

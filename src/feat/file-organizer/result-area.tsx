@@ -1,9 +1,11 @@
+"use client";
+
 import { invoke } from "@tauri-apps/api/core";
 import { Edit3, Trash2 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
-import { CollectSummary } from "@/bindings/CollectSummary";
-import { TagAssignment } from "@/bindings/TagAssignment";
+import type { CollectSummary } from "@/bindings/CollectSummary";
+import type { TagAssignment } from "@/bindings/TagAssignment";
 import { Button } from "@/components/ui/button";
 import {
   TableHeader,
@@ -14,7 +16,6 @@ import {
   Table,
 } from "@/components/ui/table";
 import { VirtualizedSelect } from "@/src/components/virtualized-select";
-import { useDropdownStore } from "@/src/stores/dropdown-store";
 import { useTagsOrganizerStore } from "@/src/stores/tags-organizer-store";
 
 interface EditingState {
@@ -23,14 +24,10 @@ interface EditingState {
 }
 
 export const ResultArea = () => {
-  const { collectSummary, setCollectSummary, setLoading } =
+  const { collectSummary, setCollectSummary, setLoading, uniqueTagList } =
     useTagsOrganizerStore();
-  const { uniqueTagList } = useDropdownStore();
-  const options = useMemo(
-    () => uniqueTagList.map((item) => item.tag),
-    [uniqueTagList]
-  );
 
+  const [filteredTagList, setFilteredTagList] = useState<string[]>([]);
   const [editingState, setEditingState] = useState<EditingState | null>(null);
   const anchorRef = useRef<HTMLDivElement>(null);
 
@@ -82,13 +79,16 @@ export const ResultArea = () => {
   ) => {
     const isEditing =
       editingState?.id === item.id && editingState?.field === field;
-    const value = item[field];
+    const value = item[field] === "-" ? null : item[field];
+
+    const options =
+      filteredTagList.length > 0 ? filteredTagList : uniqueTagList;
 
     if (isEditing) {
       return (
         <div className="relative" ref={anchorRef}>
           <VirtualizedSelect
-            value={value ?? "__unset__"}
+            value={value}
             options={options}
             onChange={(newValue) =>
               void updateItemField(item.id, field, newValue)
@@ -102,6 +102,28 @@ export const ResultArea = () => {
       );
     }
 
+    const handleClick = () => {
+      if (item.id === -1) return;
+
+      const reflesh = async () => {
+        let value: string | null =
+          collectSummary[item.id][
+            field === "character" ? "series" : "character"
+          ];
+        if (value === "-") value = null;
+
+        if (value) {
+          const list: string[] = await invoke("get_related_tags", {
+            tag: value,
+          });
+
+          setFilteredTagList(list.length > 0 ? list : uniqueTagList);
+        }
+        setEditingState({ id: item.id, field });
+      };
+      void reflesh();
+    };
+
     return (
       <span
         className={`cursor-pointer hover:bg-gray-100 px-1 rounded text-xs whitespace-nowrap ${
@@ -109,9 +131,7 @@ export const ResultArea = () => {
         } ${!value ? "text-gray-400" : ""} ${
           field === "series" ? "text-blue-700" : "text-green-700"
         }`}
-        onClick={() =>
-          item.id !== -1 && setEditingState({ id: item.id, field })
-        }
+        onClick={handleClick}
       >
         {value}
         {item.id !== -1 && <Edit3 className="w-2 h-2 inline ml-1" />}
@@ -120,10 +140,10 @@ export const ResultArea = () => {
   };
 
   return (
-    <div className="flex-1  border rounded overflow-hidden">
-      <div className="h-full overflow-auto">
+    <div className="flex-1 border rounded overflow-hidden flex flex-col">
+      <div className="flex-1 overflow-auto min-h-0">
         <Table>
-          <TableHeader className="sticky top-0 bg-gray-100">
+          <TableHeader className="sticky top-0 bg-gray-100 z-10">
             <TableRow>
               <TableHead className="text-xs py-1 min-w-32">Series</TableHead>
               <TableHead className="text-xs py-1 min-w-32">Character</TableHead>

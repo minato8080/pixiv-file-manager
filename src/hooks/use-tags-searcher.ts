@@ -29,7 +29,7 @@ export const useTagsSearcher = () => {
   // Handlers to fetch tags, characters, authors, and search history from the database
   const fetchTags = async () => {
     try {
-      const tags = await invoke<TagInfo[]>("get_unique_tag_list");
+      const tags = await invoke<TagInfo[]>("get_unique_tags");
       setUniqueTagList(tags);
       setTagDropdownItems(tags.map((t) => ({ id: t.tag, ...t })));
     } catch (error) {

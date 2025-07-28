@@ -179,7 +179,7 @@ pub fn fetch_illust_detail(
 
     // 処理結果を通知
     Ok(ProcessStats {
-        total_files: file_details.len(),
+        total_files: success_count + fail_count,
         failed_files: fail_count,
         process_time_ms: duration.as_millis(),
         failed_file_paths,

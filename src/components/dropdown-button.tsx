@@ -119,16 +119,14 @@ export function DropdownButton<T extends Item>({
                   onClick={() => addItem(item)}
                 >
                   <span className="truncate">{item.label ?? item.id}</span>
-                  {item?.count && (
-                    <Badge
-                      className={
-                        "ml-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" +
-                        badgeClassName
-                      }
-                    >
-                      +{item?.count}
-                    </Badge>
-                  )}
+                  <Badge
+                    className={
+                      "ml-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" +
+                      badgeClassName
+                    }
+                  >
+                    {item?.count}
+                  </Badge>
                 </button>
               ))
             ) : (

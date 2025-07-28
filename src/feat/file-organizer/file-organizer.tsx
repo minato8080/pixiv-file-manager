@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Settings, Plus, FolderOpen } from "lucide-react";
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect } from "react";
 
 import { ResultArea } from "./result-area";
 
@@ -17,26 +17,34 @@ import { useDropdownStore } from "@/src/stores/dropdown-store";
 import { useTagsOrganizerStore } from "@/src/stores/tags-organizer-store";
 
 export default function FileOrganizer() {
-  const { setCollectSummary, loading, setLoading } = useTagsOrganizerStore();
-  const { uniqueTagList } = useDropdownStore();
+  const {
+    setCollectSummary,
+    loading,
+    setLoading,
+    uniqueTagList,
+    setUniqueTagList,
+  } = useTagsOrganizerStore();
+  const { uniqueTagList: baseUniqueTagList } = useDropdownStore();
 
   const [selectedSeriesTag, setSelectedSeriesTag] = useState<string>("");
   const [selectedCharacterTag, setSelectedCharacterTag] = useState<string>("");
   const [isChangeRoot, setIsChangeRoot] = useState(false);
   const [rootPath, setRootPath] = useState("");
-  const [seriesTagList, setSeriesTagList] = useState<string[]>([]);
-  const [characterTagList, setCharacterTagList] = useState<string[]>([]);
-
-  const maxCount = useRef(0);
-
-  const uniqueTags = useMemo(
-    () => uniqueTagList.map((item) => item.tag),
-    [uniqueTagList]
+  const [filteredSeriesTagList, setFilteredSeriesTagList] = useState<string[]>(
+    []
   );
+  const [filteredCharacterTagList, setFilteredCharacterTagList] = useState<
+    string[]
+  >([]);
+
   useEffect(() => {
-    setSeriesTagList(uniqueTags);
-    setCharacterTagList(uniqueTags);
-  }, [uniqueTags]);
+    setUniqueTagList(baseUniqueTagList.map((item) => item.tag));
+  }, [setUniqueTagList, baseUniqueTagList]);
+
+  useEffect(() => {
+    setFilteredSeriesTagList(uniqueTagList);
+    setFilteredCharacterTagList(uniqueTagList);
+  }, [setFilteredCharacterTagList, setFilteredSeriesTagList, uniqueTagList]);
 
   useEffect(() => {
     const initialize = async () => {
@@ -62,8 +70,6 @@ export default function FileOrganizer() {
     setLoading(true);
     try {
       const summary: CollectSummary[] = await invoke("load_assignments");
-      maxCount.current =
-        Math.max(...summary.map((item) => item.after_count)) + 1;
       console.log("summary:", summary);
       setCollectSummary(summary);
     } finally {
@@ -149,7 +155,7 @@ export default function FileOrganizer() {
     setSelectedSeriesTag(value);
     try {
       const list: string[] = await invoke("get_related_tags", { tag: value });
-      setCharacterTagList(list.length > 0 ? list : uniqueTags);
+      setFilteredCharacterTagList(list.length > 0 ? list : uniqueTagList);
     } catch (error) {
       console.error(error);
     }
@@ -159,14 +165,14 @@ export default function FileOrganizer() {
     setSelectedCharacterTag(value);
     try {
       const list: string[] = await invoke("get_related_tags", { tag: value });
-      setSeriesTagList(list.length > 0 ? list : uniqueTags);
+      setFilteredSeriesTagList(list.length > 0 ? list : uniqueTagList);
     } catch (error) {
       console.error(error);
     }
   };
 
   return (
-    <div className="h-screen p-2 pb-18 flex flex-col">
+    <div className="h-screen p-2 flex flex-col min-h-0">
       {/* 上部コントロール */}
       <div className="flex gap-4 mb-2">
         <div className="items-center gap-3  p-2 rounded border">
@@ -214,7 +220,7 @@ export default function FileOrganizer() {
               <InputDropdown
                 value={selectedSeriesTag}
                 onChange={(v) => void onChangeSeriesPulldown(v)}
-                items={seriesTagList}
+                items={filteredSeriesTagList}
                 placeholder="Select tag"
                 inputClassName="border-blue-200 dark:border-blue-800 h-8"
               />
@@ -225,7 +231,7 @@ export default function FileOrganizer() {
               <InputDropdown
                 value={selectedCharacterTag}
                 onChange={(v) => void onChangeCharacterPulldown(v)}
-                items={characterTagList}
+                items={filteredCharacterTagList}
                 placeholder="Select tag"
                 inputClassName="border-green-200 dark:border-green-800 h-8"
               />

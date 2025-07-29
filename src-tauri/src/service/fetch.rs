@@ -71,6 +71,15 @@ pub fn extract_dir_detail<P: AsRef<Path>>(folder: P) -> Vec<FileDetail> {
     details
 }
 
+fn remove_invalid_chars(path: &str) -> String {
+    // Windowsでファイル名に使えない文字のリスト
+    let invalid_chars = ['\\', '/', ':', '*', '?', '"', '<', '>', '|'];
+
+    path.chars()
+        .filter(|c| !invalid_chars.contains(c))
+        .collect()
+}
+
 pub fn fetch_illust_detail(
     conn: &mut Connection,
     app_pixiv_api: &PixivClient,
@@ -116,7 +125,7 @@ pub fn fetch_illust_detail(
             for tag in resp.illust.tags() {
                 tx.execute(
             "INSERT OR REPLACE INTO TAG_INFO (illust_id, control_num, tag) VALUES (?1, ?2, ?3)",
-                    params![id_info.illust_id, 0, tag.name()],
+                    params![id_info.illust_id, 0, remove_invalid_chars(tag.name())],
                 )?;
             }
 

@@ -70,7 +70,6 @@ export default function FileOrganizer() {
     setLoading(true);
     try {
       const summary: CollectSummary[] = await invoke("load_assignments");
-      console.log("summary:", summary);
       setCollectSummary(summary);
     } finally {
       setLoading(false);

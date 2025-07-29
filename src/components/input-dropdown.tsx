@@ -17,6 +17,7 @@ interface InputDropdownProps<T> {
   dropdownClassName?: string;
   onSelect?: (item: T) => void;
   onChange?: (value: string) => void;
+  onFocus?: () => void;
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement> | undefined;
   renderItem?: (item: T, isSelected: boolean) => React.ReactNode;
   noResultsText?: string;
@@ -35,6 +36,7 @@ export function InputDropdown<T>({
   onSelect,
   onChange,
   onKeyDown,
+  onFocus,
   renderItem,
   noResultsText = "結果がありません",
 }: InputDropdownProps<T>) {
@@ -166,6 +168,7 @@ export function InputDropdown<T>({
           onChange={handleChange}
           onClick={handleInputClick}
           onKeyDown={onKeyDown}
+          onFocus={onFocus}
           onCompositionStart={handleCompositionStart}
           onCompositionEnd={handleCompositionEnd}
           className={`w-full ${inputClassName}`}

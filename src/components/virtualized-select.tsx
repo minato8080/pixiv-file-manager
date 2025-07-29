@@ -1,7 +1,6 @@
-"use client";
-
 import type React from "react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { FixedSizeList, type ListChildComponentProps } from "react-window";
 const List = FixedSizeList<string[]>;
 
@@ -51,25 +50,28 @@ export const VirtualizedSelect: React.FC<VirtualizedSelectProps> = ({
 
   // 座標計算
   const calculatePosition = () => {
-    const node = anchorRef.current;
-    if (!node) return;
+    const anchor = anchorRef.current;
+    if (!anchor) return;
 
-    const rect = node.getBoundingClientRect();
+    const anchorRect = anchor.getBoundingClientRect();
+    const scrollY = window.scrollY;
+    const scrollX = window.scrollX;
+
+    const dropdownTop = anchorRect.bottom + scrollY;
+    const dropdownLeft = anchorRect.left + scrollX;
+
     const viewportHeight = window.innerHeight;
+    const bottomPosition = anchorRect.bottom + dropdownHeight;
 
-    // 下方向に表示した場合の底辺位置
-    const bottomPosition = rect.bottom + dropdownHeight;
-
-    // ビューポートの下部に収まらない場合は上方向に展開
     const shouldOpenUpward =
-      bottomPosition > viewportHeight && rect.top > dropdownHeight;
+      bottomPosition > viewportHeight && anchorRect.top > dropdownHeight;
 
-    // position: absoluteで配置するため、ドキュメント全体に対する絶対座標が必要
-    // getBoundingClientRect()はビューポート相対なので、スクロール値を加算
     setPosition({
-      top: shouldOpenUpward ? window.scrollY - dropdownHeight : window.scrollY,
-      left: window.scrollX,
-      width: rect.width,
+      top: shouldOpenUpward
+        ? anchorRect.top + scrollY - dropdownHeight
+        : dropdownTop,
+      left: dropdownLeft,
+      width: anchorRect.width,
       openUpward: shouldOpenUpward,
     });
   };
@@ -151,7 +153,7 @@ export const VirtualizedSelect: React.FC<VirtualizedSelectProps> = ({
     );
   };
 
-  return (
+  return createPortal(
     <div
       ref={dropdownRef}
       className="border rounded bg-white shadow-lg z-[9999] p-1"
@@ -180,6 +182,7 @@ export const VirtualizedSelect: React.FC<VirtualizedSelectProps> = ({
       >
         {Row}
       </List>
-    </div>
+    </div>,
+    document.body
   );
 };

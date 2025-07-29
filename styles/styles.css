@@ -66,6 +66,13 @@
     background-color: transparent;
   }
   [data-slot="switch-thumb"] {
-    background-color: theme('colors.white');
+    background-color: theme("colors.white");
+  }
+  .base-right {
+    direction: rtl;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }

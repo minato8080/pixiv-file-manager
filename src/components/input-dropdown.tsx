@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface InputDropdownProps<T> {
   items: T[];
-  valueKey?: (item: T) => string;
+  valueKey: (item: T) => string;
   labelKey?: (item: T) => string;
   value?: string;
   defaultValue?: string;
@@ -25,7 +25,7 @@ interface InputDropdownProps<T> {
 
 export function InputDropdown<T>({
   items,
-  valueKey = (v) => v as string,
+  valueKey,
   labelKey = valueKey,
   value: controlledValue,
   defaultValue = "",

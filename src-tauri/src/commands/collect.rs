@@ -1,6 +1,7 @@
 use rusqlite::{params, OptionalExtension};
 use tauri::{command, State};
 
+use crate::models::search::TagInfo;
 use crate::service::collect::{
     collect_character_info, collect_illust_detail, collect_illust_info, get_collect_summary,
     move_illust_files, prepare_collect_ui_work, reflesh_collect_work,
@@ -14,7 +15,7 @@ use crate::{
 };
 
 #[command]
-pub fn get_related_tags(tag: &str, state: State<AppState>) -> Result<Vec<String>, String> {
+pub fn get_related_tags(tag: &str, state: State<AppState>) -> Result<Vec<TagInfo>, String> {
     let conn = state.db.lock().unwrap();
     let mut stmt = conn
         .prepare(
@@ -37,9 +38,14 @@ pub fn get_related_tags(tag: &str, state: State<AppState>) -> Result<Vec<String>
         .map_err(|e| e.to_string())?;
 
     let tags = stmt
-        .query_map([tag], |row| row.get(0))
+        .query_map([tag], |row| {
+            Ok(TagInfo {
+                tag: row.get(0)?,
+                count: row.get(1)?,
+            })
+        })
         .map_err(|e| e.to_string())?
-        .collect::<Result<Vec<String>, _>>()
+        .collect::<Result<Vec<TagInfo>, _>>()
         .map_err(|e| e.to_string())?;
 
     Ok(tags)

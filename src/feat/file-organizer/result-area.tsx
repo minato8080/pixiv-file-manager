@@ -4,15 +4,18 @@ import { useRef, useState } from "react";
 
 import type { CollectSummary } from "@/bindings/CollectSummary";
 import type { TagAssignment } from "@/bindings/TagAssignment";
+import { TagInfo } from "@/bindings/TagInfo";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InputDropdown } from "@/src/components/input-dropdown";
-import { VirtualizedSelect } from "@/src/components/virtualized-select";
+import { VirtualizedSelect } from "@/src/components/virtualized-select-generics";
+import { useDropdownStore } from "@/src/stores/dropdown-store";
 import { useTagsOrganizerStore } from "@/src/stores/tags-organizer-store";
 
 const SERIES = "series";
@@ -26,10 +29,11 @@ interface EditingState {
 }
 
 export const ResultArea = () => {
-  const { collectSummary, setCollectSummary, setLoading, uniqueTagList } =
+  const { collectSummary, setCollectSummary, setLoading } =
     useTagsOrganizerStore();
+  const { uniqueTagList } = useDropdownStore();
 
-  const [filteredTagList, setFilteredTagList] = useState<string[]>([]);
+  const [filteredTagList, setFilteredTagList] = useState<TagInfo[]>([]);
   const [editingState, setEditingState] = useState<EditingState | null>(null);
   const [newCharacterName, setNewCharacterName] = useState("");
 
@@ -129,15 +133,26 @@ export const ResultArea = () => {
 
     if (isEditing) {
       return (
-        <div className="relative" ref={anchorRef}>
+        <div className="relative w-50" ref={anchorRef}>
           <VirtualizedSelect
             value={value}
+            keyProp="tag"
             options={options}
-            onChange={(newValue) =>
-              void updateItemField(item.id, field, newValue)
-            }
+            onChange={(_, key) => void updateItemField(item.id, field, key)}
             onClose={() => setEditingState(null)}
             anchorRef={anchorRef}
+            renderItem={(item) => (
+              <div className="flex justify-between items-center gap-2 text-xs whitespace-nowrap">
+                {item.tag}
+                <Badge
+                  className={
+                    "h-4 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                  }
+                >
+                  {item.count}
+                </Badge>
+              </div>
+            )}
           />
         </div>
       );
@@ -150,7 +165,7 @@ export const ResultArea = () => {
         const relatedValue =
           collectSummary[item.id][field === CHARACTER ? SERIES : CHARACTER];
         if (relatedValue && !isHyphen(relatedValue)) {
-          const list: string[] = await invoke("get_related_tags", {
+          const list: TagInfo[] = await invoke("get_related_tags", {
             tag: relatedValue,
           });
 
@@ -307,12 +322,13 @@ export const ResultArea = () => {
                         <div className="flex items-center gap-2">
                           <InputDropdown
                             items={filteredTagList}
+                            valueKey={(item) => item.tag}
                             placeholder="Add new character"
                             value={newCharacterName}
                             onChange={setNewCharacterName}
                             onFocus={() => {
                               const refresh = async () => {
-                                const list: string[] = await invoke(
+                                const list: TagInfo[] = await invoke(
                                   "get_related_tags",
                                   {
                                     tag: series,
@@ -327,6 +343,18 @@ export const ResultArea = () => {
                             }}
                             inputClassName="h-8"
                             dropdownClassName="h-50"
+                            renderItem={(item) => (
+                              <div className="flex justify-between items-center gap-2 mt-1 text-xs">
+                                {item.tag}
+                                <Badge
+                                  className={
+                                    "ml-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                                  }
+                                >
+                                  {item.count}
+                                </Badge>
+                              </div>
+                            )}
                           />
                           <Button
                             size="sm"

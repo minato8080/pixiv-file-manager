@@ -8,6 +8,8 @@ import { ResultArea } from "./result-area";
 import { CollectSummary } from "@/bindings/CollectSummary";
 import { GeneralResponse } from "@/bindings/GeneralResponse";
 import { TagAssignment } from "@/bindings/TagAssignment";
+import { TagInfo } from "@/bindings/TagInfo";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -17,29 +19,19 @@ import { useDropdownStore } from "@/src/stores/dropdown-store";
 import { useTagsOrganizerStore } from "@/src/stores/tags-organizer-store";
 
 export default function FileOrganizer() {
-  const {
-    setCollectSummary,
-    loading,
-    setLoading,
-    uniqueTagList,
-    setUniqueTagList,
-  } = useTagsOrganizerStore();
-  const { uniqueTagList: baseUniqueTagList } = useDropdownStore();
+  const { setCollectSummary, loading, setLoading } = useTagsOrganizerStore();
+  const { uniqueTagList } = useDropdownStore();
 
   const [selectedSeriesTag, setSelectedSeriesTag] = useState<string>("");
   const [selectedCharacterTag, setSelectedCharacterTag] = useState<string>("");
   const [isChangeRoot, setIsChangeRoot] = useState(false);
   const [rootPath, setRootPath] = useState("");
-  const [filteredSeriesTagList, setFilteredSeriesTagList] = useState<string[]>(
+  const [filteredSeriesTagList, setFilteredSeriesTagList] = useState<TagInfo[]>(
     []
   );
   const [filteredCharacterTagList, setFilteredCharacterTagList] = useState<
-    string[]
+    TagInfo[]
   >([]);
-
-  useEffect(() => {
-    setUniqueTagList(baseUniqueTagList.map((item) => item.tag));
-  }, [setUniqueTagList, baseUniqueTagList]);
 
   useEffect(() => {
     setFilteredSeriesTagList(uniqueTagList);
@@ -153,7 +145,7 @@ export default function FileOrganizer() {
   const onChangeSeriesPulldown = async (value: string) => {
     setSelectedSeriesTag(value);
     try {
-      const list: string[] = await invoke("get_related_tags", { tag: value });
+      const list: TagInfo[] = await invoke("get_related_tags", { tag: value });
       setFilteredCharacterTagList(list.length > 0 ? list : uniqueTagList);
     } catch (error) {
       console.error(error);
@@ -163,7 +155,7 @@ export default function FileOrganizer() {
   const onChangeCharacterPulldown = async (value: string) => {
     setSelectedCharacterTag(value);
     try {
-      const list: string[] = await invoke("get_related_tags", { tag: value });
+      const list: TagInfo[] = await invoke("get_related_tags", { tag: value });
       setFilteredSeriesTagList(list.length > 0 ? list : uniqueTagList);
     } catch (error) {
       console.error(error);
@@ -218,10 +210,23 @@ export default function FileOrganizer() {
               <Label className="text-xs text-blue-700 mb-1">Series</Label>
               <InputDropdown
                 value={selectedSeriesTag}
+                valueKey={(item) => item.tag}
                 onChange={(v) => void onChangeSeriesPulldown(v)}
                 items={filteredSeriesTagList}
                 placeholder="Select tag"
                 inputClassName="border-blue-200 dark:border-blue-800 h-8"
+                renderItem={(item) => (
+                  <div className="flex justify-between items-center gap-2 mt-1 text-xs">
+                    {item.tag}
+                    <Badge
+                      className={
+                        "ml-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                      }
+                    >
+                      {item.count}
+                    </Badge>
+                  </div>
+                )}
               />
             </div>
 
@@ -229,10 +234,23 @@ export default function FileOrganizer() {
               <Label className="text-xs text-green-700 mb-1">Character</Label>
               <InputDropdown
                 value={selectedCharacterTag}
+                valueKey={(item) => item.tag}
                 onChange={(v) => void onChangeCharacterPulldown(v)}
                 items={filteredCharacterTagList}
                 placeholder="Select tag"
                 inputClassName="border-green-200 dark:border-green-800 h-8"
+                renderItem={(item) => (
+                  <div className="flex justify-between items-center gap-2 mt-1 text-xs">
+                    {item.tag}
+                    <Badge
+                      className={
+                        "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                      }
+                    >
+                      {item.count}
+                    </Badge>
+                  </div>
+                )}
               />
             </div>
 

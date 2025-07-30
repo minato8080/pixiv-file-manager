@@ -11,6 +11,10 @@ JOIN ILLUST_INFO I
 WHERE collect_type = 2
 GROUP BY CF.character;
 
+CREATE INDEX IF NOT EXISTS idx_character_illust_counts
+  ON character_illust_counts(character);
+
+
 -- シリーズごとのイラスト数を集計
 DROP TABLE IF EXISTS temp.series_illust_counts;
 CREATE TEMP TABLE series_illust_counts AS
@@ -23,6 +27,9 @@ JOIN ILLUST_INFO I
   ON CF.illust_id = I.illust_id AND CF.control_num = I.control_num
 WHERE collect_type = 1
 GROUP BY CF.series;
+
+CREATE INDEX IF NOT EXISTS idx_series_illust
+  ON series_illust_counts(series);
 
 -- キャラクターの after_count を更新
 UPDATE COLLECT_UI_WORK

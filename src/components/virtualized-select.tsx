@@ -1,5 +1,12 @@
 import type React from "react";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import { FixedSizeList, type ListChildComponentProps } from "react-window";
 const List = FixedSizeList<string[]>;
@@ -49,7 +56,7 @@ export const VirtualizedSelect: React.FC<VirtualizedSelectProps> = ({
   }, [filteredOptions.length]);
 
   // 座標計算
-  const calculatePosition = () => {
+  const calculatePosition = useCallback(() => {
     const anchor = anchorRef.current;
     if (!anchor) return;
 
@@ -74,12 +81,12 @@ export const VirtualizedSelect: React.FC<VirtualizedSelectProps> = ({
       width: anchorRect.width,
       openUpward: shouldOpenUpward,
     });
-  };
+  }, [anchorRef, dropdownHeight]);
 
   // 初期位置計算
   useLayoutEffect(() => {
     calculatePosition();
-  }, [anchorRef, dropdownHeight]);
+  }, [anchorRef, calculatePosition, dropdownHeight]);
 
   // スクロール時の位置更新（デバウンス付き）
   useEffect(() => {
@@ -106,7 +113,7 @@ export const VirtualizedSelect: React.FC<VirtualizedSelectProps> = ({
       window.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", handleResize);
     };
-  }, [anchorRef, dropdownHeight]);
+  }, [anchorRef, calculatePosition, dropdownHeight]);
 
   // 外側クリック / Esc対応
   useEffect(() => {

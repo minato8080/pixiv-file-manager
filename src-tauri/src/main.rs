@@ -38,14 +38,17 @@ fn main() {
                 "{}.db",
                 std::env::var("DB_NAME").unwrap_or_else(|_| DB_NAME.to_string())
             ));
-            let conn = Connection::open(db_path).unwrap_or_else(|err| {
+            let mut conn = Connection::open(db_path).unwrap_or_else(|err| {
                 eprintln!("Failed to open database connection: {}", err);
                 std::process::exit(1);
             });
             let app_pixiv_api = create_api().ok();
 
-            // Initialize database
-            initialize_db(&conn).unwrap();
+            {
+                // Initialize database
+                let tx = conn.transaction().map_err(|e| e.to_string())?;
+                initialize_db(&tx).unwrap();
+            }
 
             app.manage(AppState {
                 db: Mutex::new(conn),
@@ -81,127 +84,12 @@ fn main() {
 }
 
 fn initialize_db(conn: &Connection) -> Result<()> {
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS ILLUST_INFO (
-            illust_id INTEGER NOT NULL,
-            suffix INTEGER NOT NULL,
-            control_num INTEGER NOT NULL,
-            extension TEXT NOT NULL,
-            save_dir TEXT,
-            PRIMARY KEY (illust_id, suffix)
-        )",
-        [],
-    )?;
+    let sql = include_str!("./sql/initialize_db.sql");
+    conn.execute_batch(sql)?;
 
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS ILLUST_DETAIL (
-            illust_id INTEGER NOT NULL,
-            control_num INTEGER NOT NULL,
-            author_id INTEGER NOT NULL,
-            series TEXT,
-            character TEXT,
-            PRIMARY KEY (illust_id, control_num)
-        )",
-        [],
-    )?;
-
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS ILLUST_FETCH_WORK (
-            illust_id INTEGER NOT NULL,
-            suffix INTEGER NOT NULL,
-            extension TEXT NOT NULL,
-            save_dir TEXT NOT NULL,
-            created_time INTEGER NOT NULL,
-            file_size INTEGER NOT NULL,
-            delete_flg INTEGER NOT NULL,
-            insert_flg INTEGER NOT NULL,
-            ignore_flg INTEGER NOT NULL,
-            PRIMARY KEY (illust_id, suffix, extension, save_dir)
-        )",
-        [],
-    )?;
-
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS TAG_INFO (
-            illust_id INTEGER NOT NULL,
-            control_num INTEGER NOT NULL,
-            tag TEXT NOT NULL,
-            PRIMARY KEY (illust_id, control_num, tag)
-        )",
-        [],
-    )?;
-
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS CHARACTER_INFO (
-            series TEXT NOT NULL,
-            character TEXT NOT NULL,
-            collect_dir TEXT,
-            PRIMARY KEY (character, series)
-        )",
-        [],
-    )?;
-
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS COLLECT_UI_WORK (
-            id INTEGER NOT NULL,
-            series TEXT NOT NULL,
-            character TEXT NOT NULL,
-            collect_dir TEXT,
-            before_count INTEGER,
-            after_count INTEGER,
-            unsave BOOLEAN,
-            collect_type INTEGER NOT NULL,
-            PRIMARY KEY (series, character)
-        )",
-        [],
-    )?;
-
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS COLLECT_FILTER_WORK (
-            illust_id INTEGER NOT NULL,
-            control_num INTEGER NOT NULL,
-            series TEXT NOT NULL,
-            character TEXT NOT NULL,
-            save_dir TEXT,
-            collect_dir TEXT,
-            collect_type INTEGER NOT NULL,
-            PRIMARY KEY (illust_id, control_num, collect_type)
-        )",
-        [],
-    )?;
-
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS AUTHOR_INFO (
-            author_id INTEGER NOT NULL,
-            author_name TEXT NOT NULL,
-            author_account TEXT NOT NULL,
-            PRIMARY KEY (author_id)
-        )",
-        [],
-    )?;
-
-    conn.execute(
-        "INSERT OR REPLACE INTO AUTHOR_INFO (author_id, author_name, author_account) VALUES (?1, ?2, ?3)",
+        "INSERT OR IGNORE INTO AUTHOR_INFO (author_id, author_name, author_account) VALUES (?1, ?2, ?3)",
         params![0, "Missing", "Missing"],
-    )?;
-
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS SEARCH_HISTORY (
-            tags TEXT NOT NULL,
-            character TEXT,
-            author_info TEXT,
-            condition TEXT NOT NULL,
-            timestamp TEXT NOT NULL,
-            result_count INTEGER NOT NULL
-        )",
-        [],
-    )?;
-
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS DB_INFO (
-            root TEXT
-        )",
-        [],
     )?;
 
     Ok(())

@@ -9,14 +9,22 @@ use crate::models::collect::CollectSummary;
 pub fn prepare_collect_ui_work(conn: &Connection) -> Result<()> {
     let sql = include_str!("../sql/collect/prepare_collect_ui_work.sql");
     conn.execute_batch(sql)?;
+
     Ok(())
 }
 
 pub fn reflesh_collect_work(conn: &Connection) -> Result<()> {
-    let sql = include_str!("../sql/collect/prepare_collect_filter_work.sql");
-    conn.execute_batch(sql)?;
-    let sql = include_str!("../sql/collect/update_after_count.sql");
-    conn.execute_batch(sql)?;
+    conn.execute("DELETE FROM COLLECT_FILTER_WORK;", [])?;
+
+    let sql1 = include_str!("../sql/collect/insert_collect_filter_work_character.sql");
+    conn.execute_batch(sql1)?;
+
+    let sql2 = include_str!("../sql/collect/insert_collect_filter_work_series.sql");
+    conn.execute_batch(sql2)?;
+
+    let sql3 = include_str!("../sql/collect/update_after_count.sql");
+    conn.execute_batch(sql3)?;
+
     Ok(())
 }
 

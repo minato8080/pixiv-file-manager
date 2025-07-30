@@ -37,7 +37,7 @@ character_summary AS (
     GROUP BY C.series, C.character
     ORDER BY C.series, C.character
 )
-INSERT INTO COLLECT_UI_WORK (
+INSERT OR IGNORE INTO COLLECT_UI_WORK (
     id, series, character, collect_dir, before_count, after_count, unsave, collect_type
 )
 SELECT
@@ -78,7 +78,7 @@ SET before_count = (
 WHERE character = '-' AND series IN (SELECT series FROM series_counts);
 
 -- 未割り当て件数の集計と挿入
-INSERT INTO COLLECT_UI_WORK (
+INSERT OR IGNORE INTO COLLECT_UI_WORK (
     id, series, character, collect_dir, before_count, after_count, unsave, collect_type
 )
 SELECT

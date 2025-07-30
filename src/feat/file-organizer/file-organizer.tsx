@@ -122,11 +122,6 @@ export default function FileOrganizer() {
     }
   };
 
-  useEffect(() => {
-    void loadSummary();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // Function to select folders
   const selectFolders = async () => {
     try {

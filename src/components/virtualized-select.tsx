@@ -21,8 +21,8 @@ interface VirtualizedSelectProps {
 
 const ITEM_HEIGHT = 24;
 const MAX_HEIGHT = 200;
-const INPUT_HEIGHT = 32; // 検索入力フィールドの高さ
-const PADDING = 8; // ドロップダウンのパディング
+const INPUT_HEIGHT = 32;
+const PADDING = 8;
 
 export const VirtualizedSelect: React.FC<VirtualizedSelectProps> = ({
   value,

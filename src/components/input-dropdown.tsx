@@ -1,14 +1,17 @@
 import type * as React from "react";
 import { useState, useRef, useEffect } from "react";
 
+import { getStringOnly, inferObjKey } from "../types/type-guard-util";
+import { LimitedKeyOf } from "../types/util-types";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface InputDropdownProps<T> {
   items: T[];
-  valueKey: (item: T) => string;
-  labelKey?: (item: T) => string;
+  valueKey?: LimitedKeyOf<T, string>;
+  labelKey?: LimitedKeyOf<T, string>;
   value?: string;
   defaultValue?: string;
   label?: string;
@@ -45,13 +48,11 @@ export function InputDropdown<T>({
   const [internalValue, setInternalValue] = useState(defaultValue);
   const value = isControlled ? controlledValue : internalValue;
 
-  // 状態
   const [isOpen, setIsOpen] = useState(false);
   const [isComposing, setIsComposing] = useState(false);
   const [filtered, setFiltered] = useState<T[]>(items);
   const [selected, setSelected] = useState<T | null>(null);
 
-  // 参照
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -59,16 +60,20 @@ export function InputDropdown<T>({
   // 入力値変更時のフィルタリング
   useEffect(() => {
     if (!isComposing) {
-      setFiltered(
-        value
-          ? items.filter((item) =>
-              valueKey(item).toLowerCase().includes(value.toLowerCase())
-            )
-          : items
-      );
+      if (value)
+        setFiltered(
+          items.filter(
+            (item) =>
+              inferObjKey(item, valueKey, (obj, key) =>
+                getStringOnly(obj, key)
+                  ?.toLowerCase()
+                  .includes(value.toLowerCase())
+              ).callbackResult
+          )
+        );
+      else setFiltered(items);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, items, isComposing]);
+  }, [value, items, isComposing, valueKey]);
 
   // 外部クリックでドロップダウンを閉じる
   useEffect(() => {
@@ -103,7 +108,9 @@ export function InputDropdown<T>({
 
   // 項目選択ハンドラ
   const handleSelect = (item: T) => {
-    const itemValue = valueKey(item);
+    const itemValue =
+      inferObjKey<string>(item, valueKey, (o, k) => getStringOnly(o, k))
+        .callbackResult ?? "";
 
     if (!isControlled) {
       setInternalValue(itemValue);
@@ -125,8 +132,13 @@ export function InputDropdown<T>({
     setIsComposing(false);
     setFiltered(
       value
-        ? items.filter((item) =>
-            valueKey(item).toLowerCase().includes(value.toLowerCase())
+        ? items.filter(
+            (item) =>
+              inferObjKey(item, valueKey, (obj, key) =>
+                getStringOnly(obj, key)
+                  ?.toLowerCase()
+                  .includes(value.toLowerCase())
+              ).callbackResult
           )
         : items
     );
@@ -192,7 +204,9 @@ export function InputDropdown<T>({
                 >
                   {renderItem
                     ? renderItem(item, selected === item)
-                    : labelKey(item)}
+                    : inferObjKey<string>(item, labelKey, (obj, key) =>
+                        getStringOnly(obj, key)
+                      ).callbackResult ?? ""}
                 </div>
               ))}
             </ScrollArea>

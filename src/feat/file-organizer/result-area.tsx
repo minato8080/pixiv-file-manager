@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { ChevronDownIcon, Plus, Trash2 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useState } from "react";
 
 import type { CollectSummary } from "@/bindings/CollectSummary";
 import type { TagAssignment } from "@/bindings/TagAssignment";
@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { InputDropdown } from "@/src/components/input-dropdown";
+import { InputDropdown } from "@/src/components/input-dropdown-portal";
 import { VirtualizedSelect } from "@/src/components/virtualized-select-generics";
 import { useDropdownStore } from "@/src/stores/dropdown-store";
 import { useTagsOrganizerStore } from "@/src/stores/tags-organizer-store";
@@ -36,8 +36,6 @@ export const ResultArea = () => {
   const [filteredTagList, setFilteredTagList] = useState<TagInfo[]>([]);
   const [editingState, setEditingState] = useState<EditingState | null>(null);
   const [newCharacterName, setNewCharacterName] = useState("");
-
-  const anchorRef = useRef<HTMLDivElement>(null);
 
   // Separate uncategorized items (both series and character are "-")
   const uncategorized = collectSummary.find((item) =>
@@ -133,14 +131,13 @@ export const ResultArea = () => {
 
     if (isEditing) {
       return (
-        <div className="relative w-50" ref={anchorRef}>
+        <div className="w-50">
           <VirtualizedSelect
             value={value}
             keyProp="tag"
             options={options}
             onChange={(_, key) => void updateItemField(item.id, field, key)}
             onClose={() => setEditingState(null)}
-            anchorRef={anchorRef}
             renderItem={(item) => (
               <div className="flex justify-between items-center gap-2 text-xs whitespace-nowrap">
                 {item.tag}
@@ -321,10 +318,10 @@ export const ResultArea = () => {
                       <div className="bg-gray-50 p-2 rounded-lg border-2 border-dashed border-gray-300">
                         <div className="flex items-center gap-2">
                           <InputDropdown
-                            items={filteredTagList}
-                            valueKey={(item) => item.tag}
-                            placeholder="Add new character"
                             value={newCharacterName}
+                            valueKey="tag"
+                            items={filteredTagList}
+                            placeholder="Add new character"
                             onChange={setNewCharacterName}
                             onFocus={() => {
                               const refresh = async () => {

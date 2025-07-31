@@ -205,7 +205,7 @@ export default function FileOrganizer() {
               <Label className="text-xs text-blue-700 mb-1">Series</Label>
               <InputDropdown
                 value={selectedSeriesTag}
-                valueKey={(item) => item.tag}
+                valueKey="tag"
                 onChange={(v) => void onChangeSeriesPulldown(v)}
                 items={filteredSeriesTagList}
                 placeholder="Select tag"
@@ -229,7 +229,7 @@ export default function FileOrganizer() {
               <Label className="text-xs text-green-700 mb-1">Character</Label>
               <InputDropdown
                 value={selectedCharacterTag}
-                valueKey={(item) => item.tag}
+                valueKey="tag"
                 onChange={(v) => void onChangeCharacterPulldown(v)}
                 items={filteredCharacterTagList}
                 placeholder="Select tag"

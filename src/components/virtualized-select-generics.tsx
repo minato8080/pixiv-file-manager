@@ -10,7 +10,7 @@ import {
 import { createPortal } from "react-dom";
 import { FixedSizeList, type ListChildComponentProps } from "react-window";
 
-import { getStringValue } from "../types/type-guard-util";
+import { getStringOnly } from "../types/type-guard-util";
 
 type Item = Record<string, string | number>;
 const List = FixedSizeList<Item[]>;
@@ -19,16 +19,16 @@ interface VirtualizedSelectProps<T extends Item> {
   value: T[keyof T];
   keyProp: keyof T;
   options: T[];
-  onChange: (item: T, key: string) => void;
-  onClose: () => void;
-  anchorRef: React.RefObject<HTMLElement>;
+  onChange?: (item: T, key: string) => void;
+  onClose?: () => void;
+  onFocus?: () => void;
   renderItem?: (item: T) => React.ReactNode;
 }
 
 const ITEM_HEIGHT = 24;
 const MAX_HEIGHT = 200;
-const INPUT_HEIGHT = 32; // 検索入力フィールドの高さ
-const PADDING = 8; // ドロップダウンのパディング
+const INPUT_HEIGHT = 32;
+const PADDING = 8;
 
 export const VirtualizedSelect: React.FC<VirtualizedSelectProps<Item>> = ({
   value,
@@ -36,7 +36,7 @@ export const VirtualizedSelect: React.FC<VirtualizedSelectProps<Item>> = ({
   options,
   onChange,
   onClose,
-  anchorRef,
+  onFocus,
   renderItem,
 }) => {
   const [position, setPosition] = useState({
@@ -49,12 +49,13 @@ export const VirtualizedSelect: React.FC<VirtualizedSelectProps<Item>> = ({
     typeof value === "string" ? value : "_" + value.toString()
   );
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // 絞り込まれた表示対象オプション
   const filteredOptions = useMemo(() => {
     const keyword = searchText.toLowerCase();
     return options.filter((opt) =>
-      getStringValue(opt, keyProp)?.toLowerCase().includes(keyword)
+      getStringOnly(opt, keyProp)?.toLowerCase().includes(keyword)
     );
   }, [keyProp, options, searchText]);
 
@@ -69,7 +70,7 @@ export const VirtualizedSelect: React.FC<VirtualizedSelectProps<Item>> = ({
 
   // 座標計算
   const calculatePosition = useCallback(() => {
-    const anchor = anchorRef.current;
+    const anchor = containerRef.current;
     if (!anchor) return;
 
     const anchorRect = anchor.getBoundingClientRect();
@@ -93,39 +94,41 @@ export const VirtualizedSelect: React.FC<VirtualizedSelectProps<Item>> = ({
       width: anchorRect.width,
       openUpward: shouldOpenUpward,
     });
-  }, [anchorRef, dropdownHeight]);
+  }, [containerRef, dropdownHeight]);
 
   // 初期位置計算
   useLayoutEffect(() => {
     calculatePosition();
-  }, [anchorRef, calculatePosition, dropdownHeight]);
+  }, [containerRef, calculatePosition, dropdownHeight]);
 
   // スクロール時の位置更新（デバウンス付き）
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
+    let rafId: number;
 
-    const handleScroll = () => {
-      // デバウンス処理で頻繁な更新を防ぐ
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
+    const handlePositionUpdate = () => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
         calculatePosition();
-      }, 10);
+      });
     };
 
-    const handleResize = () => {
-      calculatePosition();
-    };
+    // より頻繁に位置を更新
+    const handleScroll = handlePositionUpdate;
+    const handleResize = handlePositionUpdate;
 
     // passiveオプションでパフォーマンス向上
-    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("scroll", handleScroll, {
+      passive: true,
+      capture: true,
+    });
     window.addEventListener("resize", handleResize);
 
     return () => {
-      clearTimeout(timeoutId);
+      clearTimeout(rafId);
       window.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", handleResize);
     };
-  }, [anchorRef, calculatePosition, dropdownHeight]);
+  }, [containerRef, calculatePosition, dropdownHeight]);
 
   // 外側クリック / Esc対応
   useEffect(() => {
@@ -134,13 +137,13 @@ export const VirtualizedSelect: React.FC<VirtualizedSelectProps<Item>> = ({
         dropdownRef.current &&
         !dropdownRef.current.contains(event.target as Node)
       ) {
-        onClose();
+        onClose?.();
       }
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        onClose();
+        onClose?.();
       }
     };
 
@@ -155,7 +158,7 @@ export const VirtualizedSelect: React.FC<VirtualizedSelectProps<Item>> = ({
   // リスト行
   const Row = ({ index, style, data }: ListChildComponentProps<Item[]>) => {
     const item = data[index];
-    const key = getStringValue(item, keyProp) ?? "";
+    const key = getStringOnly(item, keyProp) ?? "";
     return (
       <div
         style={style}
@@ -164,8 +167,8 @@ export const VirtualizedSelect: React.FC<VirtualizedSelectProps<Item>> = ({
           key === value ? "bg-blue-200" : ""
         }`}
         onClick={() => {
-          onChange(item, key);
-          onClose();
+          onChange?.(item, key);
+          onClose?.();
         }}
       >
         {renderItem ? renderItem(item) : key}
@@ -173,36 +176,72 @@ export const VirtualizedSelect: React.FC<VirtualizedSelectProps<Item>> = ({
     );
   };
 
-  return createPortal(
-    <div
-      ref={dropdownRef}
-      className="border rounded bg-white shadow-lg z-[9999] p-1"
-      style={{
-        position: "absolute",
-        top: position.top,
-        left: position.left,
-        width: position.width,
-        maxWidth: "90vw", // ビューポートからはみ出さないように
-      }}
-    >
-      <input
-        type="text"
-        value={searchText}
-        onChange={(e) => setSearchText(e.target.value)}
-        placeholder="Search..."
-        className="w-full text-xs px-2 py-1 border border-gray-300 rounded mb-1 focus:outline-none"
-        autoFocus
-      />
-      <List
-        height={Math.min(MAX_HEIGHT, filteredOptions.length * ITEM_HEIGHT)}
-        itemCount={filteredOptions.length}
-        itemSize={ITEM_HEIGHT}
-        width="100%"
-        itemData={filteredOptions}
-      >
-        {Row}
-      </List>
-    </div>,
-    document.body
+  return (
+    <div ref={containerRef} className="relative">
+      {createPortal(
+        <div
+          ref={dropdownRef}
+          className="border rounded bg-white shadow-lg z-[9999] p-1"
+          style={{
+            position: "absolute",
+            top: position.top,
+            left: position.left,
+            width: position.width,
+            maxWidth: "90vw", // ビューポートからはみ出さないように
+          }}
+        >
+          {position.openUpward ? (
+            <>
+              <List
+                height={Math.min(
+                  MAX_HEIGHT,
+                  filteredOptions.length * ITEM_HEIGHT
+                )}
+                itemCount={filteredOptions.length}
+                itemSize={ITEM_HEIGHT}
+                width="100%"
+                itemData={filteredOptions}
+              >
+                {Row}
+              </List>
+              <input
+                type="text"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                onFocus={onFocus}
+                placeholder="Search..."
+                className="w-full text-xs px-2 py-1 border border-gray-300 rounded mb-1 focus:outline-none"
+                autoFocus
+              />
+            </>
+          ) : (
+            <>
+              <input
+                type="text"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                onFocus={onFocus}
+                placeholder="Search..."
+                className="w-full text-xs px-2 py-1 border border-gray-300 rounded mb-1 focus:outline-none"
+                autoFocus
+              />
+              <List
+                height={Math.min(
+                  MAX_HEIGHT,
+                  filteredOptions.length * ITEM_HEIGHT
+                )}
+                itemCount={filteredOptions.length}
+                itemSize={ITEM_HEIGHT}
+                width="100%"
+                itemData={filteredOptions}
+              >
+                {Row}
+              </List>
+            </>
+          )}
+        </div>,
+        document.body
+      )}
+    </div>
   );
 };

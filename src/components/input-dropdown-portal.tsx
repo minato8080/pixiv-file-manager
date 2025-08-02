@@ -81,13 +81,12 @@ export function InputDropdown<T>({
     if (!isComposing) {
       if (value) {
         setFiltered(
-          items.filter(
-            (item) =>
-              inferObjKey(item, valueKey, (obj, key) =>
-                getStringOnly(obj, key)
-                  ?.toLowerCase()
-                  .includes(value.toLowerCase())
-              ).callbackResult
+          items.filter((item) =>
+            inferObjKey(item, valueKey, (obj, key) =>
+              getStringOnly(obj, key)
+                ?.toLowerCase()
+                .includes(value.toLowerCase())
+            )
           )
         );
       } else setFiltered(items);
@@ -229,13 +228,12 @@ export function InputDropdown<T>({
     setIsComposing(false);
     setFiltered(
       value
-        ? items.filter(
-            (item) =>
-              inferObjKey(item, valueKey, (obj, key) =>
-                getStringOnly(obj, key)
-                  ?.toLowerCase()
-                  .includes(value.toLowerCase())
-              ).callbackResult
+        ? items.filter((item) =>
+            inferObjKey(item, valueKey, (obj, key) =>
+              getStringOnly(obj, key)
+                ?.toLowerCase()
+                .includes(value.toLowerCase())
+            )
           )
         : items
     );
@@ -278,9 +276,9 @@ export function InputDropdown<T>({
                 >
                   {renderItem
                     ? renderItem(item, selected === item)
-                    : inferObjKey<string>(item, labelKey, (obj, key) =>
+                    : inferObjKey(item, labelKey, (obj, key) =>
                         getStringOnly(obj, key)
-                      ).callbackResult ?? ""}
+                      ) ?? ""}
                 </div>
               ))}
             </ScrollArea>

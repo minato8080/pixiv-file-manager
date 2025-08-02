@@ -4,38 +4,22 @@ export function isObject(value: unknown): value is Object {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export function isPropertyKey(value: unknown): value is PropertyKey {
-  return (
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "symbol"
-  );
-}
-
-export function hasProp<O extends Object, K extends PropertyKey>(
-  obj: O,
-  key: K
-): key is K & keyof O {
-  return key in obj;
+export function isPropertyKey(obj: Object, key: unknown): key is PropertyKey {
+  return typeof key === "string" ||
+    typeof key === "number" ||
+    typeof key === "symbol"
+    ? key in obj
+    : false;
 }
 
 export function inferObjKey<T>(
   obj: unknown,
   key: unknown,
-  callback?: (obj: Object, key: PropertyKey) => T | undefined
-) {
-  const inferResult =
-    isObject(obj) && isPropertyKey(key) && hasProp(obj, key)
-      ? ([obj, key] as [Object, keyof typeof obj])
-      : undefined;
-
-  let callbackResult: T | undefined;
-  if (inferResult && callback) {
-    const [obj, key] = inferResult;
-    callbackResult = callback(obj, key);
-  }
-
-  return { inferResult, callbackResult };
+  callback: (obj: Object, key: PropertyKey) => T | undefined
+): T | undefined {
+  return isObject(obj) && isPropertyKey(obj, key)
+    ? callback(obj, key)
+    : undefined;
 }
 
 export function inferVal<T extends Object, K extends keyof T>(
@@ -43,9 +27,7 @@ export function inferVal<T extends Object, K extends keyof T>(
   key: K,
   val: unknown
 ): val is T[K] {
-  return (
-    isObject(obj) && isPropertyKey(key) && hasProp(obj, key) && obj[key] === val
-  );
+  return isObject(obj) && isPropertyKey(obj, key) && obj[key] === val;
 }
 
 export function getStringOnly(

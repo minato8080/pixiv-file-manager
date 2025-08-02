@@ -9,9 +9,10 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
-import { inferObjKey, getStringOnly } from "../types/type-guard-util";
+import { inferObjKey, getString, getNumber } from "../types/type-guard-util";
 import { LimitedKeyOf } from "../types/util-types";
 
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -83,9 +84,7 @@ export function InputDropdown<T>({
         setFiltered(
           items.filter((item) =>
             inferObjKey(item, valueKey, (obj, key) =>
-              getStringOnly(obj, key)
-                ?.toLowerCase()
-                .includes(value.toLowerCase())
+              getString(obj, key)?.toLowerCase().includes(value.toLowerCase())
             )
           )
         );
@@ -168,7 +167,7 @@ export function InputDropdown<T>({
     };
   }, [isOpen, calculatePosition]);
 
-  // 外側クリック / Esc対応
+  // 外部クリックでドロップダウンを閉じる
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -206,7 +205,8 @@ export function InputDropdown<T>({
 
   // 項目選択ハンドラ
   const handleSelect = (item: T) => {
-    const itemValue = valueKey ? (item[valueKey] as string) : "";
+    const itemValue =
+      inferObjKey<string>(item, valueKey, (o, k) => getString(o, k)) ?? "";
 
     if (!isControlled) {
       setInternalValue(itemValue);
@@ -230,9 +230,7 @@ export function InputDropdown<T>({
       value
         ? items.filter((item) =>
             inferObjKey(item, valueKey, (obj, key) =>
-              getStringOnly(obj, key)
-                ?.toLowerCase()
-                .includes(value.toLowerCase())
+              getString(obj, key)?.toLowerCase().includes(value.toLowerCase())
             )
           )
         : items
@@ -268,19 +266,34 @@ export function InputDropdown<T>({
             }
           >
             <ScrollArea className="max-h-60">
-              {filtered.map((item, index) => (
-                <div
-                  key={index}
-                  className="px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                  onClick={() => handleSelect(item)}
-                >
-                  {renderItem
-                    ? renderItem(item, selected === item)
-                    : inferObjKey(item, labelKey, (obj, key) =>
-                        getStringOnly(obj, key)
-                      ) ?? ""}
-                </div>
-              ))}
+              {filtered.map((item, index) => {
+                const label =
+                  inferObjKey(item, labelKey, (obj, key) =>
+                    getString(obj, key)
+                  ) ?? "";
+                return (
+                  <div
+                    key={index}
+                    className="px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                    onClick={() => handleSelect(item)}
+                  >
+                    {renderItem
+                      ? renderItem(item, selected === item)
+                      : inferObjKey(item, "count", (obj, key) => (
+                          <div className="flex justify-between items-center gap-2 text-xs whitespace-nowrap">
+                            {label}
+                            <Badge
+                              className={
+                                "h-4 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                              }
+                            >
+                              {getNumber(obj, key)}
+                            </Badge>
+                          </div>
+                        )) ?? label}
+                  </div>
+                );
+              })}
             </ScrollArea>
           </div>
         ) : (

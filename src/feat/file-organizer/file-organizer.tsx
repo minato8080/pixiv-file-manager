@@ -9,7 +9,6 @@ import { CollectSummary } from "@/bindings/CollectSummary";
 import { GeneralResponse } from "@/bindings/GeneralResponse";
 import { TagAssignment } from "@/bindings/TagAssignment";
 import { TagInfo } from "@/bindings/TagInfo";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -210,18 +209,6 @@ export default function FileOrganizer() {
                 items={filteredSeriesTagList}
                 placeholder="Select tag"
                 inputClassName="border-blue-200 dark:border-blue-800 h-8"
-                renderItem={(item) => (
-                  <div className="flex justify-between items-center gap-2 mt-1 text-xs">
-                    {item.tag}
-                    <Badge
-                      className={
-                        "ml-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                      }
-                    >
-                      {item.count}
-                    </Badge>
-                  </div>
-                )}
               />
             </div>
 
@@ -234,18 +221,6 @@ export default function FileOrganizer() {
                 items={filteredCharacterTagList}
                 placeholder="Select tag"
                 inputClassName="border-green-200 dark:border-green-800 h-8"
-                renderItem={(item) => (
-                  <div className="flex justify-between items-center gap-2 mt-1 text-xs">
-                    {item.tag}
-                    <Badge
-                      className={
-                        "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                      }
-                    >
-                      {item.count}
-                    </Badge>
-                  </div>
-                )}
               />
             </div>
 

@@ -61,7 +61,7 @@ pub fn assign_tag(
         return Err("シリーズまたはキャラクターが未指定です".to_string());
     }
     if assignment.series == "-" && assignment.character == "-" {
-        return Err("シリーズまたはキャラクターが未指定です".to_string());
+        return Err("シリーズおよびキャラクターが未指定です".to_string());
     }
 
     // 本処理

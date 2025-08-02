@@ -1,9 +1,10 @@
 import type * as React from "react";
 import { useState, useRef, useEffect } from "react";
 
-import { getStringOnly, inferObjKey } from "../types/type-guard-util";
+import { getNumber, getString, inferObjKey } from "../types/type-guard-util";
 import { LimitedKeyOf } from "../types/util-types";
 
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -50,27 +51,29 @@ export function InputDropdown<T>({
 
   const [isOpen, setIsOpen] = useState(false);
   const [isComposing, setIsComposing] = useState(false);
-  const [filtered, setFiltered] = useState<T[]>(items);
+  const [filtered, setFiltered] = useState<T[]>([]);
   const [selected, setSelected] = useState<T | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    setFiltered(items);
+  }, [items]);
+
   // 入力値変更時のフィルタリング
   useEffect(() => {
     if (!isComposing) {
-      if (value)
+      if (value) {
         setFiltered(
           items.filter((item) =>
             inferObjKey(item, valueKey, (obj, key) =>
-              getStringOnly(obj, key)
-                ?.toLowerCase()
-                .includes(value.toLowerCase())
+              getString(obj, key)?.toLowerCase().includes(value.toLowerCase())
             )
           )
         );
-      else setFiltered(items);
+      } else setFiltered(items);
     }
   }, [value, items, isComposing, valueKey]);
 
@@ -90,8 +93,18 @@ export function InputDropdown<T>({
       }
     };
 
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    };
+
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
   }, []);
 
   // 入力変更ハンドラ
@@ -108,7 +121,7 @@ export function InputDropdown<T>({
   // 項目選択ハンドラ
   const handleSelect = (item: T) => {
     const itemValue =
-      inferObjKey<string>(item, valueKey, (o, k) => getStringOnly(o, k)) ?? "";
+      inferObjKey<string>(item, valueKey, (o, k) => getString(o, k)) ?? "";
 
     if (!isControlled) {
       setInternalValue(itemValue);
@@ -132,9 +145,7 @@ export function InputDropdown<T>({
       value
         ? items.filter((item) =>
             inferObjKey(item, valueKey, (obj, key) =>
-              getStringOnly(obj, key)
-                ?.toLowerCase()
-                .includes(value.toLowerCase())
+              getString(obj, key)?.toLowerCase().includes(value.toLowerCase())
             )
           )
         : items
@@ -153,6 +164,57 @@ export function InputDropdown<T>({
     if (!nextFocused || !containerRef.current?.contains(nextFocused)) {
       setIsOpen(false);
     }
+  };
+
+  const renderDropdown = () => {
+    if (!isOpen || isComposing) return null;
+
+    return (
+      <div
+        ref={dropdownRef}
+        className={
+          "absolute z-100 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm max-h-60 overflow-auto scroll-transparent " +
+          dropdownClassName
+        }
+      >
+        {filtered.length > 0 ? (
+          <ScrollArea className="max-h-60">
+            {filtered.map((item, index) => {
+              const label =
+                inferObjKey(item, labelKey, (obj, key) =>
+                  getString(obj, key)
+                ) ?? "";
+              return (
+                <div
+                  key={index}
+                  className="px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                  onClick={() => handleSelect(item)}
+                >
+                  {renderItem
+                    ? renderItem(item, selected === item)
+                    : inferObjKey(item, "count", (obj, key) => (
+                        <div className="flex justify-between items-center gap-2 text-xs whitespace-nowrap w-40">
+                          <span className="truncate">{label}</span>
+                          <Badge
+                            className={
+                              "h-4 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                            }
+                          >
+                            {getNumber(obj, key)}
+                          </Badge>
+                        </div>
+                      )) ?? label}
+                </div>
+              );
+            })}
+          </ScrollArea>
+        ) : (
+          <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm p-3 text-center text-gray-500 dark:text-gray-400">
+            {noResultsText}
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -183,38 +245,7 @@ export function InputDropdown<T>({
           className={`w-full ${inputClassName}`}
           autoComplete="off"
         />
-
-        {isOpen && !isComposing && filtered.length > 0 && (
-          <div
-            ref={dropdownRef}
-            className={
-              "absolute z-100 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm max-h-60 overflow-auto scroll-transparent " +
-              dropdownClassName
-            }
-          >
-            <ScrollArea className="max-h-60">
-              {filtered.map((item, index) => (
-                <div
-                  key={index}
-                  className="px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                  onClick={() => handleSelect(item)}
-                >
-                  {renderItem
-                    ? renderItem(item, selected === item)
-                    : inferObjKey(item, labelKey, (obj, key) =>
-                        getStringOnly(obj, key)
-                      ) ?? ""}
-                </div>
-              ))}
-            </ScrollArea>
-          </div>
-        )}
-
-        {isOpen && !isComposing && filtered.length === 0 && (
-          <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm p-3 text-center text-gray-500 dark:text-gray-400">
-            {noResultsText}
-          </div>
-        )}
+        {renderDropdown()}
       </div>
     </div>
   );

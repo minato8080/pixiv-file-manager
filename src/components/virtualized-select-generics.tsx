@@ -10,16 +10,22 @@ import {
 import { createPortal } from "react-dom";
 import { FixedSizeList, type ListChildComponentProps } from "react-window";
 
-import { getStringOnly } from "../types/type-guard-util";
+import {
+  Object,
+  getNumber,
+  getString,
+  isPropertyKey,
+} from "../types/type-guard-util";
 
-type Item = Record<string, string | number>;
-const List = FixedSizeList<Item[]>;
+import { Badge } from "@/components/ui/badge";
 
-interface VirtualizedSelectProps<T extends Item> {
-  value: T[keyof T];
-  keyProp: keyof T;
+const List = FixedSizeList<Object[]>;
+
+interface VirtualizedSelectProps<T extends Object> {
+  value: T[keyof T] & string;
+  valueKey: keyof T;
   options: T[];
-  onChange?: (item: T, key: string) => void;
+  onChange?: (value: string, item?: T) => void;
   onClose?: () => void;
   onFocus?: () => void;
   renderItem?: (item: T) => React.ReactNode;
@@ -30,24 +36,22 @@ const MAX_HEIGHT = 200;
 const INPUT_HEIGHT = 32;
 const PADDING = 8;
 
-export const VirtualizedSelect: React.FC<VirtualizedSelectProps<Item>> = ({
+export function VirtualizedSelect<T extends Object>({
   value,
-  keyProp,
+  valueKey,
   options,
   onChange,
   onClose,
   onFocus,
   renderItem,
-}) => {
+}: VirtualizedSelectProps<T>) {
   const [position, setPosition] = useState({
     top: 0,
     left: 0,
     width: 240,
     openUpward: false,
   });
-  const [searchText, setSearchText] = useState(
-    typeof value === "string" ? value : "_" + value.toString()
-  );
+  const [searchText, setSearchText] = useState<string>(value);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -55,9 +59,9 @@ export const VirtualizedSelect: React.FC<VirtualizedSelectProps<Item>> = ({
   const filteredOptions = useMemo(() => {
     const keyword = searchText.toLowerCase();
     return options.filter((opt) =>
-      getStringOnly(opt, keyProp)?.toLowerCase().includes(keyword)
+      getString(opt, valueKey)?.toLowerCase().includes(keyword)
     );
-  }, [keyProp, options, searchText]);
+  }, [valueKey, options, searchText]);
 
   // ドロップダウンの高さを計算
   const dropdownHeight = useMemo(() => {
@@ -156,9 +160,9 @@ export const VirtualizedSelect: React.FC<VirtualizedSelectProps<Item>> = ({
   }, [onClose]);
 
   // リスト行
-  const Row = ({ index, style, data }: ListChildComponentProps<Item[]>) => {
-    const item = data[index];
-    const key = getStringOnly(item, keyProp) ?? "";
+  const Row = ({ index, style, data }: ListChildComponentProps<Object[]>) => {
+    const item = data[index] as T;
+    const key = getString(item, valueKey) ?? "";
     return (
       <div
         style={style}
@@ -167,11 +171,26 @@ export const VirtualizedSelect: React.FC<VirtualizedSelectProps<Item>> = ({
           key === value ? "bg-blue-200" : ""
         }`}
         onClick={() => {
-          onChange?.(item, key);
+          onChange?.(key, item);
           onClose?.();
         }}
       >
-        {renderItem ? renderItem(item) : key}
+        {renderItem ? (
+          renderItem(item)
+        ) : isPropertyKey(item, "count") ? (
+          <div className="flex justify-between items-center gap-2 text-xs whitespace-nowrap">
+            {key}
+            <Badge
+              className={
+                "h-4 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+              }
+            >
+              {getNumber(item, "count")}
+            </Badge>
+          </div>
+        ) : (
+          key
+        )}
       </div>
     );
   };
@@ -244,4 +263,4 @@ export const VirtualizedSelect: React.FC<VirtualizedSelectProps<Item>> = ({
       )}
     </div>
   );
-};
+}

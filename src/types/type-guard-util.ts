@@ -30,10 +30,12 @@ export function inferVal<T extends Object, K extends keyof T>(
   return isObject(obj) && isPropertyKey(obj, key) && obj[key] === val;
 }
 
-export function getStringOnly(
-  obj: Object,
-  key: PropertyKey
-): string | undefined {
+export function getString(obj: Object, key: PropertyKey): string | undefined {
   const value = obj[key];
   return typeof value === "string" ? value : undefined;
+}
+
+export function getNumber(obj: Object, key: PropertyKey): number | undefined {
+  const value = obj[key];
+  return typeof value === "number" ? value : undefined;
 }

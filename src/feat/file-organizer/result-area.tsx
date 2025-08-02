@@ -11,12 +11,13 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InputDropdown } from "@/src/components/input-dropdown-portal";
-import { VirtualizedSelect } from "@/src/components/virtualized-select-generics";
+import { VirtualizedSelect as VirtualizedSelectGenerics } from "@/src/components/virtualized-select-generics";
 import { useDropdownStore } from "@/src/stores/dropdown-store";
 import { useTagsOrganizerStore } from "@/src/stores/tags-organizer-store";
+
+const VirtualizedSelect = VirtualizedSelectGenerics<TagInfo>;
 
 const SERIES = "series";
 const CHARACTER = "character";
@@ -106,7 +107,7 @@ export const ResultArea = () => {
     const assignment: TagAssignment = {
       id: null,
       series: series,
-      character: characterName,
+      character: characterName || "-",
     };
 
     setLoading(true);
@@ -124,7 +125,7 @@ export const ResultArea = () => {
   const renderEditableField = (item: CollectSummary, field: TagType) => {
     const isEditing =
       editingState?.id === item.id && editingState?.field === field;
-    const value = item[field];
+    const externalValue = item[field];
 
     const options =
       filteredTagList.length > 0 ? filteredTagList : uniqueTagList;
@@ -133,23 +134,11 @@ export const ResultArea = () => {
       return (
         <div className="w-50">
           <VirtualizedSelect
-            value={value}
-            keyProp="tag"
+            value={externalValue}
+            valueKey="tag"
             options={options}
-            onChange={(_, key) => void updateItemField(item.id, field, key)}
+            onChange={(value) => void updateItemField(item.id, field, value)}
             onClose={() => setEditingState(null)}
-            renderItem={(item) => (
-              <div className="flex justify-between items-center gap-2 text-xs whitespace-nowrap">
-                {item.tag}
-                <Badge
-                  className={
-                    "h-4 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                  }
-                >
-                  {item.count}
-                </Badge>
-              </div>
-            )}
           />
         </div>
       );
@@ -180,7 +169,7 @@ export const ResultArea = () => {
         }`}
         onClick={handleClick}
       >
-        {value}
+        {externalValue}
       </span>
     );
   };
@@ -340,18 +329,6 @@ export const ResultArea = () => {
                             }}
                             inputClassName="h-8"
                             dropdownClassName="h-50"
-                            renderItem={(item) => (
-                              <div className="flex justify-between items-center gap-2 mt-1 text-xs">
-                                {item.tag}
-                                <Badge
-                                  className={
-                                    "ml-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                                  }
-                                >
-                                  {item.count}
-                                </Badge>
-                              </div>
-                            )}
                           />
                           <Button
                             size="sm"

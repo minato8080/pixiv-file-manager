@@ -261,7 +261,7 @@ export function InputDropdown<T>({
         {filtered.length > 0 ? (
           <div
             className={
-              "bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md max-h-60 overflow-auto " +
+              "w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md max-h-60 overflow-auto scroll-transparent " +
               dropdownClassName
             }
           >
@@ -280,8 +280,8 @@ export function InputDropdown<T>({
                     {renderItem
                       ? renderItem(item, selected === item)
                       : inferObjKey(item, "count", (obj, key) => (
-                          <div className="flex justify-between items-center gap-2 text-xs whitespace-nowrap">
-                            {label}
+                          <div className="flex justify-between items-center gap-2 text-xs whitespace-nowrap w-40">
+                            <span className="truncate">{label}</span>
                             <Badge
                               className={
                                 "h-4 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"

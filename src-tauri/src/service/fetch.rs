@@ -13,6 +13,7 @@ use crate::api::pixiv::fetch_detail;
 use crate::models::fetch::{
     FileDetail, IdInfo, PostConvSequentialInfo, PreConvSequentialInfo, ProcessStats, TagProgress,
 };
+use crate::service::format_duration;
 
 pub fn extract_dir_detail<P: AsRef<Path>>(folder: P) -> Vec<FileDetail> {
     let mut details = Vec::new();
@@ -88,22 +89,28 @@ pub fn fetch_illust_detail(
 ) -> Result<ProcessStats, anyhow::Error> {
     let start = Instant::now();
 
-    // 結果用の集計情報
-    let mut success_count = 0;
-    let mut fail_count = 0;
-    let mut failed_file_paths = Vec::new();
-
     // ワークテーブルを準備
     prepare_illust_fetch_work(&conn, &file_details)?;
 
     // フェッチ回数
-    let total: usize = conn.query_row(
+    let total: u64 = conn.query_row(
         "SELECT COUNT(DISTINCT illust_id) FROM ILLUST_FETCH_WORK WHERE insert_flg = 1;",
         [],
         |row| row.get(0),
     )?;
 
+    let interval = std::env::var("INTERVAL_MILL_SEC")
+        .ok()
+        .and_then(|val| val.parse::<u64>().ok())
+        .unwrap_or(1000);
+    let total_duration_ms = total * interval;
+
     let ids_info = extract_unique_ids_info(&conn)?;
+
+    // 結果用の集計情報
+    let mut success_count = 0;
+    let mut fail_count = 0;
+    let mut failed_file_paths = Vec::new();
 
     for id_info in ids_info {
         let tx = conn.transaction()?;
@@ -159,20 +166,21 @@ pub fn fetch_illust_detail(
         // 一件ずつコミット
         tx.commit()?;
 
+        let elapsed = start.elapsed().as_millis() as u64;
+        let remaining = total_duration_ms.saturating_sub(elapsed);
+
         // 処理状況を通知
         let progress = TagProgress {
             success: success_count,
             fail: fail_count,
             current: success_count + fail_count,
-            total,
+            total: total as u32,
+            elapsed_time: format_duration(elapsed),
+            remaining_time: format_duration(remaining),
         };
         window.emit("tag_progress", serde_json::json!(progress))?;
 
         // ボットアクセスなのでインターバルを挟む
-        let interval = std::env::var("INTERVAL_MILL_SEC")
-            .ok()
-            .and_then(|val| val.parse::<u64>().ok())
-            .unwrap_or(1000);
         std::thread::sleep(std::time::Duration::from_millis(interval));
     }
 
@@ -190,7 +198,7 @@ pub fn fetch_illust_detail(
     Ok(ProcessStats {
         total_files: success_count + fail_count,
         failed_files: fail_count,
-        process_time_ms: duration.as_millis(),
+        process_time: format_duration(duration.as_millis() as u64),
         failed_file_paths,
     })
 }

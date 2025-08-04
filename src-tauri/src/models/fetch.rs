@@ -4,9 +4,9 @@ use ts_rs::TS;
 #[derive(Serialize, TS)]
 #[ts(export)]
 pub struct ProcessStats {
-    pub total_files: usize,
-    pub failed_files: usize,
-    pub process_time_ms: u128,
+    pub total_files: u32,
+    pub failed_files: u32,
+    pub process_time: String,
     pub failed_file_paths: Vec<String>,
 }
 
@@ -24,10 +24,12 @@ pub struct FileDetail {
 #[derive(Serialize, Debug, Clone, TS)]
 #[ts(export)]
 pub struct TagProgress {
-    pub success: usize,
-    pub fail: usize,
-    pub current: usize,
-    pub total: usize,
+    pub success: u32,
+    pub fail: u32,
+    pub current: u32,
+    pub total: u32,
+    pub elapsed_time: String,
+    pub remaining_time: String,
 }
 
 #[derive(Serialize, Debug, Clone, TS)]

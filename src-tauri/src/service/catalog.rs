@@ -191,7 +191,7 @@ pub fn prepare_update_mode_map(
         if update_linked_files {
             updates_map.insert((id.clone(), None, control_num), UPDATE_MODE_CONTROL);
         } else {
-            let total_control_count: usize = tx
+            let total_control_count: u64 = tx
                 .query_row(
                     "SELECT COUNT(*) FROM ILLUST_INFO WHERE illust_id = ? AND control_num = ?",
                     params![id, control_num],
@@ -199,12 +199,14 @@ pub fn prepare_update_mode_map(
                 )
                 .map_err(|e| e.to_string())?;
 
-            let update_control_count = base_map
+            let update_control_count: u64 = base_map
                 .iter()
                 .filter(|((i_id, _, i_control_num), _)| {
                     id == *i_id && control_num == *i_control_num
                 })
-                .count();
+                .count()
+                .try_into()
+                .unwrap();
 
             let needs_increment = update_control_count < total_control_count;
             if needs_increment {

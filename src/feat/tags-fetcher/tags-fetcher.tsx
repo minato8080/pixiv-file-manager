@@ -4,13 +4,22 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { FolderOpen, Trash2, Play, RotateCw } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { FileCounts } from "@/bindings/FileCounts";
-import { ProcessStats } from "@/bindings/ProcessStats";
-import { TagProgress } from "@/bindings/TagProgress";
+import type { FileCounts } from "@/bindings/FileCounts";
+import type { ProcessStats } from "@/bindings/ProcessStats";
+import type { TagProgress } from "@/bindings/TagProgress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+
+const TAG_PROGRESS_INIT = {
+  success: 0,
+  fail: 0,
+  current: 0,
+  total: 0,
+  elapsed_time: "00:00:00",
+  remaining_time: "00:00:00",
+} as const;
 
 export default function TagsFetcher() {
   const [selectedFolders, setSelectedFolders] = useState<string[]>([]);
@@ -20,12 +29,7 @@ export default function TagsFetcher() {
     process_time: "",
   });
   const [isProcessing, setIsProcessing] = useState(false);
-  const [progress, setProgress] = useState<TagProgress>({
-    success: 0,
-    fail: 0,
-    current: 0,
-    total: 0,
-  });
+  const [progress, setProgress] = useState<TagProgress>(TAG_PROGRESS_INIT);
   const [stats, setStats] = useState<ProcessStats | null>(null);
   const [showFailedDetails, setShowFailedDetails] = useState(false);
 
@@ -77,12 +81,7 @@ export default function TagsFetcher() {
     if (selectedFolders.length === 0) return;
 
     setIsProcessing(true);
-    setProgress({
-      success: 0,
-      fail: 0,
-      current: 0,
-      total: 0,
-    });
+    setProgress(TAG_PROGRESS_INIT);
     setStats(null);
 
     try {
@@ -101,12 +100,7 @@ export default function TagsFetcher() {
   // Function to start processing
   const startRecaputure = async () => {
     setIsProcessing(true);
-    setProgress({
-      success: 0,
-      fail: 0,
-      current: 0,
-      total: 0,
-    });
+    setProgress(TAG_PROGRESS_INIT);
     setStats(null);
 
     try {
@@ -244,16 +238,31 @@ export default function TagsFetcher() {
               {progress.current} / {progress.total || "?"}
             </span>
           </div>
-          <div className="w-full bg-gray-200 dark:bg-gray-700 h-2 rounded-full overflow-hidden">
+          <div className="w-full bg-gray-200 dark:bg-gray-700 h-2 rounded-full overflow-hidden mb-2">
             <div
               className="bg-blue-600 h-full rounded-full transition-all"
               style={{
                 width:
                   progress.total > 0
                     ? `${(progress.current / progress.total) * 100}%`
-                    : "30%",
+                    : "0%",
               }}
             ></div>
+          </div>
+
+          <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
+            <div className="flex items-center gap-4">
+              <span>Elapsed Time: {progress.elapsed_time}</span>
+              <span>Remaining Time: {progress.remaining_time}</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-green-600 dark:text-green-400">
+                Successed: {progress.success}
+              </span>
+              <span className="text-red-600 dark:text-red-400">
+                Failed: {progress.fail}
+              </span>
+            </div>
           </div>
         </div>
       )}
@@ -280,7 +289,7 @@ export default function TagsFetcher() {
             </div>
             <div className="p-2 rounded-md bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800">
               <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
-                {(Number(stats.process_time_ms) / 1000).toFixed(1)}s
+                {stats.process_time}
               </div>
               <div className="text-xs text-blue-600 dark:text-blue-400">
                 Processing Time

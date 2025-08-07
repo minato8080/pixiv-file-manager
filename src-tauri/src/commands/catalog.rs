@@ -7,12 +7,15 @@ use trash::delete;
 use crate::{
     models::{
         catalog::{AssociateCharacter, AssociateInfo, AssociateSaveDir, EditTagReq},
-        global::AppState,
+        common::AppState,
     },
-    service::catalog::{
-        create_base_map, create_base_map_with_opt, delete_unused_character_info,
-        prepare_id_tags_map, prepare_suffiexes_map, prepare_update_mode_map, process_edit_tags,
-        process_move_files, update_character_info, update_illust_info,
+    service::{
+        catalog::{
+            create_base_map, create_base_map_with_opt, delete_unused_character_info,
+            prepare_id_tags_map, prepare_suffiexes_map, prepare_update_mode_map, process_edit_tags,
+            process_move_files, update_character_info, update_illust_info,
+        },
+        common::parse_file_info,
     },
 };
 
@@ -25,7 +28,8 @@ pub fn move_files(
 ) -> Result<(), String> {
     let mut conn = state.db.lock().unwrap();
     let tx = conn.transaction().map_err(|e| e.to_string())?;
-    process_move_files(&tx, file_names, target_folder, move_linked_files)?;
+    process_move_files(&tx, file_names, target_folder, move_linked_files)
+        .map_err(|e| e.to_string())?;
     tx.commit().map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -41,8 +45,9 @@ pub fn label_character_name(
     let mut conn = state.db.lock().unwrap();
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
-    let base_map = create_base_map(&tx, &file_names)?;
-    let update_mode_map = prepare_update_mode_map(&tx, &base_map, update_linked_files)?;
+    let base_map = create_base_map(&tx, &file_names).map_err(|e| e.to_string())?;
+    let update_mode_map =
+        prepare_update_mode_map(&tx, &base_map, update_linked_files).map_err(|e| e.to_string())?;
     let suffixes_map = prepare_suffiexes_map(update_mode_map);
 
     let mut old_names = HashSet::new();
@@ -60,12 +65,13 @@ pub fn label_character_name(
         old_names.insert(old_name);
     }
 
-    update_illust_info(&tx, &suffixes_map, character_name)?;
-    update_character_info(&tx, character_name, &collect_dir)?;
-    delete_unused_character_info(&tx, &old_names)?;
+    update_illust_info(&tx, &suffixes_map, character_name).map_err(|e| e.to_string())?;
+    update_character_info(&tx, character_name, &collect_dir).map_err(|e| e.to_string())?;
+    delete_unused_character_info(&tx, &old_names).map_err(|e| e.to_string())?;
 
     if let Some(dir) = collect_dir {
-        process_move_files(&tx, file_names, &dir, update_linked_files)?;
+        process_move_files(&tx, file_names, &dir, update_linked_files)
+            .map_err(|e| e.to_string())?;
     }
     tx.commit().map_err(|e| e.to_string())?;
 
@@ -85,14 +91,15 @@ pub fn edit_tags(
         .into_iter()
         .map(|edit_tag| (edit_tag.file_name, edit_tag.individual_tags))
         .collect();
-    let base_map = create_base_map_with_opt(&tx, file_names_with_opt)?;
+    let base_map = create_base_map_with_opt(&tx, file_names_with_opt).map_err(|e| e.to_string())?;
     let id_tags_map = prepare_id_tags_map(
         &tx,
         base_map,
         update_linked_files,
         &edit_tag_req.overwrite_tags.clone(),
-    )?;
-    process_edit_tags(&tx, id_tags_map)?;
+    )
+    .map_err(|e| e.to_string())?;
+    process_edit_tags(&tx, id_tags_map).map_err(|e| e.to_string())?;
 
     tx.commit().map_err(|e| e.to_string())?;
 
@@ -105,21 +112,12 @@ pub fn delete_files(state: State<AppState>, file_names: Vec<String>) -> Result<(
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
     for file_name in file_names {
-        let parts: Vec<&str> = file_name.split("_p").collect();
-        if parts.len() != 2 {
-            return Err("Invalid file name format".to_string());
-        }
-        let id = parts[0];
-        let suffix_and_extension: Vec<&str> = parts[1].split('.').collect();
-        if suffix_and_extension.len() != 2 {
-            return Err("Invalid file name format".to_string());
-        }
-        let suffix = suffix_and_extension[0];
+        let file_info = parse_file_info(file_name.as_str()).map_err(|e| e.to_string())?;
 
         let (save_dir, control_num): (String, i32) = tx
             .query_row(
                 "SELECT save_dir, control_num FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
-                params![id, suffix],
+                params![file_info.illust_id, file_info.suffix],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .map_err(|e| e.to_string())?;
@@ -131,7 +129,7 @@ pub fn delete_files(state: State<AppState>, file_names: Vec<String>) -> Result<(
         // ILLUST_INFOテーブルからレコードを削除
         tx.execute(
             "DELETE FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
-            params![id, suffix],
+            params![file_info.illust_id, file_info.suffix],
         )
         .map_err(|e| e.to_string())?;
 
@@ -139,28 +137,28 @@ pub fn delete_files(state: State<AppState>, file_names: Vec<String>) -> Result<(
         tx.execute(
             "
             DELETE FROM TAG_INFO
-            WHERE illust_id = ? AND control_num = ?
+            WHERE illust_id = ?1 AND control_num = ?2
             AND NOT EXISTS (
                 SELECT 1
                 FROM ILLUST_INFO
-                WHERE illust_id = ? AND control_num = ?
+                WHERE illust_id = ?1 AND control_num = ?2
             )
             ",
-            params![id, control_num, id, control_num],
+            params![file_info.illust_id, control_num],
         )
         .map_err(|e| e.to_string())?;
 
         tx.execute(
             "
             DELETE FROM ILLUST_DETAIL
-            WHERE illust_id = ? AND control_num = ?
+            WHERE illust_id = ?1 AND control_num = ?2
             AND NOT EXISTS (
                 SELECT 1
                 FROM ILLUST_INFO
-                WHERE illust_id = ? AND control_num = ?
+                WHERE illust_id = ?1 AND control_num = ?2
             )
             ",
-            params![id, control_num, id, control_num],
+            params![file_info.illust_id, control_num],
         )
         .map_err(|e| e.to_string())?;
     }
@@ -177,27 +175,19 @@ pub fn get_associated_info(
     let mut all_entries = Vec::new();
 
     for file_name in &file_names {
-        let parts: Vec<&str> = file_name.split("_p").collect();
-        if parts.len() != 2 {
-            return Err(format!("Invalid file name format: {}", file_name));
-        }
-        let illust_id = parts[0];
-        let suffix = parts[1]
-            .split('.')
-            .next()
-            .ok_or_else(|| format!("Invalid file name format: {}", file_name))?;
+        let file_info = parse_file_info(file_name.as_str()).map_err(|e| e.to_string())?;
 
         // control_num の取得
         let control_num: i64 = conn
             .query_row(
                 "SELECT control_num FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
-                params![illust_id, suffix],
+                params![file_info.illust_id, file_info.suffix],
                 |row| row.get(0),
             )
             .map_err(|e| {
                 format!(
                     "Failed to get control_num for {}_{}: {}",
-                    illust_id, suffix, e
+                    file_info.illust_id, file_info.suffix, e
                 )
             })?;
 
@@ -211,7 +201,7 @@ pub fn get_associated_info(
         ).map_err(|e| e.to_string())?;
 
         let rows = stmt
-            .query_map(params![illust_id, control_num], |row| {
+            .query_map(params![file_info.illust_id, control_num], |row| {
                 let key: String = row.get(0)?;
                 let character: Option<String> = row.get(1)?;
                 let save_dir: String = row.get(2)?;

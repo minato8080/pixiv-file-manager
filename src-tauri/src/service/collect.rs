@@ -34,11 +34,10 @@ pub fn sort_collect_work(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-pub fn get_collect_summary(conn: &Connection) -> Result<Vec<CollectSummary>, String> {
+pub fn get_collect_summary(conn: &Connection) -> Result<Vec<CollectSummary>> {
     // COLLECT_UI_WORKの結果を取得して返す
-    let mut stmt = conn
-        .prepare(
-            "SELECT
+    let mut stmt = conn.prepare(
+        "SELECT
                 id,
                 series,
                 character,
@@ -49,25 +48,22 @@ pub fn get_collect_summary(conn: &Connection) -> Result<Vec<CollectSummary>, Str
             FROM COLLECT_UI_WORK
             ORDER BY id ASC
             ;",
-        )
-        .map_err(|e| e.to_string())?;
-    let collect_work_iter = stmt
-        .query_map([], |row| {
-            Ok(CollectSummary {
-                id: row.get(0)?,
-                series: row.get(1)?,
-                character: row.get(2)?,
-                new_path: row.get::<_, Option<String>>(3)?,
-                before_count: row.get(4)?,
-                after_count: row.get(5)?,
-                is_new: row.get(6)?,
-            })
+    )?;
+    let collect_work_iter = stmt.query_map([], |row| {
+        Ok(CollectSummary {
+            id: row.get(0)?,
+            series: row.get(1)?,
+            character: row.get(2)?,
+            new_path: row.get::<_, Option<String>>(3)?,
+            before_count: row.get(4)?,
+            after_count: row.get(5)?,
+            is_new: row.get(6)?,
         })
-        .map_err(|e| e.to_string())?;
+    })?;
 
     let mut results = Vec::new();
     for collect_work in collect_work_iter {
-        results.push(collect_work.map_err(|e| e.to_string())?);
+        results.push(collect_work?);
     }
 
     Ok(results)

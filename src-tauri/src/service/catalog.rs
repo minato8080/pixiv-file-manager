@@ -1,16 +1,18 @@
+use anyhow::{anyhow, Result};
+use rusqlite::{params, Transaction};
 use std::{
     collections::{HashMap, HashSet},
     fs,
     path::Path,
 };
 
-use rusqlite::{params, Transaction};
+use crate::service::common::parse_file_info;
 
 const UPDATE_MODE_CONTROL: UpdateMode = 0;
 const UPDATE_MODE_INCREMENT: UpdateMode = 1;
 
-type Id = i32;
-type Suffix = i32;
+type Id = u32;
+type Suffix = u8;
 type ControlNum = i32;
 type UpdateMode = i8;
 type Tag = String;
@@ -25,38 +27,28 @@ pub fn process_move_files(
     file_names: Vec<String>,
     target_folder: &str,
     move_linked_files: bool,
-) -> Result<(), String> {
+) -> Result<()> {
     let mut updates = HashSet::new();
     // target_folderがない場合、作成
     if !Path::new(target_folder).exists() {
-        fs::create_dir_all(target_folder).map_err(|e| e.to_string())?;
+        fs::create_dir_all(target_folder)?;
     }
 
     // 更新用のデータを作成
     for file_name in &file_names {
-        let parts: Vec<&str> = file_name.split("_p").collect();
-        if parts.len() != 2 {
-            return Err("Invalid file name format".to_string());
-        }
-        let id = parts[0].to_string();
-        let suffix_and_ext: Vec<&str> = parts[1].split('.').collect();
-        if suffix_and_ext.len() != 2 {
-            return Err("Invalid file name format".to_string());
-        }
-        let suffix = suffix_and_ext[0].to_string();
+        let file_info = parse_file_info(file_name.as_str())?;
 
-        let control_num: ControlNum = tx
-            .query_row(
-                "SELECT control_num FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
-                params![id, suffix],
-                |row| Ok(row.get(0)?),
-            )
-            .map_err(|e| e.to_string())?;
+        let control_num: ControlNum = tx.query_row(
+            "SELECT control_num FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
+            params![file_info.illust_id, file_info.suffix],
+            |row| Ok(row.get(0)?),
+        )?;
 
         if move_linked_files {
-            updates.insert((id, None, Some(control_num)));
+            updates.insert((file_info.illust_id, None, Some(control_num)));
         } else {
-            updates.insert((id, Some(suffix), None)); // suffixで更新する
+            updates.insert((file_info.illust_id, Some(file_info.suffix), None));
+            // suffixで更新する
         }
     }
 
@@ -91,17 +83,15 @@ pub fn process_move_files(
             select_sql.push_str("suffix = ?");
             select_param_vec.push(suffix);
         } else {
-            return Err("Either suffix or control_num is required".to_string());
+            return Err(anyhow!("Either suffix or control_num is required"));
         }
 
-        let mut stmt = tx.prepare(&select_sql).map_err(|e| e.to_string())?;
+        let mut stmt = tx.prepare(&select_sql)?;
         let file_names_to_update: Vec<(String, String)> = stmt
             .query_map(select_param_vec.as_slice(), |row| {
                 Ok((row.get(0)?, row.get(1)?))
-            })
-            .map_err(|e| e.to_string())?
-            .collect::<Result<Vec<(String, String)>, _>>()
-            .map_err(|e| e.to_string())?;
+            })?
+            .collect::<Result<Vec<(String, String)>, _>>()?;
 
         // ファイルを移動
         for (file_name, save_dir) in file_names_to_update {
@@ -110,12 +100,11 @@ pub fn process_move_files(
             if source_path == target_path {
                 continue;
             }
-            std::fs::rename(&source_path, &target_path).map_err(|e| e.to_string())?;
+            std::fs::rename(&source_path, &target_path)?;
         }
 
         // DBを更新
-        tx.execute(&update_sql, param_vec.as_slice())
-            .map_err(|e| e.to_string())?;
+        tx.execute(&update_sql, param_vec.as_slice())?;
     }
     Ok(())
 }
@@ -123,7 +112,7 @@ pub fn process_move_files(
 pub fn create_base_map(
     tx: &rusqlite::Transaction,
     file_names: &Vec<String>,
-) -> Result<BaseMap<String>, Dummy> {
+) -> Result<BaseMap<String>> {
     let file_names_with_none: Vec<(String, _)> = file_names
         .iter()
         .map(|file_name| (file_name.clone(), None::<Dummy>))
@@ -134,34 +123,22 @@ pub fn create_base_map(
 pub fn create_base_map_with_opt<O>(
     tx: &rusqlite::Transaction,
     file_names: Vec<(String, Option<O>)>,
-) -> Result<BaseMap<O>, String>
+) -> Result<BaseMap<O>>
 where
     O: Ord + Clone,
 {
     let mut base_map = HashMap::new();
     for (file_name, options) in file_names {
-        let parts: Vec<&str> = file_name.split("_p").collect();
-        if parts.len() != 2 {
-            return Err("Invalid file name format".to_string());
-        }
-        let id = parts[0]
-            .parse::<i32>()
-            .map_err(|_| "Invalid id format".to_string())?;
-        let suffix_and_ext: Vec<&str> = parts[1].split('.').collect();
-        if suffix_and_ext.len() != 2 {
-            return Err("Invalid file name format".to_string());
-        }
-        let suffix = suffix_and_ext[0]
-            .parse::<i32>()
-            .map_err(|_| "Invalid suffix format".to_string())?;
-        let control_num: ControlNum = tx
-            .query_row(
-                "SELECT control_num FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
-                params![id, suffix],
-                |row| Ok(row.get(0)?),
-            )
-            .map_err(|e| e.to_string())?;
-        base_map.insert((id, suffix, control_num), options);
+        let file_info = parse_file_info(file_name.as_str())?;
+        let control_num: ControlNum = tx.query_row(
+            "SELECT control_num FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
+            params![file_info.illust_id, file_info.suffix],
+            |row| Ok(row.get(0)?),
+        )?;
+        base_map.insert(
+            (file_info.illust_id, file_info.suffix, control_num),
+            options,
+        );
     }
     // base_mapのOption<O>をソートして再格納する
     // O: Ord + Clone なので、Option<O>もsort可能
@@ -185,19 +162,17 @@ pub fn prepare_update_mode_map(
     tx: &rusqlite::Transaction,
     base_map: &BaseMap<String>,
     update_linked_files: bool,
-) -> Result<UpdateModeMap, String> {
+) -> Result<UpdateModeMap> {
     let mut updates_map: UpdateModeMap = HashMap::new();
     for ((id, suffix, control_num), _options) in base_map.clone() {
         if update_linked_files {
             updates_map.insert((id.clone(), None, control_num), UPDATE_MODE_CONTROL);
         } else {
-            let total_control_count: u64 = tx
-                .query_row(
-                    "SELECT COUNT(*) FROM ILLUST_INFO WHERE illust_id = ? AND control_num = ?",
-                    params![id, control_num],
-                    |row| row.get(0),
-                )
-                .map_err(|e| e.to_string())?;
+            let total_control_count: u64 = tx.query_row(
+                "SELECT COUNT(*) FROM ILLUST_INFO WHERE illust_id = ? AND control_num = ?",
+                params![id, control_num],
+                |row| row.get(0),
+            )?;
 
             let update_control_count: u64 = base_map
                 .iter()
@@ -239,7 +214,7 @@ pub fn update_illust_info(
     tx: &rusqlite::Transaction,
     suffixes_map: &SuffixesMap,
     character_name: &str,
-) -> Result<(), String> {
+) -> Result<()> {
     // db_design.mdに基づき、ILLUST_DETAILテーブルを更新する形に修正
     for ((id, control_num, update_mode), suffixes) in suffixes_map {
         match *update_mode {
@@ -248,7 +223,7 @@ pub fn update_illust_info(
                 tx.execute(
                     "UPDATE ILLUST_DETAIL SET character = ? WHERE illust_id = ? AND control_num = ?",
                     params![character_name, id, control_num])
-                    .map_err(|e| e.to_string())?;
+                    ?;
             }
             UPDATE_MODE_INCREMENT => {
                 // suffixesが空でないことを確認
@@ -260,7 +235,7 @@ pub fn update_illust_info(
                             params![&id],
                             |row| row.get(0),
                         )
-                        .map_err(|e| e.to_string())?;
+                        ?;
 
                     // 元の管理番号からauthor_idをSELECTして使用
                     let author_id: i32 = tx
@@ -269,14 +244,14 @@ pub fn update_illust_info(
                             params![id, control_num],
                             |row| row.get(0),
                         )
-                        .map_err(|e| e.to_string())?;
+                        ?;
 
                     // control_numを新規発番し、ILLUST_DETAILにINSERT
                     tx.execute(
                         "INSERT INTO ILLUST_DETAIL (illust_id, control_num, author_id, character) VALUES (?, ?, ?, ?)",
                         params![id, next_control_num, author_id, character_name],
                     )
-                    .map_err(|e| e.to_string())?;
+                    ?;
 
                     // ILLUST_INFOの該当suffixのcontrol_numを新しいものに更新
                     let mut update_info_sql = String::from("UPDATE ILLUST_INFO SET control_num = ? WHERE illust_id = ? AND suffix IN (");
@@ -292,8 +267,7 @@ pub fn update_illust_info(
                     tx.execute(
                         &update_info_sql,
                         rusqlite::params_from_iter(update_info_params.iter().map(|b| b.as_ref())),
-                    )
-                    .map_err(|e| e.to_string())?;
+                    )?;
 
                     // TAG_INFOも新しいcontrol_numで複製
                     let insert_tags_sql = "
@@ -311,14 +285,13 @@ pub fn update_illust_info(
                         rusqlite::params_from_iter(
                             insert_tags_param_vec.iter().map(|b| b.as_ref()),
                         ),
-                    )
-                    .map_err(|e| e.to_string())?;
+                    )?;
                 } else {
-                    return Err("Suffixes are missing for the update operation".to_string());
+                    return Err(anyhow!("Suffixes are missing for the update operation"));
                 }
             }
             _ => {
-                return Err("An unknown update mode was encountered".to_string());
+                return Err(anyhow!("An unknown update mode was encountered"));
             }
         }
     }
@@ -329,18 +302,17 @@ pub fn update_character_info(
     tx: &rusqlite::Transaction,
     character_name: &str,
     collect_dir: &Option<String>,
-) -> Result<(), String> {
+) -> Result<()> {
     if let Some(ref dir) = collect_dir {
         tx.execute(
             "INSERT OR REPLACE INTO CHARACTER_INFO (character, collect_dir) VALUES (?, ?)",
             params![character_name, dir],
-        )
-        .map_err(|e| e.to_string())?;
+        )?;
     } else {
         tx.execute(
             "INSERT INTO CHARACTER_INFO (character) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM CHARACTER_INFO WHERE character = ?)",
             params![character_name, character_name],
-        ).map_err(|e| e.to_string())?;
+        )?;
     }
     Ok(())
 }
@@ -348,7 +320,7 @@ pub fn update_character_info(
 pub fn delete_unused_character_info(
     tx: &rusqlite::Transaction,
     old_names: &HashSet<Option<String>>,
-) -> Result<(), String> {
+) -> Result<()> {
     // old_namesの中身がNoneしかないならリターン
     if old_names.iter().all(|name| name.is_none()) {
         return Ok(());
@@ -362,9 +334,8 @@ pub fn delete_unused_character_info(
             WHERE ILLUST_DETAIL.character = CHARACTER_INFO.character
           )
         ",
-        params![serde_json::to_string(old_names).map_err(|e| e.to_string())?],
-    )
-    .map_err(|e| e.to_string())?;
+        params![serde_json::to_string(old_names)?],
+    )?;
     Ok(())
 }
 
@@ -373,20 +344,18 @@ pub fn prepare_id_tags_map(
     base_map: BaseMap<Vec<String>>,
     update_linked_files: bool,
     overwrite_tags_opt: &Option<Vec<Tag>>,
-) -> Result<IdTagsMap, String> {
+) -> Result<IdTagsMap> {
     let mut id_tags_map: IdTagsMap = HashMap::new();
     for ((id, suffix, control_num), tags_opt) in base_map {
         if update_linked_files {
             // update_linked_filesがtrueなら、同じillust_idの全suffixをILLUST_INFOから取得して全て追加する
-            let mut stmt = tx
-                .prepare("SELECT suffix FROM ILLUST_INFO WHERE illust_id = ? AND control_num = ?")
-                .map_err(|e| e.to_string())?;
-            let rows = stmt
-                .query_map(params![&id, control_num], |row| row.get(0))
-                .map_err(|e| e.to_string())?;
+            let mut stmt = tx.prepare(
+                "SELECT suffix FROM ILLUST_INFO WHERE illust_id = ? AND control_num = ?",
+            )?;
+            let rows = stmt.query_map(params![&id, control_num], |row| row.get(0))?;
 
             for row in rows {
-                let suffix = row.map_err(|e| e.to_string())?;
+                let suffix = row?;
                 let target_tags: Option<Vec<String>> =
                     if let Some(ref overwrite_tags) = *overwrite_tags_opt {
                         Some(overwrite_tags.clone())
@@ -415,7 +384,7 @@ pub fn prepare_id_tags_map(
     Ok(id_tags_map)
 }
 
-pub fn process_edit_tags(tx: &rusqlite::Transaction, id_tags_map: IdTagsMap) -> Result<(), String> {
+pub fn process_edit_tags(tx: &rusqlite::Transaction, id_tags_map: IdTagsMap) -> Result<()> {
     // idとtagsの一対一で処理
     for ((id, tags_opt), suffixes_and_control_num) in id_tags_map {
         // 管理番号のセット
@@ -425,7 +394,7 @@ pub fn process_edit_tags(tx: &rusqlite::Transaction, id_tags_map: IdTagsMap) -> 
             .collect();
 
         // suffixの配列
-        let suffixes: Vec<i32> = suffixes_and_control_num
+        let suffixes: Vec<u8> = suffixes_and_control_num
             .iter()
             .map(|(suffix, _)| suffix.clone())
             .collect();
@@ -435,13 +404,11 @@ pub fn process_edit_tags(tx: &rusqlite::Transaction, id_tags_map: IdTagsMap) -> 
             // 一個目の管理番号
             let first_control_num = *unique_control_nums.iter().next().unwrap();
             // 一個目の管理番号でカウント
-            let count: i32 = tx
-                .query_row(
-                    "SELECT COUNT(*) FROM ILLUST_INFO WHERE illust_id = ? AND control_num = ?",
-                    params![&id, first_control_num],
-                    |row| row.get(0),
-                )
-                .map_err(|e| e.to_string())?;
+            let count: i32 = tx.query_row(
+                "SELECT COUNT(*) FROM ILLUST_INFO WHERE illust_id = ? AND control_num = ?",
+                params![&id, first_control_num],
+                |row| row.get(0),
+            )?;
             // 全件更新なら未変更
             count != suffixes.len() as i32
         }
@@ -462,8 +429,7 @@ pub fn process_edit_tags(tx: &rusqlite::Transaction, id_tags_map: IdTagsMap) -> 
                     "SELECT MAX(control_num) FROM ILLUST_INFO WHERE illust_id = ?",
                     params![&id],
                     |row| row.get::<_, Option<i32>>(0),
-                )
-                .map_err(|e| e.to_string())?
+                )?
                 .unwrap_or(0);
             max_control_num + 1
         };
@@ -484,8 +450,7 @@ pub fn process_edit_tags(tx: &rusqlite::Transaction, id_tags_map: IdTagsMap) -> 
                 in_clause
             ),
             params_vec.as_slice(),
-        )
-        .map_err(|e| e.to_string())?;
+        )?;
 
         // 管理番号を変更してるならILLUST_DETAILを複製
         if is_change_control_num {
@@ -497,20 +462,17 @@ pub fn process_edit_tags(tx: &rusqlite::Transaction, id_tags_map: IdTagsMap) -> 
                 FROM ILLUST_DETAIL WHERE illust_id = ? AND control_num = ?
                 ",
                 params![&next_control_num, &id, &some_control_num],
-            )
-            .map_err(|e| e.to_string())?;
+            )?;
         }
 
         // 関連テーブルの更新
         for control_num in unique_control_nums {
             // 旧番でカウント
-            let count: i32 = tx
-                .query_row(
-                    "SELECT COUNT(*) FROM ILLUST_INFO WHERE illust_id = ? AND control_num = ?",
-                    params![&id, &control_num],
-                    |row| row.get(0),
-                )
-                .map_err(|e| e.to_string())?;
+            let count: i32 = tx.query_row(
+                "SELECT COUNT(*) FROM ILLUST_INFO WHERE illust_id = ? AND control_num = ?",
+                params![&id, &control_num],
+                |row| row.get(0),
+            )?;
 
             // カウントが0なら削除
             // 洗い替えの場合も削除
@@ -519,8 +481,7 @@ pub fn process_edit_tags(tx: &rusqlite::Transaction, id_tags_map: IdTagsMap) -> 
                 tx.execute(
                     "DELETE FROM TAG_INFO WHERE illust_id = ? AND control_num = ?",
                     params![&id, &control_num],
-                )
-                .map_err(|e| e.to_string())?;
+                )?;
             }
 
             // カウントが0なら削除
@@ -529,8 +490,7 @@ pub fn process_edit_tags(tx: &rusqlite::Transaction, id_tags_map: IdTagsMap) -> 
                 tx.execute(
                     "DELETE ILLUST_DETAIL WHERE illust_id = ? AND control_num = ?",
                     params![&next_control_num, &id, &control_num],
-                )
-                .map_err(|e| e.to_string())?;
+                )?;
             }
         }
 
@@ -540,8 +500,7 @@ pub fn process_edit_tags(tx: &rusqlite::Transaction, id_tags_map: IdTagsMap) -> 
                 tx.execute(
                     "INSERT OR IGNORE INTO TAG_INFO (illust_id, control_num, tag) VALUES (?, ?, ?)",
                     params![id, next_control_num, tag],
-                )
-                .map_err(|e| e.to_string())?;
+                )?;
             }
         };
     }

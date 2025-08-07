@@ -1,68 +1,49 @@
+use anyhow::Result;
 use pixieve_rs::pixiv::client::PixivClient;
-use regex::Regex;
-use rusqlite::{params, Connection, Result};
+use rusqlite::{params, Connection};
 use std::fmt::Write;
 use std::fs;
 use std::path::Path;
-use std::result::Result::Ok;
-use std::time::Instant;
+use std::time::{Instant, UNIX_EPOCH};
 use std::vec::Vec;
 use tauri::Emitter;
 use trash::delete;
 
 use crate::api::pixiv::fetch_detail;
 use crate::models::fetch::{FileDetail, ProcessStats, TagProgress};
-use crate::service::format_duration;
+use crate::service::common::{format_duration, parse_path_info, remove_invalid_chars};
 
 pub fn extract_dir_detail<P: AsRef<Path>>(folder: P) -> Vec<FileDetail> {
     let mut details = Vec::new();
 
     fn visit_dirs(dir: &Path, details: &mut Vec<FileDetail>) {
-        let re = Regex::new(r"^(\d+)_p(\d+)\.(jpg|png)$").unwrap();
         if let Ok(entries) = fs::read_dir(dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
+
                 if path.is_dir() {
                     visit_dirs(&path, details);
-                } else if let Some(file_name) = entry.file_name().to_str() {
-                    if let Some(caps) = re.captures(file_name) {
-                        let filename = caps.get(0).unwrap().as_str(); // 全体のマッチ
-                        if let Some(id) = filename.split('_').next() {
-                            let suffix = filename
-                                .split("_p")
-                                .nth(1)
-                                .and_then(|s| s.split('.').next())
-                                .unwrap_or("")
-                                .to_string();
-                            let extension = filename.split('.').last().unwrap_or("").to_string();
-                            let save_dir = path
-                                .parent()
-                                .unwrap_or(Path::new(""))
-                                .to_str()
-                                .unwrap_or("")
-                                .to_string();
-                            let created_time = {
-                                let metadata = fs::metadata(&path).unwrap();
-                                let created_time = metadata.created().unwrap();
-                                let duration_since_epoch =
-                                    created_time.duration_since(std::time::UNIX_EPOCH).unwrap();
-                                duration_since_epoch.as_secs() as i64
-                            };
-                            let file_size = {
-                                let metadata = fs::metadata(&path).unwrap();
-                                metadata.len() as i64
-                            };
-                            details.push(FileDetail {
-                                id: id.parse::<u32>().unwrap_or_default(),
-                                suffix: suffix.parse::<u8>().unwrap_or_default(),
-                                extension,
-                                save_dir,
-                                created_time,
-                                file_size,
-                            });
-                        }
-                    }
+                    continue;
                 }
+
+                let file_info = match parse_path_info(&path) {
+                    Ok(info) => info,
+                    Err(e) => {
+                        eprintln!("ファイル情報の取得に失敗: {} (path: {:?})", e, path);
+                        continue;
+                    }
+                };
+
+                let (created_time, file_size) = get_file_metadata(&path);
+
+                details.push(FileDetail {
+                    id: file_info.illust_id,
+                    suffix: file_info.suffix,
+                    extension: file_info.extension,
+                    save_dir: file_info.save_dir.unwrap(),
+                    created_time,
+                    file_size,
+                });
             }
         }
     }
@@ -71,20 +52,11 @@ pub fn extract_dir_detail<P: AsRef<Path>>(folder: P) -> Vec<FileDetail> {
     details
 }
 
-fn remove_invalid_chars(path: &str) -> String {
-    // Windowsでファイル名に使えない文字のリスト
-    let invalid_chars = ['\\', '/', ':', '*', '?', '"', '<', '>', '|'];
-
-    path.chars()
-        .filter(|c| !invalid_chars.contains(c))
-        .collect()
-}
-
 pub fn fetch_illust_detail(
     conn: &mut Connection,
     app_pixiv_api: &PixivClient,
     window: tauri::Window,
-) -> Result<ProcessStats, anyhow::Error> {
+) -> Result<ProcessStats> {
     let start = Instant::now();
 
     // 結果用の集計情報
@@ -206,10 +178,7 @@ pub fn fetch_illust_detail(
     })
 }
 
-pub fn prepare_illust_fetch_work(
-    conn: &mut Connection,
-    file_details: &[FileDetail],
-) -> Result<(), anyhow::Error> {
+pub fn prepare_illust_fetch_work(conn: &mut Connection, file_details: &[FileDetail]) -> Result<()> {
     let tx = conn.transaction()?;
 
     tx.execute("DELETE FROM ILLUST_FETCH_WORK;", [])?;
@@ -238,7 +207,7 @@ pub fn prepare_illust_fetch_work(
     Ok(())
 }
 
-fn insert_illust_info(conn: &Connection, illust_id: u32) -> Result<i64, anyhow::Error> {
+fn insert_illust_info(conn: &Connection, illust_id: u32) -> Result<i64> {
     // 既存のILLUST_INFOからcontrol_numを取得
     let control_num = match conn.prepare(
         "SELECT control_num FROM ILLUST_INFO WHERE illust_id = ?1 ORDER BY control_num ASC LIMIT 1;"
@@ -261,14 +230,14 @@ fn insert_illust_info(conn: &Connection, illust_id: u32) -> Result<i64, anyhow::
     Ok(control_num)
 }
 
-fn insert_illust_info_no_fetch(conn: &Connection) -> Result<(), anyhow::Error> {
+fn insert_illust_info_no_fetch(conn: &Connection) -> Result<()> {
     let sql = include_str!("../sql/fetch/insert_illust_info_no_fetch.sql");
     conn.execute_batch(sql)?;
 
     Ok(())
 }
 
-fn delete_duplicate_files(conn: &Connection) -> Result<(), anyhow::Error> {
+fn delete_duplicate_files(conn: &Connection) -> Result<()> {
     let mut stmt = conn.prepare("SELECT file_path FROM delete_files;")?;
     let delete_iter = stmt.query_map([], |row| {
         let file_path: String = row.get(0)?;
@@ -310,13 +279,21 @@ pub fn extract_missing_files(conn: &Connection) -> Result<Vec<FileDetail>> {
 
     for (illust_id, _control_num) in &failed_records {
         let rows = info_stmt.query_map([illust_id], |row| {
+            let suffix = row.get::<_, i64>(0)? as u8;
+            let extension = row.get::<_, String>(1)?;
+            let save_dir = row.get::<_, String>(2)?;
+
+            let file_path = format!("{}/{}.{}", save_dir, suffix, extension);
+            let path = Path::new(&file_path);
+            let (created_time, file_size) = get_file_metadata(path);
+
             Ok(FileDetail {
                 id: *illust_id as u32,
-                suffix: row.get::<_, i64>(0)? as u8,
-                extension: row.get::<_, String>(1)?,
-                save_dir: row.get::<_, String>(2)?,
-                created_time: 0,
-                file_size: 0,
+                suffix,
+                extension,
+                save_dir,
+                created_time,
+                file_size,
             })
         })?;
 
@@ -342,4 +319,22 @@ pub fn delete_missing_tags(conn: &Connection) -> Result<()> {
     )?;
 
     Ok(())
+}
+
+fn get_file_metadata(path: &Path) -> (i64, i64) {
+    let metadata = match fs::metadata(path) {
+        Ok(m) => m,
+        Err(_) => return (0, 0),
+    };
+
+    let created_time = metadata
+        .created()
+        .ok()
+        .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+        .map(|dur| dur.as_secs() as i64)
+        .unwrap_or(0);
+
+    let file_size = metadata.len() as i64;
+
+    (created_time, file_size)
 }

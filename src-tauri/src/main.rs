@@ -23,7 +23,7 @@ use commands::search::{
     search_by_criteria,
 };
 use constants::DB_NAME;
-use models::global::AppState;
+use models::common::AppState;
 
 use crate::api::pixiv::create_api;
 use crate::commands::collect::{delete_collect, get_related_tags, perform_collect};

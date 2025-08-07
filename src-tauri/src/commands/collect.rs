@@ -9,7 +9,7 @@ use crate::service::collect::{
 use crate::{
     models::{
         collect::{CollectSummary, TagAssignment},
-        global::{AppState, GeneralResponse},
+        common::{AppState, GeneralResponse},
     },
     service::collect::sort_collect_work,
 };
@@ -124,7 +124,7 @@ pub fn assign_tag(
     // コミット
     tx.commit().map_err(|e| e.to_string())?;
 
-    get_collect_summary(&conn)
+    get_collect_summary(&conn).map_err(|e| e.to_string())
 }
 
 #[command]
@@ -165,7 +165,7 @@ pub fn delete_collect(
     // コミット
     tx.commit().map_err(|e| e.to_string())?;
 
-    get_collect_summary(&conn)
+    get_collect_summary(&conn).map_err(|e| e.to_string())
 }
 
 #[command]
@@ -182,7 +182,7 @@ pub fn load_assignments(state: State<AppState>) -> Result<Vec<CollectSummary>, S
     tx.commit().map_err(|e| e.to_string())?;
 
     // 結果を返却
-    get_collect_summary(&conn)
+    get_collect_summary(&conn).map_err(|e| e.to_string())
 }
 
 #[command]
@@ -215,7 +215,7 @@ pub fn perform_collect(state: State<AppState>) -> Result<Vec<CollectSummary>, St
     tx.commit().map_err(|e| e.to_string())?;
 
     // 結果を返却
-    get_collect_summary(&conn)
+    get_collect_summary(&conn).map_err(|e| e.to_string())
 }
 
 #[command]

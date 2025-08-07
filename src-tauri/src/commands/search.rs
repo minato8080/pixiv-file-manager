@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::{
     models::{
-        global::AppState,
+        common::AppState,
         search::{AuthorInfo, CharacterInfo, SearchHistory, SearchResult, TagInfo},
     },
     service::search::save_search_history,

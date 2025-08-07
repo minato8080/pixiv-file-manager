@@ -15,3 +15,11 @@ pub struct GeneralResponse {
     pub success: Option<String>,
     pub error: Option<String>,
 }
+
+#[derive(Debug)]
+pub struct FileInfo {
+    pub illust_id: u32,
+    pub suffix: u8,
+    pub extension: String,
+    pub save_dir: Option<String>,
+}

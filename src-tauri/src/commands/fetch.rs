@@ -3,8 +3,8 @@ use std::vec::Vec;
 use tauri::State;
 use walkdir::WalkDir;
 
+use crate::models::common::AppState;
 use crate::models::fetch::{FileCounts, FileDetail, ProcessStats};
-use crate::models::global::AppState;
 
 use crate::models::fetch::FolderCount;
 use crate::service::fetch::{

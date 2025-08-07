@@ -1,18 +1,17 @@
 use pixieve_rs::pixiv::client::PixivClient;
-use pixieve_rs::pixiv::result::illustration_proxy::IllustrationProxy;
 use regex::Regex;
 use rusqlite::{params, Connection, Result};
+use std::fmt::Write;
 use std::fs;
 use std::path::Path;
+use std::result::Result::Ok;
 use std::time::Instant;
 use std::vec::Vec;
 use tauri::Emitter;
 use trash::delete;
 
 use crate::api::pixiv::fetch_detail;
-use crate::models::fetch::{
-    FileDetail, IdInfo, PostConvSequentialInfo, PreConvSequentialInfo, ProcessStats, TagProgress,
-};
+use crate::models::fetch::{FileDetail, ProcessStats, TagProgress};
 use crate::service::format_duration;
 
 pub fn extract_dir_detail<P: AsRef<Path>>(folder: P) -> Vec<FileDetail> {
@@ -85,19 +84,23 @@ pub fn fetch_illust_detail(
     conn: &mut Connection,
     app_pixiv_api: &PixivClient,
     window: tauri::Window,
-    file_details: Vec<FileDetail>,
 ) -> Result<ProcessStats, anyhow::Error> {
     let start = Instant::now();
 
+    // 結果用の集計情報
+    let mut success_count = 0;
+    let mut fail_count = 0;
+    let mut failed_file_paths = Vec::new();
+
     // ワークテーブルを準備
-    prepare_illust_fetch_work(&conn, &file_details)?;
+    let sql = include_str!("../sql/fetch/create_fetch_work.sql");
+    conn.execute_batch(sql)?;
+
+    // フェッチなしでインサートするファイルを処理
+    insert_illust_info_no_fetch(conn)?;
 
     // フェッチ回数
-    let total: u64 = conn.query_row(
-        "SELECT COUNT(DISTINCT illust_id) FROM ILLUST_FETCH_WORK WHERE insert_flg = 1;",
-        [],
-        |row| row.get(0),
-    )?;
+    let total: u64 = conn.query_row("SELECT COUNT(*) FROM fetch_ids;", [], |row| row.get(0))?;
 
     let interval = std::env::var("INTERVAL_MILL_SEC")
         .ok()
@@ -105,65 +108,65 @@ pub fn fetch_illust_detail(
         .unwrap_or(1000);
     let total_duration_ms = total * interval;
 
-    let ids_info = extract_unique_ids_info(&conn)?;
+    // フェッチ対象を取得
+    let fetch_ids: Vec<u32> = conn
+        .prepare("SELECT illust_id FROM fetch_ids;")?
+        .query_map([], |row| row.get(0))?
+        .collect::<Result<_, _>>()?;
 
-    // 結果用の集計情報
-    let mut success_count = 0;
-    let mut fail_count = 0;
-    let mut failed_file_paths = Vec::new();
-
-    for id_info in ids_info {
+    for fetch_id in fetch_ids {
         let tx = conn.transaction()?;
-
-        // id単位でスキップ対象かチェック
-        if let Some(first_info) = id_info.sequential_info.first() {
-            if first_info.ignore_flag == 1 {
-                insert_suffixes_to_illust_info(&tx, id_info)?;
-                continue;
-            }
-        }
-
+        // イラスト情報を登録
+        let control_num = insert_illust_info(&tx, fetch_id)?;
         // フェッチ処理
-        if let Ok(resp) = fetch_detail(app_pixiv_api, id_info.illust_id as u32) {
-            // イラスト情報を登録
-            insert_illust_info(&tx, &resp, &id_info)?;
-
-            // タグ情報を登録
-            for tag in resp.illust.tags() {
+        match fetch_detail(app_pixiv_api, fetch_id) {
+            Ok(resp) => {
+                // 詳細情報を登録
                 tx.execute(
-            "INSERT OR REPLACE INTO TAG_INFO (illust_id, control_num, tag) VALUES (?1, ?2, ?3)",
-                    params![id_info.illust_id, 0, remove_invalid_chars(tag.name())],
-                )?;
-            }
-
-            // 作者情報を登録
-            tx.execute(
-                "INSERT OR REPLACE INTO AUTHOR_INFO (author_id, author_name, author_account) VALUES (?1, ?2, ?3)",
-                params![
+                    "INSERT OR REPLACE INTO ILLUST_DETAIL (illust_id, author_id, character, control_num) VALUES (?1, ?2, ?3, ?4)",
+                    params![
+                    resp.illust.id(),
                     resp.illust.user().id(),
-                    resp.illust.user().name(),
-                    resp.illust.user().account()
-                ],
-            )?;
-            success_count += 1;
-        } else {
-            fail_count += 1;
-            // 取得失敗時はデフォルト値で登録
-            insert_illust_info_with_defaults(&tx, &id_info)?;
-            tx.execute(
-                "INSERT OR REPLACE INTO TAG_INFO (illust_id, control_num, tag) VALUES (?1, ?2, ?3)",
-                params![id_info.illust_id, 0, "Missing"],
-            )?;
+                        None::<String>,
+                        control_num,
+                    ],
+                )?;
 
-            // 失敗ファイルを結果に追加
-            failed_file_paths.extend(id_info.sequential_info.iter().map(|info| {
-                format!(
-                    "{}\\{}_p{}.{}",
-                    info.save_dir, id_info.illust_id, info.suffix, info.extension
-                )
-            }));
-        }
-        // 一件ずつコミット
+                // タグ情報を登録
+                for tag in resp.illust.tags() {
+                    tx.execute("INSERT OR REPLACE INTO TAG_INFO (illust_id, control_num, tag) VALUES (?1, ?2, ?3)",
+                    params![fetch_id, control_num, remove_invalid_chars(tag.name())],
+                )?;
+                }
+
+                // 作者情報を登録
+                tx.execute("INSERT OR REPLACE INTO AUTHOR_INFO (author_id, author_name, author_account) VALUES (?1, ?2, ?3)",
+                    params![
+                        resp.illust.user().id(),
+                        resp.illust.user().name(),
+                        resp.illust.user().account()
+                    ],
+                )?;
+                success_count += 1;
+            }
+            Err(err) => {
+                fail_count += 1;
+                // 失敗時はデフォルト値で詳細情報を登録
+                tx.execute(
+                    "INSERT OR IGNORE INTO ILLUST_DETAIL (illust_id, author_id, character, control_num) VALUES (?1, 0, NULL, ?2)",
+                    params![fetch_id, control_num],
+                )?;
+
+                // 失敗時のタグ情報
+                tx.execute(
+                    "INSERT OR IGNORE INTO TAG_INFO (illust_id, control_num, tag) VALUES (?1, ?2, 'Missing')",
+                    params![fetch_id, control_num],
+                )?;
+
+                // 失敗したIDを結果に追加
+                failed_file_paths.push(format!("{}:{}", fetch_id, err))
+            }
+        } // 一件ずつコミット
         tx.commit()?;
 
         let elapsed = start.elapsed().as_millis() as u64;
@@ -203,262 +206,80 @@ pub fn fetch_illust_detail(
     })
 }
 
-fn prepare_illust_fetch_work(
-    conn: &Connection,
-    file_details: &Vec<FileDetail>,
+pub fn prepare_illust_fetch_work(
+    conn: &mut Connection,
+    file_details: &[FileDetail],
 ) -> Result<(), anyhow::Error> {
-    // テーブル初期化
-    conn.execute("DELETE FROM ILLUST_FETCH_WORK;", ())?;
+    let tx = conn.transaction()?;
 
-    // Prepared Statement を事前に用意
-    let sql = "INSERT OR IGNORE INTO ILLUST_FETCH_WORK (
-        illust_id, suffix, extension, save_dir,
-        created_time, file_size, delete_flg, insert_flg, ignore_flg
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-    let mut stmt = conn.prepare(sql)?;
+    tx.execute("DELETE FROM ILLUST_FETCH_WORK;", [])?;
 
-    // チャンクサイズ（バルクインサート）
-    const BATCH_SIZE: usize = 100;
+    let mut sql = String::new();
+    sql.push_str("INSERT INTO ILLUST_FETCH_WORK (illust_id, suffix, extension, save_dir, created_time, file_size) VALUES ");
 
-    for chunk in file_details.chunks(BATCH_SIZE) {
-        for file_detail in chunk {
-            stmt.execute(params![
-                file_detail.id,
-                file_detail.suffix,
-                file_detail.extension,
-                file_detail.save_dir,
-                file_detail.created_time,
-                file_detail.file_size,
-                0, // delete_flg
-                1, // insert_flg
-                0, // ignore_flg
-            ])?;
+    for (i, file) in file_details.iter().enumerate() {
+        if i != 0 {
+            sql.push(',');
         }
+        write!(
+            sql,
+            "({}, {}, '{}', '{}', {}, {})",
+            file.id,
+            file.suffix,
+            file.extension.replace("'", "''"),
+            file.save_dir.replace("'", "''"),
+            file.created_time,
+            file.file_size
+        )?;
     }
 
-    // フラグ更新
-    let sql = include_str!("../sql/fetch/update_flags.sql");
+    tx.execute_batch(&sql)?;
+    tx.commit()?;
+    Ok(())
+}
+
+fn insert_illust_info(conn: &Connection, illust_id: u32) -> Result<i64, anyhow::Error> {
+    // 既存のILLUST_INFOからcontrol_numを取得
+    let control_num = match conn.prepare(
+        "SELECT control_num FROM ILLUST_INFO WHERE illust_id = ?1 ORDER BY control_num ASC LIMIT 1;"
+    )?.query_row(params![illust_id], |row| row.get::<_, i64>(0)) {
+        Ok(num) => num,
+        Err(rusqlite::Error::QueryReturnedNoRows) => 0,
+        Err(e) => return Err(e.into()), // 他のエラーはそのまま返す
+    };
+
+    conn.prepare(
+        "INSERT OR IGNORE INTO ILLUST_INFO (
+            illust_id, suffix, extension, save_dir, control_num
+        )
+        SELECT illust_id, suffix, extension, save_dir, ?1
+        FROM insert_files
+        WHERE illust_id = ?2;",
+    )?
+    .execute(params![control_num, illust_id])?;
+
+    Ok(control_num)
+}
+
+fn insert_illust_info_no_fetch(conn: &Connection) -> Result<(), anyhow::Error> {
+    let sql = include_str!("../sql/fetch/insert_illust_info_no_fetch.sql");
     conn.execute_batch(sql)?;
 
     Ok(())
 }
 
-fn extract_unique_ids_info(conn: &Connection) -> Result<Vec<IdInfo>, anyhow::Error> {
-    let select_unique_ids_sql = "
-        SELECT
-            illust_id,
-            GROUP_CONCAT(suffix) AS suffixes,
-            GROUP_CONCAT(extension) AS extensions,
-            GROUP_CONCAT(save_dir) AS save_dirs,
-            GROUP_CONCAT(delete_flg) AS delete_flags,
-            GROUP_CONCAT(insert_flg) AS insert_flags,
-            GROUP_CONCAT(ignore_flg) AS ignore_flags
-        FROM ILLUST_FETCH_WORK
-        GROUP BY illust_id;
-    ";
-
-    let mut stmt = conn.prepare(select_unique_ids_sql)?;
-    let unique_ids_iter = stmt.query_map([], |row| {
-        let file_info = PreConvSequentialInfo {
-            suffix: row
-                .get::<_, String>(1)?
-                .split(',')
-                .filter_map(|s| s.parse::<i64>().ok()) // 文字列をi64に変換
-                .collect::<Vec<i64>>(), // suffix
-            extension: row
-                .get::<_, String>(2)?
-                .split(',')
-                .filter_map(|s| s.parse::<String>().ok()) // 文字列をi64に変換
-                .collect::<Vec<String>>(), // extension
-            save_dir: row
-                .get::<_, String>(3)?
-                .split(',')
-                .filter_map(|s| s.parse::<String>().ok()) // 文字列をi64に変換
-                .collect::<Vec<String>>(), // save_dir
-            delete_flag: row
-                .get::<_, String>(4)?
-                .split(',')
-                .filter_map(|s| s.parse::<i64>().ok()) // 文字列をi64に変換
-                .collect::<Vec<i64>>(), // delete_flag
-            insert_flag: row
-                .get::<_, String>(5)?
-                .split(',')
-                .filter_map(|s| s.parse::<i64>().ok()) // 文字列をi64に変換
-                .collect::<Vec<i64>>(), // insert_flag
-            ignore_flag: row
-                .get::<_, String>(6)?
-                .split(',')
-                .filter_map(|s| s.parse::<i64>().ok()) // 文字列をi64に変換
-                .collect::<Vec<i64>>(), // ignore_flag
-        };
-        let sequential_info = file_info
-            .suffix
-            .iter()
-            .zip(file_info.extension.iter())
-            .zip(file_info.save_dir.iter())
-            .zip(file_info.delete_flag.iter())
-            .zip(file_info.insert_flag.iter())
-            .zip(file_info.ignore_flag.iter())
-            .map(
-                |(((((suffix, extension), save_dir), delete_flag), insert_flag), ignore_flag)| {
-                    PostConvSequentialInfo {
-                        suffix: *suffix,
-                        extension: extension.clone(),
-                        save_dir: save_dir.clone(),
-                        delete_flag: *delete_flag,
-                        insert_flag: *insert_flag,
-                        ignore_flag: *ignore_flag,
-                    }
-                },
-            )
-            .collect::<Vec<PostConvSequentialInfo>>();
-
-        Ok(IdInfo {
-            illust_id: row.get::<_, i64>(0)?, // illust_id
-            sequential_info,
-        })
-    })?;
-
-    let mut unique_ids = Vec::new();
-    for unique_id in unique_ids_iter {
-        unique_ids.push(unique_id?);
-    }
-
-    Ok(unique_ids)
-}
-
-fn insert_illust_info(
-    conn: &Connection,
-    resp: &IllustrationProxy,
-    id_info: &IdInfo,
-) -> Result<(), anyhow::Error> {
-    let filtered_sequential_info = id_info
-        .sequential_info
-        .iter()
-        .filter(|info| info.insert_flag == 1)
-        .cloned()
-        .collect();
-    let filtered_info = IdInfo {
-        illust_id: id_info.illust_id,
-        sequential_info: filtered_sequential_info,
-    };
-    let mut stmt = conn.prepare(
-        "INSERT OR REPLACE INTO ILLUST_INFO (illust_id, suffix, extension, save_dir, control_num) VALUES (?1, ?2, ?3, ?4, ?5)"
-    )?;
-    for info in &filtered_info.sequential_info {
-        stmt.execute(params![
-            resp.illust.id(),
-            info.suffix,
-            info.extension,
-            info.save_dir,
-            0,
-        ])?;
-    }
-    let mut stmt = conn.prepare(
-        "INSERT OR REPLACE INTO ILLUST_DETAIL (illust_id, author_id, character, control_num) VALUES (?1, ?2, ?3, ?4)"
-    )?;
-    stmt.execute(params![
-        resp.illust.id(),
-        resp.illust.user().id(),
-        None::<String>,
-        0,
-    ])?;
-    Ok(())
-}
-
-fn insert_illust_info_with_defaults(
-    conn: &Connection,
-    id_info: &IdInfo,
-) -> Result<(), anyhow::Error> {
-    let filtered_sequential_info = id_info
-        .sequential_info
-        .iter()
-        .filter(|info| info.insert_flag == 1)
-        .cloned()
-        .collect();
-    let filtered_info = IdInfo {
-        illust_id: id_info.illust_id,
-        sequential_info: filtered_sequential_info,
-    };
-    let mut stmt = conn.prepare(
-        "INSERT INTO ILLUST_INFO (illust_id, suffix, extension, save_dir, control_num) VALUES (?1, ?2, ?3, ?4, ?5)"
-    )?;
-    for info in &filtered_info.sequential_info {
-        stmt.execute(params![
-            id_info.illust_id,
-            info.suffix,
-            info.extension,
-            info.save_dir,
-            0,
-        ])?;
-    }
-    let mut stmt = conn.prepare(
-        "INSERT INTO ILLUST_DETAIL (illust_id, author_id, character, control_num) VALUES (?1, ?2, ?3, ?4)"
-    )?;
-    stmt.execute(params![id_info.illust_id, 0, None::<String>, 0,])?;
-    Ok(())
-}
-
-fn insert_suffixes_to_illust_info(conn: &Connection, id_info: IdInfo) -> Result<(), anyhow::Error> {
-    // insert_flagが1のものだけを抽出
-    let filtered_info = IdInfo {
-        illust_id: id_info.illust_id,
-        sequential_info: id_info
-            .sequential_info
-            .iter()
-            .filter(|info| info.insert_flag == 1)
-            .cloned()
-            .collect(),
-    };
-
-    // 既存のILLUST_INFOからcontrol_numを取得
-    let (control_num,) = {
-        let mut stmt = conn.prepare(
-            "SELECT control_num FROM ILLUST_INFO WHERE illust_id = ?1 ORDER BY control_num ASC LIMIT 1"
-        )?;
-        stmt.query_row(params![filtered_info.illust_id], |row| {
-            let control_num: i64 = row.get(0)?;
-            Ok((control_num,))
-        })?
-    };
-
-    // 挿入用ステートメントを準備
-    let mut insert_stmt = conn.prepare(
-        "INSERT INTO ILLUST_INFO (illust_id, suffix, extension, save_dir, control_num) VALUES (?1, ?2, ?3, ?4, ?5)"
-    )?;
-
-    // 各sequential_infoを挿入
-    for info in &filtered_info.sequential_info {
-        insert_stmt.execute(params![
-            filtered_info.illust_id,
-            info.suffix,
-            info.extension,
-            info.save_dir,
-            control_num,
-        ])?;
-    }
-
-    Ok(())
-}
-
 fn delete_duplicate_files(conn: &Connection) -> Result<(), anyhow::Error> {
-    let delete_query =
-        "SELECT save_dir, illust_id, suffix, extension FROM ILLUST_FETCH_WORK WHERE delete_flg = 1";
-    let mut stmt = conn.prepare(delete_query)?;
+    let mut stmt = conn.prepare("SELECT file_path FROM delete_files;")?;
     let delete_iter = stmt.query_map([], |row| {
-        let save_dir: String = row.get(0)?;
-        let illust_id: i64 = row.get(1)?;
-        let suffix: i64 = row.get(2)?;
-        let extension: String = row.get(3)?;
-        Ok((save_dir, illust_id, suffix, extension))
+        let file_path: String = row.get(0)?;
+        Ok(file_path)
     })?;
 
     for entry in delete_iter {
-        let (save_dir, illust_id, suffix, extension) = entry?;
-        let file_name = format!("{}_p{}.{}", illust_id, suffix, extension);
-        // ファイルを削除（ゴミ箱に移動）
-        let source_path = std::path::Path::new(&save_dir).join(&file_name);
-        delete(source_path)?;
+        let file_path = entry?;
+        // ファイルを削除（ゴミ箱に移動
+        let target = std::path::Path::new(&file_path);
+        delete(target)?;
     }
 
     Ok(())

@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::path::Path;
 use std::vec::Vec;
 use tauri::State;
@@ -10,10 +9,16 @@ use crate::models::global::AppState;
 use crate::models::fetch::FolderCount;
 use crate::service::fetch::{
     delete_missing_tags, extract_dir_detail, extract_missing_files, fetch_illust_detail,
+    prepare_illust_fetch_work,
 };
 
 #[tauri::command]
-pub fn count_files_in_dir(folders: Vec<String>) -> FileCounts {
+pub fn count_files_in_dir(
+    state: State<'_, AppState>,
+    folders: Vec<String>,
+) -> Result<FileCounts, String> {
+    let mut conn = state.db.lock().unwrap();
+
     // フォルダ数
     let folder_counts: Vec<FolderCount> = folders
         .iter()
@@ -46,13 +51,21 @@ pub fn count_files_in_dir(folders: Vec<String>) -> FileCounts {
         .map(|fc| fc.base_count + fc.sub_dir_count)
         .sum();
 
-    // idを抜き出して処理時間を予測
+    // ファイル詳細に変換
     let file_details: Vec<FileDetail> = folders
         .iter()
         .flat_map(|folder| extract_dir_detail(folder))
         .collect();
-    let unique_ids: HashSet<u32> = file_details.iter().map(|f| f.id).collect();
-    let unique_count = unique_ids.len();
+
+    // ワークテーブルに保存
+    prepare_illust_fetch_work(&mut conn, &file_details).map_err(|e| e.to_string())?;
+
+    let unique_count = conn
+        .execute(
+            "SELECT COUNT(DISTINCT illust_id) FROM ILLUST_FETCH_WORK;",
+            [],
+        )
+        .map_err(|e| e.to_string())?;
 
     let interval = std::env::var("INTERVAL_MILL_SEC")
         .ok()
@@ -63,34 +76,26 @@ pub fn count_files_in_dir(folders: Vec<String>) -> FileCounts {
     let hours = estimate_process_time / 3600;
     let minutes = (estimate_process_time % 3600) / 60;
     let seconds = estimate_process_time % 60;
+    let formatted_process_time = format!("{:02}:{:02}:{:02}", hours, minutes, seconds);
 
-    let process_time = format!("{:02}:{:02}:{:02}", hours, minutes, seconds);
-
-    FileCounts {
+    Ok(FileCounts {
         folders: folder_counts,
         total: total_files,
-        process_time,
-    }
+        process_time: formatted_process_time,
+    })
 }
 
 #[tauri::command]
 pub fn capture_illust_detail(
     state: State<'_, AppState>,
     window: tauri::Window,
-    folders: Vec<String>,
 ) -> Result<ProcessStats, String> {
     let mut conn = state.db.lock().unwrap();
 
-    // 対象を取得
-    let file_details: Vec<FileDetail> = folders
-        .iter()
-        .flat_map(|folder| extract_dir_detail(folder))
-        .collect();
-
     // 再取得実行
     if let Some(app_pixiv_api) = &state.app_pixiv_api {
-        let result = fetch_illust_detail(&mut conn, app_pixiv_api, window, file_details)
-            .map_err(|e| e.to_string())?;
+        let result =
+            fetch_illust_detail(&mut conn, app_pixiv_api, window).map_err(|e| e.to_string())?;
 
         // 削除を実行
         delete_missing_tags(&conn).map_err(|e| e.to_string())?;
@@ -110,10 +115,13 @@ pub fn recapture_illust_detail(
     // 失敗ファイルを抽出
     let file_details = extract_missing_files(&conn).map_err(|e| e.to_string())?;
 
+    // ワークテーブルに保存
+    prepare_illust_fetch_work(&mut conn, &file_details).map_err(|e| e.to_string())?;
+
     // 再取得実行
     if let Some(app_pixiv_api) = &state.app_pixiv_api {
-        let result = fetch_illust_detail(&mut conn, app_pixiv_api, window, file_details)
-            .map_err(|e| e.to_string())?;
+        let result =
+            fetch_illust_detail(&mut conn, app_pixiv_api, window).map_err(|e| e.to_string())?;
 
         // 取得できたレコードのMissingタグ削除を実行
         delete_missing_tags(&conn).map_err(|e| e.to_string())?;

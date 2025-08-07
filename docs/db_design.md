@@ -20,16 +20,14 @@
 
 - **ILLUST_FETCH_WORK**
 
+  - `id`: INTEGER NOT NULL - サロゲートキー
   - `illust_id`: INTEGER NOT NULL - イラストの識別子
   - `suffix`: INTEGER NOT NULL - イラストのサフィックス
   - `extension`: TEXT NOT NULL - ファイルの拡張子
   - `save_dir`: TEXT NOT NULL - 保存ディレクトリのパス
   - `created_time`: INTEGER NOT NULL - 作成時刻
   - `file_size` : INTEGER NOT NULL - ファイルサイズ
-  - `delete_flg` : INTEGER NOT NULL - 重複ファイルを削除するフラグ
-  - `insert_flg` : INTEGER NOT NULL - DB に追加するフラグ
-  - `ignore_flg` : INTEGER NOT NULL - API フェッチから除外するフラグ
-  - **PRIMARY KEY**: (`illust_id`, `suffix`, `extension`, `save_dir`)
+  - **PRIMARY KEY**: (`id`)
 
 - **TAG_INFO**
 

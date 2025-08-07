@@ -23,17 +23,16 @@ CREATE INDEX IF NOT EXISTS idx_illust_detail_illust_control ON ILLUST_DETAIL(ill
 
 
 CREATE TABLE IF NOT EXISTS ILLUST_FETCH_WORK (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     illust_id INTEGER NOT NULL,
     suffix INTEGER NOT NULL,
     extension TEXT NOT NULL,
     save_dir TEXT NOT NULL,
     created_time INTEGER NOT NULL,
-    file_size INTEGER NOT NULL,
-    delete_flg INTEGER NOT NULL,
-    insert_flg INTEGER NOT NULL,
-    ignore_flg INTEGER NOT NULL,
-    PRIMARY KEY (illust_id, suffix, extension, save_dir)
+    file_size INTEGER NOT NULL
 );
+CREATE UNIQUE INDEX IF NOT EXISTS idx_illust_fetch_uniq_illust_suffix ON ILLUST_FETCH_WORK (illust_id, suffix);
+CREATE INDEX IF NOT EXISTS idx_illust_fetch_save_dir ON ILLUST_FETCH_WORK (save_dir);
 
 
 CREATE TABLE IF NOT EXISTS TAG_INFO (

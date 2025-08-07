@@ -46,7 +46,10 @@ fn main() {
 
             {
                 // Initialize database
-                let tx = conn.transaction().map_err(|e| e.to_string())?;
+                let tx = conn.transaction().map_err(|e| {
+                    eprintln!("{}", e);
+                    e.to_string()
+                })?;
                 initialize_db(&tx).unwrap();
             }
 

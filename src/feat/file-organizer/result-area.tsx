@@ -14,7 +14,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { InputDropdown } from "@/src/components/input-dropdown-portal";
 import { VirtualizedSelect as VirtualizedSelectGenerics } from "@/src/components/virtualized-select-generics";
-import { useDropdownStore } from "@/src/stores/dropdown-store";
 import { useTagsOrganizerStore } from "@/src/stores/tags-organizer-store";
 
 const VirtualizedSelect = VirtualizedSelectGenerics<TagInfo>;
@@ -30,9 +29,8 @@ interface EditingState {
 }
 
 export const ResultArea = () => {
-  const { collectSummary, setCollectSummary, setLoading } =
+  const { collectSummary, setCollectSummary, setLoading, availableTagList } =
     useTagsOrganizerStore();
-  const { uniqueTagList } = useDropdownStore();
 
   const [filteredTagList, setFilteredTagList] = useState<TagInfo[]>([]);
   const [editingState, setEditingState] = useState<EditingState | null>(null);
@@ -128,7 +126,7 @@ export const ResultArea = () => {
     const externalValue = item[field];
 
     const options =
-      filteredTagList.length > 0 ? filteredTagList : uniqueTagList;
+      filteredTagList.length > 0 ? filteredTagList : availableTagList;
 
     if (isEditing) {
       return (
@@ -155,7 +153,7 @@ export const ResultArea = () => {
             tag: relatedValue,
           });
 
-          setFilteredTagList(list.length > 0 ? list : uniqueTagList);
+          setFilteredTagList(list.length > 0 ? list : availableTagList);
         }
         setEditingState({ id: item.id, field });
       };
@@ -322,7 +320,7 @@ export const ResultArea = () => {
                                 );
 
                                 setFilteredTagList(
-                                  list.length > 0 ? list : uniqueTagList
+                                  list.length > 0 ? list : availableTagList
                                 );
                               };
                               void refresh();

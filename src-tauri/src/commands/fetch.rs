@@ -1,6 +1,6 @@
 use std::path::Path;
 use std::vec::Vec;
-use tauri::State;
+use tauri::{Emitter, State};
 use walkdir::WalkDir;
 
 use crate::models::common::AppState;
@@ -94,11 +94,14 @@ pub fn capture_illust_detail(
 
     // 再取得実行
     if let Some(app_pixiv_api) = &state.app_pixiv_api {
-        let result =
-            fetch_illust_detail(&mut conn, app_pixiv_api, window).map_err(|e| e.to_string())?;
+        let result = fetch_illust_detail(&mut conn, app_pixiv_api, window.clone())
+            .map_err(|e| e.to_string())?;
 
         // 削除を実行
         delete_missing_tags(&conn).map_err(|e| e.to_string())?;
+
+        // DB変更を通知
+        window.emit("update_db", ()).unwrap();
         return Ok(result);
     } else {
         return Err("API is unavailable.".to_string());
@@ -120,11 +123,14 @@ pub fn recapture_illust_detail(
 
     // 再取得実行
     if let Some(app_pixiv_api) = &state.app_pixiv_api {
-        let result =
-            fetch_illust_detail(&mut conn, app_pixiv_api, window).map_err(|e| e.to_string())?;
+        let result = fetch_illust_detail(&mut conn, app_pixiv_api, window.clone())
+            .map_err(|e| e.to_string())?;
 
         // 取得できたレコードのMissingタグ削除を実行
         delete_missing_tags(&conn).map_err(|e| e.to_string())?;
+
+        // DB変更を通知
+        window.emit("update_db", ()).unwrap();
         Ok(result)
     } else {
         return Err("Pixiv API is unavailable.".to_string());

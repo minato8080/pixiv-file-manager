@@ -1,5 +1,5 @@
 use rusqlite::{params, OptionalExtension};
-use tauri::{command, State};
+use tauri::{command, Emitter, State};
 
 use crate::models::search::TagInfo;
 use crate::service::collect::{
@@ -17,25 +17,8 @@ use crate::{
 #[command]
 pub fn get_related_tags(tag: &str, state: State<AppState>) -> Result<Vec<TagInfo>, String> {
     let conn = state.db.lock().unwrap();
-    let mut stmt = conn
-        .prepare(
-            r#"
-        SELECT 
-          T2.tag,
-          COUNT(DISTINCT I.illust_id || '-' || I.suffix) AS count
-        FROM TAG_INFO T1
-        JOIN TAG_INFO T2
-          ON T1.illust_id = T2.illust_id
-          AND T1.control_num = T2.control_num
-        JOIN ILLUST_INFO I
-          ON T2.illust_id = I.illust_id AND T2.control_num = I.control_num
-        WHERE T1.tag = ?1
-          AND T2.tag != ?1
-        GROUP BY T2.tag
-        ORDER BY count DESC, T2.tag COLLATE NOCASE;
-        "#,
-        )
-        .map_err(|e| e.to_string())?;
+    let sql = include_str!("../sql/collect/get_related_tags.sql");
+    let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
 
     let tags = stmt
         .query_map([tag], |row| {
@@ -131,6 +114,7 @@ pub fn assign_tag(
 pub fn delete_collect(
     assignment: TagAssignment,
     state: State<AppState>,
+    window: tauri::Window,
 ) -> Result<Vec<CollectSummary>, String> {
     let mut conn = state.db.lock().unwrap();
     let tx = conn.transaction().map_err(|e| e.to_string())?;
@@ -162,6 +146,9 @@ pub fn delete_collect(
     // after_countを計算
     reflesh_collect_work(&tx).map_err(|e| e.to_string())?;
 
+    // DB変更を通知
+    window.emit("update_db", ()).unwrap();
+
     // コミット
     tx.commit().map_err(|e| e.to_string())?;
 
@@ -186,7 +173,10 @@ pub fn load_assignments(state: State<AppState>) -> Result<Vec<CollectSummary>, S
 }
 
 #[command]
-pub fn perform_collect(state: State<AppState>) -> Result<Vec<CollectSummary>, String> {
+pub fn perform_collect(
+    state: State<AppState>,
+    window: tauri::Window,
+) -> Result<Vec<CollectSummary>, String> {
     let mut conn = state.db.lock().unwrap();
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
@@ -213,6 +203,9 @@ pub fn perform_collect(state: State<AppState>) -> Result<Vec<CollectSummary>, St
     reflesh_collect_work(&tx).map_err(|e| e.to_string())?;
 
     tx.commit().map_err(|e| e.to_string())?;
+
+    // DB変更を通知
+    window.emit("update_db", ()).unwrap();
 
     // 結果を返却
     get_collect_summary(&conn).map_err(|e| e.to_string())
@@ -252,4 +245,25 @@ pub fn get_root(state: State<AppState>) -> Result<Option<String>, String> {
         .optional()
         .map_err(|e| e.to_string())?;
     Ok(root_path)
+}
+
+#[tauri::command]
+pub fn get_available_unique_tags(state: State<AppState>) -> Result<Vec<TagInfo>, String> {
+    let conn = state.db.lock().unwrap();
+
+    let sql = include_str!("../sql/collect/get_available_unique_tags.sql");
+    let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
+
+    let iter = stmt
+        .query_map([], |row| {
+            Ok(TagInfo {
+                tag: row.get(0)?,
+                count: row.get(1)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+
+    let tags = iter.into_iter().filter_map(|tag| tag.ok()).collect();
+
+    Ok(tags)
 }

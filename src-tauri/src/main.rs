@@ -9,25 +9,24 @@ mod constants;
 mod models;
 mod service;
 
+use api::pixiv::create_api;
 use commands::catalog::{
     delete_files, edit_tags, get_associated_info, label_character_name, move_files,
 };
-use commands::collect::{assign_tag, get_root, load_assignments, set_root};
-use rusqlite::{params, Connection, Result};
-use std::sync::Mutex;
-use tauri::Manager;
-
-use commands::fetch::{capture_illust_detail, count_files_in_dir};
+use commands::collect::{
+    assign_tag, delete_collect, get_available_unique_tags, get_related_tags, get_root,
+    load_assignments, perform_collect, set_root,
+};
+use commands::fetch::{capture_illust_detail, count_files_in_dir, recapture_illust_detail};
 use commands::search::{
     get_search_history, get_unique_authors, get_unique_characters, get_unique_tags,
     search_by_criteria,
 };
 use constants::DB_NAME;
 use models::common::AppState;
-
-use crate::api::pixiv::create_api;
-use crate::commands::collect::{delete_collect, get_related_tags, perform_collect};
-use crate::commands::fetch::recapture_illust_detail;
+use rusqlite::{params, Connection, Result};
+use std::sync::Mutex;
+use tauri::Manager;
 
 fn main() {
     dotenv::dotenv().ok();
@@ -61,26 +60,31 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_unique_tags,
-            search_by_criteria,
-            get_search_history,
-            capture_illust_detail,
-            recapture_illust_detail,
-            get_unique_characters,
-            get_unique_authors,
-            move_files,
-            label_character_name,
-            edit_tags,
+            // catalog
             delete_files,
-            count_files_in_dir,
+            edit_tags,
             get_associated_info,
-            load_assignments,
-            get_related_tags,
+            label_character_name,
+            move_files,
+            // collect
             assign_tag,
             delete_collect,
-            perform_collect,
+            get_available_unique_tags,
+            get_related_tags,
             get_root,
+            load_assignments,
+            perform_collect,
             set_root,
+            // fetch
+            capture_illust_detail,
+            count_files_in_dir,
+            recapture_illust_detail,
+            // serch
+            get_search_history,
+            get_unique_authors,
+            get_unique_characters,
+            get_unique_tags,
+            search_by_criteria,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

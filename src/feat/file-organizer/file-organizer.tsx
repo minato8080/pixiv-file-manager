@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Settings, Plus, FolderOpen } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -14,12 +15,16 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { InputDropdown } from "@/src/components/input-dropdown";
-import { useDropdownStore } from "@/src/stores/dropdown-store";
 import { useTagsOrganizerStore } from "@/src/stores/tags-organizer-store";
 
 export default function FileOrganizer() {
-  const { setCollectSummary, loading, setLoading } = useTagsOrganizerStore();
-  const { uniqueTagList } = useDropdownStore();
+  const {
+    setCollectSummary,
+    loading,
+    setLoading,
+    availableTagList,
+    setAvailableTagList,
+  } = useTagsOrganizerStore();
 
   const [selectedSeriesTag, setSelectedSeriesTag] = useState<string>("");
   const [selectedCharacterTag, setSelectedCharacterTag] = useState<string>("");
@@ -33,14 +38,26 @@ export default function FileOrganizer() {
   >([]);
 
   useEffect(() => {
-    setFilteredSeriesTagList(uniqueTagList);
-    setFilteredCharacterTagList(uniqueTagList);
-  }, [setFilteredCharacterTagList, setFilteredSeriesTagList, uniqueTagList]);
+    setFilteredSeriesTagList(availableTagList);
+    setFilteredCharacterTagList(availableTagList);
+  }, [setFilteredCharacterTagList, setFilteredSeriesTagList, availableTagList]);
 
+  // Call handlers to fetch data using useEffect
   useEffect(() => {
+    const getTags = async () => {
+      try {
+        const tags = await invoke<TagInfo[]>("get_available_unique_tags");
+        setAvailableTagList(tags);
+      } catch (error) {
+        console.error("Error fetching tags:", error);
+      }
+    };
+
     const initialize = async () => {
       setLoading(true);
       try {
+        const tags = await invoke<TagInfo[]>("get_available_unique_tags");
+        setAvailableTagList(tags);
         const root: string | null = await invoke("get_root");
         if (!root) {
           setIsChangeRoot(true);
@@ -54,6 +71,13 @@ export default function FileOrganizer() {
     };
 
     void initialize();
+    void getTags();
+    const unlisten = listen<null>("update_db", () => {
+      void getTags();
+    });
+    return () => {
+      void unlisten.then((f) => f());
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -140,7 +164,7 @@ export default function FileOrganizer() {
     setSelectedSeriesTag(value);
     try {
       const list: TagInfo[] = await invoke("get_related_tags", { tag: value });
-      setFilteredCharacterTagList(list.length > 0 ? list : uniqueTagList);
+      setFilteredCharacterTagList(list.length > 0 ? list : availableTagList);
     } catch (error) {
       console.error(error);
     }
@@ -150,7 +174,7 @@ export default function FileOrganizer() {
     setSelectedCharacterTag(value);
     try {
       const list: TagInfo[] = await invoke("get_related_tags", { tag: value });
-      setFilteredSeriesTagList(list.length > 0 ? list : uniqueTagList);
+      setFilteredSeriesTagList(list.length > 0 ? list : availableTagList);
     } catch (error) {
       console.error(error);
     }

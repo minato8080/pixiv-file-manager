@@ -167,7 +167,6 @@ pub fn fetch_illust_detail(
 
     // 処理終了
     let duration = start.elapsed();
-    window.emit("update_db", ()).unwrap();
 
     // 処理結果を通知
     Ok(ProcessStats {

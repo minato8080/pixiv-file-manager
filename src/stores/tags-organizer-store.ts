@@ -1,23 +1,22 @@
 import { create } from "zustand";
 
 import { CollectSummary } from "@/bindings/CollectSummary";
+import { TagInfo } from "@/bindings/TagInfo";
 
 type TagsOrganizerStore = {
   loading: boolean;
-  collectSummary: CollectSummary[];
   setLoading: (bool: boolean) => void;
+  collectSummary: CollectSummary[];
   setCollectSummary: (summary: CollectSummary[]) => void;
-  uniqueTagList: string[];
-  setUniqueTagList: (list: string[]) => void;
+  availableTagList: TagInfo[];
+  setAvailableTagList: (list: TagInfo[]) => void;
 };
 
 export const useTagsOrganizerStore = create<TagsOrganizerStore>((set) => ({
   loading: false,
-  collectSummary: [],
   setLoading: (bool) => set({ loading: bool }),
+  collectSummary: [],
   setCollectSummary: (summary) => set({ collectSummary: summary }),
-  filteredSeriesTagList: [],
-  filteredCharacterTagList: [],
-  uniqueTagList: [],
-  setUniqueTagList: (list) => set({ uniqueTagList: list }),
+  availableTagList: [],
+  setAvailableTagList: (list) => set({ availableTagList: list }),
 }));

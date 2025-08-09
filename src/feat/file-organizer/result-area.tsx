@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { InputDropdown } from "@/src/components/input-dropdown-portal";
 import { VirtualizedSelect as VirtualizedSelectGenerics } from "@/src/components/virtualized-select-generics";
-import { useTagsOrganizerStore } from "@/src/stores/tags-organizer-store";
+import { useTagOrganizerStore } from "@/src/stores/tag-organizer-store";
 
 const VirtualizedSelect = VirtualizedSelectGenerics<TagInfo>;
 
@@ -30,7 +30,7 @@ interface EditingState {
 
 export const ResultArea = () => {
   const { collectSummary, setCollectSummary, setLoading, availableTagList } =
-    useTagsOrganizerStore();
+    useTagOrganizerStore();
 
   const [filteredTagList, setFilteredTagList] = useState<TagInfo[]>([]);
   const [editingState, setEditingState] = useState<EditingState | null>(null);

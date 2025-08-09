@@ -15,7 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { InputDropdown } from "@/src/components/input-dropdown";
-import { useTagsOrganizerStore } from "@/src/stores/tags-organizer-store";
+import { useTagOrganizerStore } from "@/src/stores/tag-organizer-store";
 
 export default function FileOrganizer() {
   const {
@@ -24,7 +24,7 @@ export default function FileOrganizer() {
     setLoading,
     availableTagList,
     setAvailableTagList,
-  } = useTagsOrganizerStore();
+  } = useTagOrganizerStore();
 
   const [selectedSeriesTag, setSelectedSeriesTag] = useState<string>("");
   const [selectedCharacterTag, setSelectedCharacterTag] = useState<string>("");

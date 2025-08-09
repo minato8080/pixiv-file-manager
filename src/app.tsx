@@ -1,8 +1,8 @@
 import { FolderSearch, FolderSymlink, Tags } from "lucide-react";
 
 import FileOrganizer from "./feat/file-organizer/file-organizer";
-import TagsFetcher from "./feat/tags-fetcher/tags-fetcher";
-import TagsSearcher from "./feat/tags-searcher/tags-searcher";
+import TagFetcher from "./feat/tag-fetcher/tag-fetcher";
+import TagSearcher from "./feat/tag-searcher/tag-searcher";
 
 import {
   TabbedInterface,
@@ -14,12 +14,12 @@ export function App() {
     {
       label: "Search",
       icon: <FolderSearch className="h-4 w-4" />,
-      content: <TagsSearcher />,
+      content: <TagSearcher />,
     },
     {
       label: "Get Tags",
       icon: <Tags className="h-4 w-4" />,
-      content: <TagsFetcher />,
+      content: <TagFetcher />,
     },
     {
       label: "Collect",

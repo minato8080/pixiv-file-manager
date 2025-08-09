@@ -8,9 +8,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useTagsSearcher } from "@/src/hooks/use-tags-searcher";
+import { useTagSearcher } from "@/src/hooks/use-tag-searcher";
 import { useDialogDeleteStore } from "@/src/stores/dialog-delete-store";
-import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
+import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 
 export const DialogDeleteFiles = () => {
   const {
@@ -22,9 +22,9 @@ export const DialogDeleteFiles = () => {
     setDeleteFilesDialogSubmitting,
   } = useDialogDeleteStore();
   const { selectedFiles, searchResults, setSearchResults, setSelectedFiles } =
-    useTagsSearcherStore();
+    useTagSearcherStore();
 
-  const { fetchTags, fetchCharacters, fetchAuthors } = useTagsSearcher();
+  const { fetchTags, fetchCharacters, fetchAuthors } = useTagSearcher();
 
   const handleDelete = async () => {
     setDeleteFilesDialogSubmitting(true);

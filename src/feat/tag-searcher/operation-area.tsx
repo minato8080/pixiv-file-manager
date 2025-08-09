@@ -13,7 +13,7 @@ import { useDialogEditStore } from "@/stores/dialog-edit-store";
 import { useDialogLabelStore } from "@/stores/dialog-label-store";
 import { useDialogMoveStore } from "@/stores/dialog-move-store";
 import { useDropdownStore } from "@/stores/dropdown-store";
-import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
+import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 
 export const OperationArea = () => {
   const {
@@ -22,7 +22,7 @@ export const OperationArea = () => {
     setSelectedFiles,
     operationMode,
     isDeleting,
-  } = useTagsSearcherStore();
+  } = useTagSearcherStore();
 
   // Select all items
   const selectAllItems = () => {

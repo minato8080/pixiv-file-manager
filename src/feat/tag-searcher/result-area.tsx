@@ -6,7 +6,7 @@ import { SearchResult } from "@/bindings/SearchResult";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { VIEW_MODES } from "@/src/constants";
-import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
+import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 
 export const TagsSearcherResultArea = () => {
   const [innerSearchResults, setInnerSearchResults] = useState<SearchResult[]>(
@@ -22,7 +22,7 @@ export const TagsSearcherResultArea = () => {
     operationMode,
     currentViewMode,
     setSelectedImage,
-  } = useTagsSearcherStore();
+  } = useTagSearcherStore();
 
   useEffect(() => {
     if (searchResults.length === 0) return;

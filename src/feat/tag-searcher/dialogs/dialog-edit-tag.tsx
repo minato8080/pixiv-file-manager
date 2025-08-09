@@ -1,8 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useState, useRef, useEffect } from "react";
 
-import { AddRemoveModeUI } from "./dialog-edit-tags-add-remove-ui";
-import { OverwriteModeUI } from "./dialog-edit-tags-overwrite-ui";
+import { AddRemoveModeUI } from "./dialog-edit-tag-add-remove-ui";
+import { OverwriteModeUI } from "./dialog-edit-tag-overwrite-ui";
 
 import { AssociateInfo } from "@/bindings/AssociateInfo";
 import { EditTagReq } from "@/bindings/EditTagReq";
@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { useTagsSearcher } from "@/src/hooks/use-tags-searcher";
+import { useTagSearcher } from "@/src/hooks/use-tag-searcher";
 import { useDialogEditStore } from "@/stores/dialog-edit-store";
 import { useDropdownStore } from "@/stores/dropdown-store";
 
@@ -52,7 +52,7 @@ type AddRemoveModeHandle = {
   getForm: () => EditTagReq;
 };
 
-export const DialogEditTags = () => {
+export const DialogEditTag = () => {
   const {
     isEditTagsDialogOpen,
     editTagsDialogSelectedFiles,
@@ -75,7 +75,7 @@ export const DialogEditTags = () => {
   const overwriteModeUIRef = useRef<OverwriteModeHandle>(null);
   const addRemoveHandleRef = useRef<AddRemoveModeHandle>(null);
 
-  const { fetchTags, handleSearch } = useTagsSearcher();
+  const { fetchTags, handleSearch } = useTagSearcher();
 
   const confirmTags = async (param: EditTagsSubmitType) => {
     await invoke("edit_tags", param);
@@ -253,4 +253,4 @@ export const DialogEditTags = () => {
     </Dialog>
   );
 };
-DialogEditTags.displayName = "DialogEditTags";
+DialogEditTag.displayName = "DialogEditTags";

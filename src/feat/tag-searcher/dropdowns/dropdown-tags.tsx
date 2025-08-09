@@ -3,10 +3,10 @@ import { Filter } from "lucide-react";
 import { TagInfo } from "@/bindings/TagInfo";
 import { DropdownButton } from "@/src/components/dropdown-button";
 import { useDropdownStore } from "@/stores/dropdown-store";
-import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
+import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 
 export const DropdownTags = () => {
-  const { selectedTags, setSelectedTags } = useTagsSearcherStore();
+  const { selectedTags, setSelectedTags } = useTagSearcherStore();
   const { tagDropdownItems } = useDropdownStore();
 
   const applyTag = (items: TagInfo[]) => {

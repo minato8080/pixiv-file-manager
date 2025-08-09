@@ -5,10 +5,10 @@ import { CharacterInfo } from "@/bindings/CharacterInfo";
 import { SearchHistory } from "@/bindings/SearchHistory";
 import { SearchResult } from "@/bindings/SearchResult";
 import { TagInfo } from "@/bindings/TagInfo";
+import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 import { useDropdownStore } from "@/stores/dropdown-store";
-import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
 
-export const useTagsSearcher = () => {
+export const useTagSearcher = () => {
   const {
     searchCondition,
     setSearchResults,
@@ -16,7 +16,7 @@ export const useTagsSearcher = () => {
     selectedTags,
     selectedCharacter,
     selectedAuthor,
-  } = useTagsSearcherStore();
+  } = useTagSearcherStore();
   const {
     setUniqueTagList,
     setTagDropdownItems,

@@ -1,9 +1,9 @@
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
+import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 
 export const SearchConditionSwitch = () => {
-  const { searchCondition, setSearchCondition } = useTagsSearcherStore();
+  const { searchCondition, setSearchCondition } = useTagSearcherStore();
 
   return (
     <div className="flex items-center space-x-2 px-3 py-1.5 bg-white dark:bg-gray-800 rounded-md border shadow-sm w-[100px] justify-center">

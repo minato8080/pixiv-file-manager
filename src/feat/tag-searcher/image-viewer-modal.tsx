@@ -4,14 +4,14 @@ import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { SimpleModal } from "@/src/components/simple-modal";
 import { useDialogDeleteStore } from "@/stores/dialog-delete-store";
-import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
+import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 
 export function ImageViewerModal() {
   const { searchResults, selectedImage, setSelectedImage } =
-    useTagsSearcherStore();
+    useTagSearcherStore();
   const [currentIndex, setCurrentIndex] = useState<number>(0);
 
-  const { setSelectedFiles } = useTagsSearcherStore();
+  const { setSelectedFiles } = useTagSearcherStore();
   const { openDeleteFilesDialog } = useDialogDeleteStore();
 
   // Find the index of the selected item

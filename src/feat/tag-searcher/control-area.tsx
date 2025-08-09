@@ -8,8 +8,8 @@ import { DropdownViewMode } from "./dropdowns/dropdown-view-mode";
 import { SearchConditionSwitch } from "./search-condition-switch";
 
 import { Button } from "@/components/ui/button";
-import { useTagsSearcher } from "@/src/hooks/use-tags-searcher";
-import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
+import { useTagSearcher } from "@/src/hooks/use-tag-searcher";
+import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 
 export const ControlArea = () => {
   const {
@@ -22,8 +22,8 @@ export const ControlArea = () => {
     setSelectedCharacter,
     selectedAuthor,
     setSelectedAuthor,
-  } = useTagsSearcherStore();
-  const { handleSearch } = useTagsSearcher();
+  } = useTagSearcherStore();
+  const { handleSearch } = useTagSearcher();
   // Clear all search conditions
   const clearSearchConditions = () => {
     setSelectedTags([]);

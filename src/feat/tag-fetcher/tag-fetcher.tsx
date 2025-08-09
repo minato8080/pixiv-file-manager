@@ -21,7 +21,7 @@ const TAG_PROGRESS_INIT = {
   remaining_time: "00:00:00",
 } as const;
 
-export default function TagsFetcher() {
+export default function TagFetcher() {
   const [selectedFolders, setSelectedFolders] = useState<string[]>([]);
   const [fileCounts, setFileCounts] = useState<FileCounts>({
     folders: [],

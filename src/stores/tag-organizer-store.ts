@@ -3,7 +3,7 @@ import { create } from "zustand";
 import { CollectSummary } from "@/bindings/CollectSummary";
 import { TagInfo } from "@/bindings/TagInfo";
 
-type TagsOrganizerStore = {
+type TagOrganizerStore = {
   loading: boolean;
   setLoading: (bool: boolean) => void;
   collectSummary: CollectSummary[];
@@ -12,7 +12,7 @@ type TagsOrganizerStore = {
   setAvailableTagList: (list: TagInfo[]) => void;
 };
 
-export const useTagsOrganizerStore = create<TagsOrganizerStore>((set) => ({
+export const useTagOrganizerStore = create<TagOrganizerStore>((set) => ({
   loading: false,
   setLoading: (bool) => set({ loading: bool }),
   collectSummary: [],

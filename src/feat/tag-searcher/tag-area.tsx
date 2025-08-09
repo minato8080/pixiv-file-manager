@@ -3,9 +3,9 @@ import { X, Users, User } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useTagsSearcherStore } from "@/src/stores/tags-searcher-store";
+import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 
-export const TagsArea = () => {
+export const TagArea = () => {
   const {
     selectedTags,
     setSelectedTags,
@@ -13,7 +13,7 @@ export const TagsArea = () => {
     setSelectedCharacter,
     selectedAuthor,
     setSelectedAuthor,
-  } = useTagsSearcherStore();
+  } = useTagSearcherStore();
 
   // Remove tag from selected tags
   const removeItem = (tag: string) => {

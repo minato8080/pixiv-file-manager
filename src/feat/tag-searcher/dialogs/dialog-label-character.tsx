@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { InputDropdown } from "@/src/components/input-dropdown";
-import { useTagsSearcher } from "@/src/hooks/use-tags-searcher";
+import { useTagSearcher } from "@/src/hooks/use-tag-searcher";
 import { useDialogLabelStore } from "@/stores/dialog-label-store";
 
 type DialogLabelCharaSubmitParams = {
@@ -58,7 +58,7 @@ export const DialogLabelCharacter = () => {
     null
   );
 
-  const { fetchCharacters, handleSearch } = useTagsSearcher();
+  const { fetchCharacters, handleSearch } = useTagSearcher();
 
   // 最も頻度の高いパスを見つける関数
   const findMostCommonPath = (files: SearchResult[]): string => {

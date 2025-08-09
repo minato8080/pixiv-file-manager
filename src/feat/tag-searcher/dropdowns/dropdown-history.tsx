@@ -5,7 +5,7 @@ import { SearchHistory } from "@/bindings/SearchHistory";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useDropdownStore } from "@/stores/dropdown-store";
-import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
+import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 
 export const DropdownHistory = () => {
   const { history } = useDropdownStore();
@@ -17,7 +17,7 @@ export const DropdownHistory = () => {
     setSelectedTags,
     setSelectedCharacter,
     setSelectedAuthor,
-  } = useTagsSearcherStore();
+  } = useTagSearcherStore();
 
   // Handle click outside for dropdowns
   useEffect(() => {

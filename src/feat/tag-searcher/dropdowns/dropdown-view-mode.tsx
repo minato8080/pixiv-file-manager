@@ -2,7 +2,7 @@ import { ChevronDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { VIEW_MODES, ViewModeKey } from "@/src/constants";
-import { useTagsSearcherStore } from "@/src/stores/tags-searcher-store";
+import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 
 export const DropdownViewMode = () => {
   const {
@@ -10,7 +10,7 @@ export const DropdownViewMode = () => {
     setCurrentViewMode,
     isViewModeDropdownOpen,
     setIsViewModeDropdownOpen,
-  } = useTagsSearcherStore();
+  } = useTagSearcherStore();
   return (
     <div className="relative">
       <Button

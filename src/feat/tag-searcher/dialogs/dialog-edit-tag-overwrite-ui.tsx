@@ -7,7 +7,7 @@ import React, {
   useEffect,
 } from "react";
 
-import { TagState } from "./dialog-edit-tags";
+import { TagState } from "./dialog-edit-tag";
 
 import { EditTag } from "@/bindings/EditTag";
 import { EditTagReq } from "@/bindings/EditTagReq";

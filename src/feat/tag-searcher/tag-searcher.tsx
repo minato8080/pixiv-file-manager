@@ -3,24 +3,24 @@ import { useEffect } from "react";
 
 import { ControlArea } from "./control-area";
 import { DialogDeleteFiles } from "./dialogs/dialog-delete-files";
-import { DialogEditTags } from "./dialogs/dialog-edit-tags";
+import { DialogEditTag } from "./dialogs/dialog-edit-tag";
 import { DialogLabelCharacter } from "./dialogs/dialog-label-character";
 import { DialogMoveFiles } from "./dialogs/dialog-move-files";
 import { ImageViewerModal } from "./image-viewer-modal";
 import { OperationArea } from "./operation-area";
 import { TagsSearcherResultArea } from "./result-area";
-import { TagsArea } from "./tags-area";
+import { TagArea } from "./tag-area";
 
 import { VIEW_MODES, ViewModeKey } from "@/src/constants";
-import { useTagsSearcher } from "@/src/hooks/use-tags-searcher";
-import { useTagsSearcherStore } from "@/stores/tags-searcher-store";
+import { useTagSearcher } from "@/src/hooks/use-tag-searcher";
+import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 
-export default function TagsSearcher() {
+export default function TagSearcher() {
   const { searchResults, currentViewMode, setCurrentViewMode } =
-    useTagsSearcherStore();
+    useTagSearcherStore();
 
   const { fetchTags, fetchCharacters, fetchAuthors, fetchSearchHistory } =
-    useTagsSearcher();
+    useTagSearcher();
 
   // Call handlers to fetch data using useEffect
   useEffect(() => {
@@ -93,7 +93,7 @@ export default function TagsSearcher() {
       <ControlArea />
 
       {/* Selected Tags */}
-      <TagsArea />
+      <TagArea />
 
       {/* Operation Controls */}
       <OperationArea />
@@ -118,7 +118,7 @@ export default function TagsSearcher() {
       <DialogLabelCharacter />
 
       {/* Edit Tags Dialog */}
-      <DialogEditTags />
+      <DialogEditTag />
 
       {/* Image Viewer */}
       <ImageViewerModal />

@@ -16,7 +16,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { useTagsSearcher } from "@/src/hooks/use-tags-searcher";
+import { useTagSearcher } from "@/src/hooks/use-tag-searcher";
 import { useDialogMoveStore } from "@/stores/dialog-move-store";
 
 export const DialogMoveFiles = () => {
@@ -39,7 +39,7 @@ export const DialogMoveFiles = () => {
     null
   );
 
-  const { handleSearch } = useTagsSearcher();
+  const { handleSearch } = useTagSearcher();
 
   // 紐づけ更新の情報を取得
   const fetchAssociations = async (searchResult: SearchResult[]) => {

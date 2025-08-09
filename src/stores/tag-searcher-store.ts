@@ -6,7 +6,7 @@ import { AuthorDropdown, CharacterDropdown } from "../types/app-types";
 import { SearchResult } from "@/bindings/SearchResult";
 import { TagInfo } from "@/bindings/TagInfo";
 
-type TagsSearcherStore = {
+type TagSearcherStore = {
   searchCondition: "AND" | "OR";
   searchResults: SearchResult[];
   selectedFiles: SearchResult[];
@@ -31,7 +31,7 @@ type TagsSearcherStore = {
   setIsViewModeDropdownOpen: (open: boolean) => void;
 };
 
-export const useTagsSearcherStore = create<TagsSearcherStore>((set) => ({
+export const useTagSearcherStore = create<TagSearcherStore>((set) => ({
   searchCondition: "AND",
   searchResults: [],
   selectedFiles: [],

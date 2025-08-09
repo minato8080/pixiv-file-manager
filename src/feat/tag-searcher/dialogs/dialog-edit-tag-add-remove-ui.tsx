@@ -177,7 +177,6 @@ export const AddRemoveModeUI = forwardRef<
           <div className="flex space-x-1">
             <InputDropdown
               items={availableTags}
-              valueKey={(item) => item}
               placeholder="Add new tag"
               value={tagsToAdd}
               onChange={setTagsToAdd}

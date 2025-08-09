@@ -220,7 +220,6 @@ export const OverwriteModeUI = forwardRef<
         <div className="flex items-center gap-2">
           <InputDropdown
             items={availableTags}
-            valueKey={(item) => item}
             placeholder="Add new tag"
             value={inputValue}
             onChange={setInputvalue}

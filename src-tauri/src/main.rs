@@ -18,6 +18,10 @@ use commands::collect::{
     load_assignments, perform_collect, set_root,
 };
 use commands::fetch::{capture_illust_detail, count_files_in_dir, recapture_illust_detail};
+use commands::manage::{
+    add_tag_fix_rule, delete_tag_fix_rule, execute_tag_fixes, get_tag_fix_rules,
+    update_tag_fix_rule,
+};
 use commands::search::{
     get_search_history, get_unique_authors, get_unique_characters, get_unique_tags,
     search_by_criteria,
@@ -77,6 +81,12 @@ fn main() {
             capture_illust_detail,
             count_files_in_dir,
             recapture_illust_detail,
+            // manage
+            get_tag_fix_rules,
+            add_tag_fix_rule,
+            update_tag_fix_rule,
+            delete_tag_fix_rule,
+            execute_tag_fixes,
             // serch
             get_search_history,
             get_unique_authors,

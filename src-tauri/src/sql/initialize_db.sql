@@ -100,6 +100,18 @@ CREATE TABLE IF NOT EXISTS SEARCH_HISTORY (
 );
 
 
+CREATE TABLE IF NOT EXISTS TAG_FIX_RULES (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    src_tag TEXT NOT NULL,
+    dst_tag TEXT,
+    action_type INTEGER NOT NULL,
+    created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_tag_fix_rules_src_tag ON TAG_FIX_RULES(src_tag);
+CREATE INDEX IF NOT EXISTS idx_tag_fix_rules_dst_tag ON TAG_FIX_RULES(dst_tag);
+
+
+
 CREATE TABLE IF NOT EXISTS DB_INFO (
     root TEXT
 );

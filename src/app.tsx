@@ -1,7 +1,8 @@
-import { Combine, FolderSearch, Globe } from "lucide-react";
+import { Combine, FolderSearch, Globe, NotebookPen } from "lucide-react";
 
 import FileOrganizer from "./feat/file-organizer/file-organizer";
 import TagFetcher from "./feat/tag-fetcher/tag-fetcher";
+import TagManager from "./feat/tag-manager/tag-manager";
 import TagSearcher from "./feat/tag-searcher/tag-searcher";
 
 import {
@@ -25,6 +26,11 @@ export function App() {
       label: "Collect",
       icon: <Combine className="h-4 w-4" />,
       content: <FileOrganizer />,
+    },
+    {
+      label: "Manage",
+      icon: <NotebookPen className="h-4 w-4" />,
+      content: <TagManager />,
     },
   ];
 

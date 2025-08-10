@@ -81,5 +81,14 @@
   - `timestamp`: TEXT NOT NULL - タイムスタンプ
   - `result_count`: INTEGER NOT NULL - 結果数
 
+- **TAG_FIX_RULES**
+
+  - `id`: INTEGER AUTOINCREMENT - ルールの一意 ID
+  - `src_tag`: TEXT NOT NULL - 修正元タグ
+  - `dst_tag`: TEXT - 修正先タグ（削除の場合は NULL）
+  - `action_type`: INTEGER NOT NULL
+  - `created_at`: INTEGER NOT NULL - 作成日時（UNIX time）
+  - **PRIMARY KEY**: (`id`)
+
 - **DB_INFO**
   - `root`: TEXT - ルートパス

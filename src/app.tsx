@@ -1,4 +1,4 @@
-import { FolderSearch, FolderSymlink, Tags } from "lucide-react";
+import { Combine, FolderSearch, Globe } from "lucide-react";
 
 import FileOrganizer from "./feat/file-organizer/file-organizer";
 import TagFetcher from "./feat/tag-fetcher/tag-fetcher";
@@ -17,13 +17,13 @@ export function App() {
       content: <TagSearcher />,
     },
     {
-      label: "Get Tags",
-      icon: <Tags className="h-4 w-4" />,
+      label: "Fetch",
+      icon: <Globe className="h-4 w-4" />,
       content: <TagFetcher />,
     },
     {
       label: "Collect",
-      icon: <FolderSymlink className="h-4 w-4" />,
+      icon: <Combine className="h-4 w-4" />,
       content: <FileOrganizer />,
     },
   ];

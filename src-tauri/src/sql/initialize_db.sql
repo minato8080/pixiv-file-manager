@@ -65,10 +65,8 @@ CREATE TABLE IF NOT EXISTS COLLECT_UI_WORK (
     collect_type INTEGER NOT NULL,
     PRIMARY KEY (series, character)
 );
-CREATE INDEX IF NOT EXISTS idx_collect_ui_work_character
-ON COLLECT_UI_WORK(character);
-CREATE INDEX IF NOT EXISTS idx_collect_ui_work_series
-ON COLLECT_UI_WORK(series);
+CREATE INDEX IF NOT EXISTS idx_collect_ui_work_character ON COLLECT_UI_WORK(character);
+CREATE INDEX IF NOT EXISTS idx_collect_ui_work_series ON COLLECT_UI_WORK(series);
 
 
 CREATE TABLE IF NOT EXISTS COLLECT_FILTER_WORK (
@@ -81,8 +79,7 @@ CREATE TABLE IF NOT EXISTS COLLECT_FILTER_WORK (
     collect_type INTEGER NOT NULL,
     PRIMARY KEY (illust_id, control_num, collect_type)
 );
-CREATE INDEX IF NOT EXISTS idx_cfw_ic_type
-ON COLLECT_FILTER_WORK (illust_id, control_num, collect_type);
+CREATE INDEX IF NOT EXISTS idx_cfw_ic_type ON COLLECT_FILTER_WORK (illust_id, control_num, collect_type);
 
 
 CREATE TABLE IF NOT EXISTS AUTHOR_INFO (

@@ -44,12 +44,10 @@ fn main() {
             let app_pixiv_api = create_api().ok();
 
             {
-                // Initialize database
-                let tx = conn.transaction().map_err(|e| {
+                initialize_db(&mut conn).unwrap_or_else(|e| {
                     eprintln!("{}", e);
-                    e.to_string()
-                })?;
-                initialize_db(&tx).unwrap();
+                    std::process::exit(1);
+                });
             }
 
             app.manage(AppState {
@@ -90,14 +88,17 @@ fn main() {
         .expect("error while running tauri application");
 }
 
-fn initialize_db(conn: &Connection) -> Result<()> {
+fn initialize_db(conn: &mut Connection) -> Result<()> {
+    // Initialize database
+    let tx = conn.transaction()?;
     let sql = include_str!("./sql/initialize_db.sql");
-    conn.execute_batch(sql)?;
+    tx.execute_batch(sql)?;
 
-    conn.execute(
+    tx.execute(
         "INSERT OR IGNORE INTO AUTHOR_INFO (author_id, author_name, author_account) VALUES (?1, ?2, ?3)",
         params![0, "Missing", "Missing"],
     )?;
 
+    tx.commit()?;
     Ok(())
 }

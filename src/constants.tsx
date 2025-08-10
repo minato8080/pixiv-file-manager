@@ -37,3 +37,10 @@ export const VIEW_MODES: Record<ViewModeKey, ViewMode> = {
     size: "h-10 w-10",
   },
 };
+
+export const VIEW_MODE_KEYS: ViewModeKey[] = [
+  "large",
+  "medium",
+  "small",
+  "details",
+] as const;

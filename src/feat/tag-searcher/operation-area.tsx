@@ -8,12 +8,12 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 import { useDialogDeleteStore } from "@/stores/dialog-delete-store";
 import { useDialogEditStore } from "@/stores/dialog-edit-store";
 import { useDialogLabelStore } from "@/stores/dialog-label-store";
 import { useDialogMoveStore } from "@/stores/dialog-move-store";
 import { useDropdownStore } from "@/stores/dropdown-store";
-import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 
 export const OperationArea = () => {
   const {

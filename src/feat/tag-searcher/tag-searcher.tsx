@@ -11,7 +11,7 @@ import { OperationArea } from "./operation-area";
 import { TagsSearcherResultArea } from "./result-area";
 import { TagArea } from "./tag-area";
 
-import { VIEW_MODES, ViewModeKey } from "@/src/constants";
+import { VIEW_MODE_KEYS } from "@/src/constants";
 import { useTagSearcher } from "@/src/hooks/use-tag-searcher";
 import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 
@@ -41,39 +41,44 @@ export default function TagSearcher() {
 
   // Add keyboard and mouse wheel event listeners for view mode switching
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl + Plus/Minus to change view mode
-      if (e.ctrlKey) {
-        const viewModeKeys = Object.keys(VIEW_MODES) as ViewModeKey[];
-        const currentIndex = viewModeKeys.indexOf(currentViewMode);
-
-        if (e.key === "+" || e.key === "=") {
-          e.preventDefault();
-          const nextIndex = Math.max(0, currentIndex - 1);
-          setCurrentViewMode(viewModeKeys[nextIndex]);
-        } else if (e.key === "-" || e.key === "_") {
-          e.preventDefault();
-          const nextIndex = Math.min(viewModeKeys.length - 1, currentIndex + 1);
-          setCurrentViewMode(viewModeKeys[nextIndex]);
-        }
+    const changeViewMode = (step: number) => {
+      const currentIndex = VIEW_MODE_KEYS.indexOf(currentViewMode);
+      if (currentIndex === -1) return;
+      const nextIndex = Math.min(
+        VIEW_MODE_KEYS.length - 1,
+        Math.max(0, currentIndex + step)
+      );
+      if (nextIndex !== currentIndex) {
+        setCurrentViewMode(VIEW_MODE_KEYS[nextIndex]);
       }
     };
 
-    const handleWheel = (e: WheelEvent) => {
-      // Ctrl + Mouse wheel to change view mode
-      if (e.ctrlKey) {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!e.ctrlKey) return;
+      if (e.key === "+" || e.key === "=") {
         e.preventDefault();
-        const viewModeKeys = Object.keys(VIEW_MODES) as ViewModeKey[];
-        const currentIndex = viewModeKeys.indexOf(currentViewMode);
-        if (e.deltaY < 0) {
-          // Scroll up - larger icons
-          const nextIndex = Math.max(0, currentIndex - 1);
-          setCurrentViewMode(viewModeKeys[nextIndex]);
-        } else {
-          // Scroll down - smaller icons
-          const nextIndex = Math.min(viewModeKeys.length - 1, currentIndex + 1);
-          setCurrentViewMode(viewModeKeys[nextIndex]);
-        }
+        changeViewMode(-1); // 大きく
+      } else if (e.key === "-" || e.key === "_") {
+        e.preventDefault();
+        changeViewMode(1); // 小さく
+      }
+    };
+
+    let wheelAccum = 0;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+
+      wheelAccum += e.deltaY;
+
+      const threshold = 100; // 感度しきい値
+      if (wheelAccum >= threshold) {
+        changeViewMode(1);
+        wheelAccum = 0;
+      } else if (wheelAccum <= -threshold) {
+        changeViewMode(-1);
+        wheelAccum = 0;
       }
     };
 
@@ -84,8 +89,7 @@ export default function TagSearcher() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("wheel", handleWheel);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [currentViewMode, setCurrentViewMode]);
 
   return (
     <div className="flex flex-col h-full">

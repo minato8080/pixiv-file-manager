@@ -3,8 +3,8 @@ import { useState, useEffect, useCallback } from "react";
 
 import { Button } from "@/components/ui/button";
 import { SimpleModal } from "@/src/components/simple-modal";
-import { useDialogDeleteStore } from "@/stores/dialog-delete-store";
 import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
+import { useDialogDeleteStore } from "@/stores/dialog-delete-store";
 
 export function ImageViewerModal() {
   const { searchResults, selectedImage, setSelectedImage } =

@@ -25,6 +25,7 @@ interface InputDropdownProps<T> {
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement> | undefined;
   renderItem?: (item: T, isSelected: boolean) => React.ReactNode;
   noResultsText?: string;
+  disabled?: boolean;
 }
 
 export function InputDropdown<T>({
@@ -43,6 +44,7 @@ export function InputDropdown<T>({
   onFocus,
   renderItem,
   noResultsText = "結果がありません",
+  disabled,
 }: InputDropdownProps<T>) {
   // 制御/非制御モードの処理
   const isControlled = controlledValue !== undefined;
@@ -178,7 +180,7 @@ export function InputDropdown<T>({
         }
       >
         {filtered.length > 0 ? (
-          <ScrollArea className="max-h-60">
+          <ScrollArea>
             {filtered.map((item, index) => {
               const label =
                 inferObjKey(item, labelKey, (obj, key) =>
@@ -187,17 +189,17 @@ export function InputDropdown<T>({
               return (
                 <div
                   key={index}
-                  className="px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                  className="pl-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
                   onClick={() => handleSelect(item)}
                 >
                   {renderItem
                     ? renderItem(item, selected === item)
                     : inferObjKey(item, "count", (obj, key) => (
-                        <div className="flex justify-between items-center gap-2 text-xs whitespace-nowrap w-40">
-                          <span className="truncate">{label}</span>
+                        <div className="flex justify-between items-start gap-2 text-xs">
+                          <span className="flex-1">{label}</span>
                           <Badge
                             className={
-                              "h-4 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                              "h-4 flex-shrink-0 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
                             }
                           >
                             {getNumber(obj, key)}
@@ -219,11 +221,7 @@ export function InputDropdown<T>({
 
   return (
     <div>
-      {label && (
-        <Label htmlFor="input-dropdown" className="mb-2 block">
-          {label}
-        </Label>
-      )}
+      {label && <Label className="mb-2 block">{label}</Label>}
       <div
         ref={containerRef}
         className="relative"
@@ -231,7 +229,6 @@ export function InputDropdown<T>({
         onBlur={handleBlur}
       >
         <Input
-          id="input-dropdown"
           ref={inputRef}
           type="text"
           placeholder={placeholder}
@@ -244,6 +241,7 @@ export function InputDropdown<T>({
           onCompositionEnd={handleCompositionEnd}
           className={`w-full ${inputClassName}`}
           autoComplete="off"
+          disabled={disabled}
         />
         {renderDropdown()}
       </div>

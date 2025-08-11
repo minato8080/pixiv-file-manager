@@ -5,6 +5,7 @@ use ts_rs::TS;
 #[ts(export)]
 #[serde(rename_all = "snake_case")]
 pub enum TagFixRuleAction {
+    Add,
     Replace,
     Delete,
 }
@@ -22,6 +23,7 @@ pub struct TagFixRule {
 #[derive(Debug, Serialize, Deserialize, Clone, TS)]
 #[ts(export)]
 pub struct ExecuteResult {
+    pub added: i32,
     pub replaced: i32,
     pub deleted: i32,
     pub total_updated: i32,

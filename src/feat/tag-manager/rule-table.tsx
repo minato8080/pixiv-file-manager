@@ -12,20 +12,21 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { useTagRulesStore } from "@/src/stores/tag-rules-store";
 
 type Props = {
-  loading?: boolean;
   rules: TagFixRule[];
   onEdit: (rule: TagFixRule) => void;
   onDelete: (id: number) => Promise<void>;
 };
 
-const actionLabel = {
-  replace: "Replace",
-  delete: "Delete",
-} as const;
+function camelToPascal(str: string) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
 
-export default function RuleTable({ loading, rules, onEdit, onDelete }: Props) {
+export default function RuleTable({ rules, onEdit, onDelete }: Props) {
+  const { loading } = useTagRulesStore();
+
   return (
     <Table>
       <TableHeader>
@@ -67,12 +68,14 @@ export default function RuleTable({ loading, rules, onEdit, onDelete }: Props) {
                   className={cn(
                     "border-0",
                     rule.action_type === "replace" &&
-                      "bg-amber-100 text-amber-900 hover:bg-amber-100",
+                      "bg-amber-100 text-amber-400 hover:bg-amber-100",
                     rule.action_type === "delete" &&
-                      "bg-rose-100 text-rose-900 hover:bg-rose-100"
+                      "bg-rose-100 text-rose-900 hover:bg-rose-100",
+                    rule.action_type === "add" &&
+                      "bg-rose-100 text-blue-900 hover:bg-blue-100"
                   )}
                 >
-                  {actionLabel[rule.action_type]}
+                  {camelToPascal(rule.action_type)}
                 </Badge>
               </TableCell>
               <TableCell>{rule.created_at}</TableCell>

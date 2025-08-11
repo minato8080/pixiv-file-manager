@@ -14,19 +14,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { InputDropdown } from "@/src/components/input-dropdown-portal";
+import { useDropdownStore } from "@/src/stores/dropdown-store";
 import { useTagRulesStore } from "@/stores/tag-rules-store";
 
 export default function TagManager() {
-  const {
-    rules,
-    loading,
-    loadRules,
-    addRule,
-    updateRule,
-    deleteRule,
-    executeAll,
-  } = useTagRulesStore();
+  const { rules, loadRules, addRule, updateRule, deleteRule, executeAll } =
+    useTagRulesStore();
+  const { uniqueTagList } = useDropdownStore();
 
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
@@ -56,11 +51,13 @@ export default function TagManager() {
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <div className="relative w-full sm:w-64">
             <Search className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              className="pl-8"
-              placeholder="Search tags..."
+            <InputDropdown
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              valueKey="tag"
+              onChange={(v) => setSearch(v)}
+              items={uniqueTagList}
+              placeholder="Select tags..."
+              inputClassName="pl-8 border-blue-200 dark:border-blue-800 h-8"
             />
           </div>
 
@@ -100,7 +97,6 @@ export default function TagManager() {
       {/* Rules table */}
       <div className="border rounded mt-2">
         <RuleTable
-          loading={loading}
           rules={filtered}
           onEdit={(r) => {
             setEditing(r);
@@ -122,17 +118,15 @@ export default function TagManager() {
             <DialogTitle>Edit rule</DialogTitle>
           </DialogHeader>
           {editing && (
-            <>
-              <RuleForm
-                initial={editing}
-                submitLabel="Save"
-                onSubmit={async (payload) => {
-                  await updateRule({ ...editing, ...payload });
-                  setEditOpen(false);
-                  setEditing(null);
-                }}
-              />
-            </>
+            <RuleForm
+              initial={editing}
+              submitLabel="Save"
+              onSubmit={async (payload) => {
+                await updateRule({ ...editing, ...payload });
+                setEditOpen(false);
+                setEditing(null);
+              }}
+            />
           )}
         </DialogContent>
       </Dialog>

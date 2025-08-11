@@ -86,7 +86,7 @@
   - `id`: INTEGER AUTOINCREMENT - ルールの一意 ID
   - `src_tag`: TEXT NOT NULL - 修正元タグ
   - `dst_tag`: TEXT - 修正先タグ（削除の場合は NULL）
-  - `action_type`: INTEGER NOT NULL
+  - `action_type`: INTEGER NOT NULL - 0:Add, 1:Replace, 2:Delete
   - `created_at`: INTEGER NOT NULL - 作成日時（UNIX time）
   - **PRIMARY KEY**: (`id`)
 

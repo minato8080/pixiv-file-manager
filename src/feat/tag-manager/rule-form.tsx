@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { TagFixRule } from "@/bindings/TagFixRule";
 import { TagFixRuleAction } from "@/bindings/TagFixRuleAction";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -13,6 +12,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { InputDropdown } from "@/src/components/input-dropdown";
+import { useDropdownStore } from "@/src/stores/dropdown-store";
 
 type Props = {
   initial?: Partial<TagFixRule>;
@@ -29,6 +30,8 @@ export default function RuleForm({
   onSubmit,
   submitLabel = "Save",
 }: Props) {
+  const { uniqueTagList } = useDropdownStore();
+
   const [src, setSrc] = useState(initial?.src_tag ?? "");
   const [dst, setDst] = useState(initial?.dst_tag ?? "");
   const [action, setAction] = useState<TagFixRuleAction>(
@@ -41,7 +44,7 @@ export default function RuleForm({
   useEffect(() => {
     if (disabledDst) setDst("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [disabledDst]);
+  }, [action]);
 
   function validate() {
     const errs: string[] = [];
@@ -64,13 +67,13 @@ export default function RuleForm({
     <div className="grid gap-4">
       <div className="grid gap-2">
         <Label htmlFor="src_tag">Source Tag</Label>
-        <Input
-          id="src_tag"
+        <InputDropdown
           value={src}
-          onChange={(e) => setSrc(e.target.value)}
+          valueKey="tag"
+          onChange={(v) => setSrc(v)}
+          items={uniqueTagList}
           placeholder="e.g., girl"
-          autoFocus
-          autoComplete="off"
+          inputClassName="border-blue-200 dark:border-blue-800 h-8"
         />
       </div>
 
@@ -86,6 +89,7 @@ export default function RuleForm({
           <SelectContent className="bg-white">
             <SelectItem value="replace">Replace</SelectItem>
             <SelectItem value="delete">Delete</SelectItem>
+            <SelectItem value="add">Add</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -94,13 +98,14 @@ export default function RuleForm({
         <Label htmlFor="dst_tag" className={cn(disabledDst && "opacity-50")}>
           Destination Tag
         </Label>
-        <Input
-          id="dst_tag"
+        <InputDropdown
           value={dst}
-          onChange={(e) => setDst(e.target.value)}
+          valueKey="tag"
+          onChange={(v) => setDst(v)}
+          items={uniqueTagList}
           placeholder="e.g., woman"
           disabled={disabledDst}
-          autoComplete="off"
+          inputClassName="border-blue-200 dark:border-blue-800 h-8"
         />
       </div>
 
@@ -108,7 +113,7 @@ export default function RuleForm({
         <Button
           className="bg-violet-600 hover:bg-violet-700 text-white"
           disabled={submitting}
-          onClick={
+          onClick={() =>
             void (async () => {
               const errs = validate();
               if (errs.length) {

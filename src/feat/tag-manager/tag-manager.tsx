@@ -1,3 +1,4 @@
+import { listen } from "@tauri-apps/api/event";
 import { Plus, Search, Play } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -15,13 +16,18 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { InputDropdown } from "@/src/components/input-dropdown-portal";
-import { useDropdownStore } from "@/src/stores/dropdown-store";
 import { useTagRulesStore } from "@/stores/tag-rules-store";
 
 export default function TagManager() {
-  const { rules, loadRules, addRule, updateRule, deleteRule, executeAll } =
-    useTagRulesStore();
-  const { uniqueTagList } = useDropdownStore();
+  const {
+    rules,
+    loadRules,
+    addRule,
+    updateRule,
+    deleteRule,
+    executeAll,
+    usingTagList,
+  } = useTagRulesStore();
 
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
@@ -31,6 +37,12 @@ export default function TagManager() {
 
   useEffect(() => {
     void loadRules();
+    const unlisten = listen<null>("update_db", () => {
+      void loadRules();
+    });
+    return () => {
+      void unlisten.then((f) => f());
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -55,7 +67,7 @@ export default function TagManager() {
               value={search}
               valueKey="tag"
               onChange={(v) => setSearch(v)}
-              items={uniqueTagList}
+              items={usingTagList}
               placeholder="Select tags..."
               inputClassName="pl-8 border-blue-200 dark:border-blue-800 h-8"
             />
@@ -95,7 +107,7 @@ export default function TagManager() {
       </div>
 
       {/* Rules table */}
-      <div className="border rounded mt-2">
+      <div className="border rounded mt-2 overflow-auto">
         <RuleTable
           rules={filtered}
           onEdit={(r) => {
@@ -113,7 +125,7 @@ export default function TagManager() {
         open={editOpen}
         onOpenChange={(o) => (setEditOpen(o), !o && setEditing(null))}
       >
-        <DialogContent>
+        <DialogContent className="bg-white">
           <DialogHeader>
             <DialogTitle>Edit rule</DialogTitle>
           </DialogHeader>

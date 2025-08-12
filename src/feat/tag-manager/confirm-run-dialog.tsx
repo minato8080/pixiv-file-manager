@@ -61,6 +61,10 @@ export default function ConfirmRunDialog({ open, onOpenChange, onRun }: Props) {
         {result ? (
           <div className="space-y-3 text-sm">
             <div className="flex justify-between">
+              <span>Add</span>
+              <span className="font-semibold">{result.added}</span>
+            </div>
+            <div className="flex justify-between">
               <span>Replace</span>
               <span className="font-semibold">{result.replaced}</span>
             </div>

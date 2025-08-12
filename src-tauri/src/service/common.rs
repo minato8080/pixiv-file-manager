@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use chrono::{DateTime, FixedOffset, Utc};
 use regex::Regex;
 use std::path::Path;
 use std::time::Duration;
@@ -12,6 +13,20 @@ pub fn format_duration(ms: u64) -> String {
     let seconds = duration.as_secs() % 60;
 
     format!("{:02}:{:02}:{:02}", hours, minutes, seconds)
+}
+
+pub fn format_unix_timestamp(ts: i64) -> String {
+    let datetime_opt = DateTime::<Utc>::from_timestamp(ts, 0);
+    match datetime_opt {
+        Some(datetime) => {
+            let jst: FixedOffset = FixedOffset::east_opt(9 * 3600).unwrap();
+            datetime
+                .with_timezone(&jst)
+                .format("%Y-%m-%d %H:%M:%S")
+                .to_string()
+        }
+        None => "Invalid timestamp".to_string(), // または "" や任意のデフォルト文字列
+    }
 }
 
 pub fn remove_invalid_chars(path: &str) -> String {

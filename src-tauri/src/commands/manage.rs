@@ -1,15 +1,42 @@
-use tauri::State;
+use rusqlite::params;
+use tauri::{Emitter, State};
 
-use crate::models::{
-    common::AppState,
-    manage::{ExecuteResult, TagFixRule, TagFixRuleAction},
+use crate::{
+    models::{
+        common::AppState,
+        manage::{ExecuteResult, TagFixRule, TagFixRuleAction},
+        search::TagInfo,
+    },
+    service::{
+        common::format_unix_timestamp,
+        manage::{apply_tag_fix_rules, validate_and_insert_tag_fix_rule},
+    },
 };
 
 #[tauri::command]
 pub fn get_tag_fix_rules(state: State<AppState>) -> Result<Vec<TagFixRule>, String> {
     let conn = state.db.lock().unwrap();
-    // TODO: DBからSELECTして返す
-    Ok(vec![]) // 仮
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, src_tag, dst_tag, action_type, created_at
+             FROM TAG_FIX_RULES
+             ORDER BY created_at DESC",
+        )
+        .map_err(|e| e.to_string())?;
+    let rules = stmt
+        .query_map([], |row| {
+            Ok(TagFixRule {
+                id: row.get(0)?,
+                src_tag: row.get(1)?,
+                dst_tag: row.get(2)?,
+                action_type: row.get::<_, i64>(3)?.try_into()?,
+                created_at: format_unix_timestamp(row.get(4)?),
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(rules)
 }
 
 #[tauri::command]
@@ -20,12 +47,9 @@ pub fn add_tag_fix_rule(
     state: State<AppState>,
 ) -> Result<(), String> {
     let conn = state.db.lock().unwrap();
-    // TODO: DBにINSERT
-    println!(
-        "Add rule: {:?} -> {:?} ({:?})",
-        src_tag, dst_tag, action_type
-    );
-    Ok(())
+
+    validate_and_insert_tag_fix_rule(&conn, &src_tag, dst_tag.as_deref(), action_type)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -37,31 +61,56 @@ pub fn update_tag_fix_rule(
     state: State<AppState>,
 ) -> Result<(), String> {
     let conn = state.db.lock().unwrap();
-    // TODO: DBをUPDATE
-    println!(
-        "Update rule id={} : {:?} -> {:?} ({:?})",
-        id, src_tag, dst_tag, action_type
-    );
+    conn.execute(
+        "UPDATE TAG_FIX_RULES
+         SET src_tag = ?1, dst_tag = ?2, action_type = ?3
+         WHERE id = ?4",
+        params![src_tag, dst_tag, action_type as i64, id],
+    )
+    .map_err(|e| e.to_string())?;
     Ok(())
 }
 
 #[tauri::command]
 pub fn delete_tag_fix_rule(id: i64, state: State<AppState>) -> Result<(), String> {
     let conn = state.db.lock().unwrap();
-    // TODO: DBをDELETE
-    println!("Delete rule id={}", id);
+    conn.execute("DELETE FROM TAG_FIX_RULES WHERE id = ?1", params![id])
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
 #[tauri::command]
-pub fn execute_tag_fixes(state: State<AppState>) -> Result<ExecuteResult, String> {
+pub fn execute_tag_fixes(
+    state: State<AppState>,
+    window: tauri::Window,
+) -> Result<ExecuteResult, String> {
+    let mut conn = state.db.lock().unwrap();
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    let result = apply_tag_fix_rules(&tx).map_err(|e| e.to_string())?;
+    tx.commit().map_err(|e| e.to_string())?;
+    // DB変更を通知
+    window.emit("update_db", ()).unwrap();
+
+    Ok(result)
+}
+
+#[tauri::command]
+pub fn get_using_fix_rule_tags(state: State<AppState>) -> Result<Vec<TagInfo>, String> {
     let conn = state.db.lock().unwrap();
-    // TODO: DBでルールを読み込みTAG_INFOを修正
-    let res = ExecuteResult {
-        replaced: 0,
-        deleted: 0,
-        added: 0,
-        total_updated: 0,
-    };
-    Ok(res)
+
+    let sql = include_str!("../sql/manage/get_using_fix_rule_tags.sql");
+    let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
+
+    let iter = stmt
+        .query_map([], |row| {
+            Ok(TagInfo {
+                tag: row.get(0)?,
+                count: row.get(1)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+
+    let tags = iter.into_iter().filter_map(|tag| tag.ok()).collect();
+
+    Ok(tags)
 }

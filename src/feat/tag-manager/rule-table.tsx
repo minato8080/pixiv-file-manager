@@ -12,7 +12,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { useTagRulesStore } from "@/src/stores/tag-rules-store";
 
 type Props = {
   rules: TagFixRule[];
@@ -25,30 +24,19 @@ function camelToPascal(str: string) {
 }
 
 export default function RuleTable({ rules, onEdit, onDelete }: Props) {
-  const { loading } = useTagRulesStore();
-
   return (
     <Table>
       <TableHeader>
         <TableRow>
           <TableHead className="w-[26%]">Source Tag</TableHead>
           <TableHead className="w-[26%]">Destination Tag</TableHead>
-          <TableHead className="w-[16%]">Action</TableHead>
+          <TableHead className="w-[16%] text-center">Action</TableHead>
           <TableHead className="w-[22%]">Created At</TableHead>
-          <TableHead className="w-[10%] text-right">Actions</TableHead>
+          <TableHead className="w-[10%] text-right">Operations</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {loading ? (
-          <TableRow>
-            <TableCell
-              colSpan={5}
-              className="text-center text-muted-foreground"
-            >
-              Loading...
-            </TableCell>
-          </TableRow>
-        ) : rules.length === 0 ? (
+        {rules.length === 0 ? (
           <TableRow>
             <TableCell
               colSpan={5}
@@ -59,20 +47,20 @@ export default function RuleTable({ rules, onEdit, onDelete }: Props) {
           </TableRow>
         ) : (
           rules.map((rule) => (
-            <TableRow key={rule.id}>
-              <TableCell className="font-mono">{rule.src_tag}</TableCell>
-              <TableCell className="font-mono">{rule.dst_tag ?? "-"}</TableCell>
-              <TableCell>
+            <TableRow className="[&>td]:py-0" key={rule.id}>
+              <TableCell>{rule.src_tag}</TableCell>
+              <TableCell>{rule.dst_tag ?? "-"}</TableCell>
+              <TableCell className="text-center">
                 <Badge
                   variant="secondary"
                   className={cn(
                     "border-0",
                     rule.action_type === "replace" &&
-                      "bg-amber-100 text-amber-400 hover:bg-amber-100",
+                      "bg-amber-100 text-amber-900 hover:bg-amber-100",
                     rule.action_type === "delete" &&
                       "bg-rose-100 text-rose-900 hover:bg-rose-100",
                     rule.action_type === "add" &&
-                      "bg-rose-100 text-blue-900 hover:bg-blue-100"
+                      "bg-blue-100 text-blue-900 hover:bg-blue-100"
                   )}
                 >
                   {camelToPascal(rule.action_type)}

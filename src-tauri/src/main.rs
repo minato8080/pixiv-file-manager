@@ -32,6 +32,8 @@ use rusqlite::{params, Connection, Result};
 use std::sync::Mutex;
 use tauri::Manager;
 
+use crate::commands::manage::get_using_fix_rule_tags;
+
 fn main() {
     dotenv::dotenv().ok();
     tauri::Builder::default()
@@ -87,6 +89,7 @@ fn main() {
             update_tag_fix_rule,
             delete_tag_fix_rule,
             execute_tag_fixes,
+            get_using_fix_rule_tags,
             // serch
             get_search_history,
             get_unique_authors,

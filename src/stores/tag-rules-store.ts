@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { ExecuteResult } from "@/bindings/ExecuteResult";
 import { TagFixRule } from "@/bindings/TagFixRule";
 import { TagFixRuleAction } from "@/bindings/TagFixRuleAction";
+import { TagInfo } from "@/bindings/TagInfo";
 
 /**
  * Directly use Tauri invoke from app code.
@@ -12,6 +13,7 @@ import { TagFixRuleAction } from "@/bindings/TagFixRuleAction";
 
 type Store = {
   rules: TagFixRule[];
+  usingTagList: TagInfo[];
   loading: boolean;
   // actions
   loadRules: () => Promise<void>;
@@ -34,6 +36,7 @@ type Store = {
 
 export const useTagRulesStore = create<Store>((set, get) => ({
   rules: [],
+  usingTagList: [],
   loading: false,
 
   loadRules: async () => {
@@ -41,6 +44,8 @@ export const useTagRulesStore = create<Store>((set, get) => ({
     try {
       const rules = await invoke<TagFixRule[]>("get_tag_fix_rules");
       set({ rules });
+      const usingTagList = await invoke<TagInfo[]>("get_using_fix_rule_tags");
+      set({ usingTagList });
     } catch (e) {
       console.log(e);
       throw e;

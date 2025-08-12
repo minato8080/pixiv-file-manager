@@ -5,7 +5,6 @@
 
 mod api;
 mod commands;
-mod constants;
 mod models;
 mod service;
 
@@ -20,41 +19,48 @@ use commands::collect::{
 use commands::fetch::{capture_illust_detail, count_files_in_dir, recapture_illust_detail};
 use commands::manage::{
     add_tag_fix_rule, delete_tag_fix_rule, execute_tag_fixes, get_tag_fix_rules,
-    update_tag_fix_rule,
+    get_using_fix_rule_tags, update_tag_fix_rule,
 };
 use commands::search::{
     get_search_history, get_unique_authors, get_unique_characters, get_unique_tags,
     search_by_criteria,
 };
-use constants::DB_NAME;
 use models::common::AppState;
 use rusqlite::{params, Connection, Result};
 use std::sync::Mutex;
 use tauri::Manager;
 
-use crate::commands::manage::get_using_fix_rule_tags;
-
 fn main() {
-    dotenv::dotenv().ok();
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app: &mut tauri::App| {
-            let db_path = app.path().app_data_dir().unwrap().join(format!(
-                "{}.db",
-                std::env::var("DB_NAME").unwrap_or_else(|_| DB_NAME.to_string())
-            ));
-            let mut conn = Connection::open(db_path).unwrap_or_else(|err| {
-                eprintln!("Failed to open database connection: {}", err);
-                std::process::exit(1);
-            });
-            let app_pixiv_api = create_api().ok();
+            load_env_in_app_data_dir(app);
 
-            {
-                initialize_db(&mut conn).unwrap_or_else(|e| {
-                    eprintln!("{}", e);
+            let db_path = app.path().app_data_dir()?.join(format!(
+                "{}.db",
+                std::env::var("DB_NAME").unwrap_or_else(|_| "pixiv_def".to_string())
+            ));
+
+            let mut conn = match Connection::open(db_path) {
+                Ok(c) => c,
+                Err(err) => {
+                    eprintln!("Failed to open database connection: {}", err);
                     std::process::exit(1);
-                });
+                }
+            };
+
+            if let Err(e) = initialize_db(&mut conn) {
+                eprintln!("Failed to initialize DB: {}", e);
+                std::process::exit(1);
             }
+
+            let app_pixiv_api = match create_api() {
+                Ok(api) => Some(api),
+                Err(e) => {
+                    eprintln!("Failed to create API: {}", e);
+                    None
+                }
+            };
 
             app.manage(AppState {
                 db: Mutex::new(conn),
@@ -114,4 +120,18 @@ fn initialize_db(conn: &mut Connection) -> Result<()> {
 
     tx.commit()?;
     Ok(())
+}
+
+fn load_env_in_app_data_dir(app: &tauri::App) {
+    match app.path().app_data_dir() {
+        Ok(app_data_dir) => {
+            let env_path = app_data_dir.join(".env");
+            if dotenv::from_path(&env_path).is_err() {
+                eprintln!("No .env file found at {:?}", env_path);
+            }
+        }
+        Err(e) => {
+            eprintln!("Failed to get app_data_dir: {}", e);
+        }
+    }
 }

@@ -279,7 +279,6 @@ export const DialogLabelCharacter = () => {
 
               <InputDropdown
                 items={availableCharacters}
-                valueKey={(item) => item}
                 placeholder="Enter character name"
                 value={characterName}
                 onChange={setCharacterName}

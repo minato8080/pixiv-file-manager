@@ -137,7 +137,7 @@ export function ImageViewerModal() {
             {/* Fullscreen image container */}
             <div className="relative flex-1 w-full h-full flex items-center justify-center p-4 select-none">
               <img
-                src={currentItem.thumbnail_url || "/placeholder.svg"}
+                src={currentItem.thumbnail_url || "./placeholder.svg"}
                 alt={currentItem.file_name}
                 className="max-h-full max-w-full object-contain"
                 style={{ userSelect: "none" }}

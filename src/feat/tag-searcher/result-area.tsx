@@ -120,7 +120,7 @@ export const TagsSearcherResultArea = () => {
                       <td className="p-2">
                         <div className="flex items-center gap-2">
                           <img
-                            src={result.thumbnail_url || "/placeholder.svg"}
+                            src={result.thumbnail_url || "./placeholder.svg"}
                             alt={result.file_name}
                             className="h-8 w-8 object-contain rounded border border-gray-200 dark:border-gray-700"
                           />
@@ -177,7 +177,7 @@ export const TagsSearcherResultArea = () => {
                     </div>
                   )}
                   <img
-                    src={result.thumbnail_url || "/placeholder.svg"}
+                    src={result.thumbnail_url || "./placeholder.svg"}
                     alt={result.file_name}
                     className={`object-contain mb-1 rounded border border-gray-200 dark:border-gray-700 ${VIEW_MODES[currentViewMode].size}`}
                   />

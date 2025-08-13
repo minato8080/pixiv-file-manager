@@ -5,3 +5,4 @@ pub mod fetch;
 
 pub mod manage;
 pub mod search;
+pub mod settings;

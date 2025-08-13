@@ -1,5 +1,12 @@
-import { Combine, FolderSearch, Globe, NotebookPen } from "lucide-react";
+import {
+  Combine,
+  FolderSearch,
+  Globe,
+  NotebookPen,
+  Settings,
+} from "lucide-react";
 
+import EnvSettings from "./feat/env-settings/env-settings";
 import FileOrganizer from "./feat/file-organizer/file-organizer";
 import TagFetcher from "./feat/tag-fetcher/tag-fetcher";
 import TagManager from "./feat/tag-manager/tag-manager";
@@ -31,6 +38,11 @@ export function App() {
       label: "Manage",
       icon: <NotebookPen className="h-4 w-4" />,
       content: <TagManager />,
+    },
+    {
+      label: "Settings",
+      icon: <Settings className="h-4 w-4" />,
+      content: <EnvSettings />,
     },
   ];
 

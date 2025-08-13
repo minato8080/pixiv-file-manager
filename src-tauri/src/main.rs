@@ -25,6 +25,7 @@ use commands::search::{
     get_search_history, get_unique_authors, get_unique_characters, get_unique_tags,
     search_by_criteria,
 };
+use commands::settings::{get_environment_variables, save_environment_variables};
 use models::common::AppState;
 use rusqlite::{params, Connection, Result};
 use std::sync::Mutex;
@@ -102,6 +103,9 @@ fn main() {
             get_unique_characters,
             get_unique_tags,
             search_by_criteria,
+            // settings
+            get_environment_variables,
+            save_environment_variables
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -3,3 +3,4 @@ pub mod collect;
 pub mod fetch;
 pub mod manage;
 pub mod search;
+pub mod settings;

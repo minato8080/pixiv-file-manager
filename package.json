@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc && vite build && xcopy /E /I src-tauri\\target\\release\\bundle bundle",
     "preview": "vite preview",
     "tauri": "tauri"
   },

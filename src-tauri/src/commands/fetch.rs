@@ -60,10 +60,11 @@ pub fn count_files_in_dir(
     // ワークテーブルに保存
     prepare_illust_fetch_work(&mut conn, &file_details).map_err(|e| e.to_string())?;
 
-    let unique_count = conn
-        .execute(
+    let unique_count: u32 = conn
+        .query_row(
             "SELECT COUNT(DISTINCT illust_id) FROM ILLUST_FETCH_WORK;",
             [],
+            |row| row.get(0),
         )
         .map_err(|e| e.to_string())?;
 
@@ -72,7 +73,7 @@ pub fn count_files_in_dir(
         .and_then(|val| val.parse::<u32>().ok())
         .unwrap_or(1000);
 
-    let estimate_process_time = (interval + 200) * unique_count as u32 / 1000;
+    let estimate_process_time = (interval + 200) * unique_count / 1000;
     let hours = estimate_process_time / 3600;
     let minutes = (estimate_process_time % 3600) / 60;
     let seconds = estimate_process_time % 60;
@@ -90,22 +91,25 @@ pub fn capture_illust_detail(
     state: State<'_, AppState>,
     window: tauri::Window,
 ) -> Result<ProcessStats, String> {
+    let app_pixiv_api = match &state.app_pixiv_api {
+        Some(api) => api.clone(),
+        None => return Err("API is unavailable.".to_string()),
+    };
+
     let mut conn = state.db.lock().unwrap();
 
-    // 再取得実行
-    if let Some(app_pixiv_api) = &state.app_pixiv_api {
-        let result = fetch_illust_detail(&mut conn, app_pixiv_api, window.clone())
+    // 取得実行
+    let result: ProcessStats = fetch_illust_detail(&mut conn, &app_pixiv_api, window.clone())
             .map_err(|e| e.to_string())?;
 
         // 削除を実行
+    let conn = state.db.lock().unwrap();
         delete_missing_tags(&conn).map_err(|e| e.to_string())?;
 
         // DB変更を通知
         window.emit("update_db", ()).unwrap();
-        return Ok(result);
-    } else {
-        return Err("API is unavailable.".to_string());
-    }
+
+    Ok(result)
 }
 
 #[tauri::command]
@@ -113,6 +117,11 @@ pub fn recapture_illust_detail(
     state: State<'_, AppState>,
     window: tauri::Window,
 ) -> Result<ProcessStats, String> {
+    let app_pixiv_api = match &state.app_pixiv_api {
+        Some(api) => api.clone(),
+        None => return Err("API is unavailable.".to_string()),
+    };
+
     let mut conn = state.db.lock().unwrap();
 
     // 失敗ファイルを抽出
@@ -122,8 +131,7 @@ pub fn recapture_illust_detail(
     prepare_illust_fetch_work(&mut conn, &file_details).map_err(|e| e.to_string())?;
 
     // 再取得実行
-    if let Some(app_pixiv_api) = &state.app_pixiv_api {
-        let result = fetch_illust_detail(&mut conn, app_pixiv_api, window.clone())
+    let result: ProcessStats = fetch_illust_detail(&mut conn, &app_pixiv_api, window.clone())
             .map_err(|e| e.to_string())?;
 
         // 取得できたレコードのMissingタグ削除を実行
@@ -131,8 +139,6 @@ pub fn recapture_illust_detail(
 
         // DB変更を通知
         window.emit("update_db", ()).unwrap();
+
         Ok(result)
-    } else {
-        return Err("Pixiv API is unavailable.".to_string());
-    }
 }

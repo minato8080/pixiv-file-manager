@@ -4,8 +4,9 @@ use ts_rs::TS;
 #[derive(Serialize, TS)]
 #[ts(export)]
 pub struct ProcessStats {
-    pub total_files: u32,
-    pub failed_files: u32,
+    pub total_ids: u32,
+    pub successed_ids: u32,
+    pub failed_ids: u32,
     pub process_time: String,
     pub failed_file_paths: Vec<String>,
 }

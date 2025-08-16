@@ -2,8 +2,8 @@ import { Filter } from "lucide-react";
 
 import { TagInfo } from "@/bindings/TagInfo";
 import { DropdownButton } from "@/src/components/dropdown-button";
-import { useDropdownStore } from "@/stores/dropdown-store";
 import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
+import { useDropdownStore } from "@/stores/dropdown-store";
 
 export const DropdownTags = () => {
   const { selectedTags, setSelectedTags } = useTagSearcherStore();
@@ -21,12 +21,11 @@ export const DropdownTags = () => {
       mode="multiple"
       ButtonIcon={<Filter className="h-4 w-4 mr-1 text-blue-500" />}
       buttonText={"Tag"}
-      selectedItem={selectedTags.map((tag) => ({
-        id: tag.tag,
-        ...tag,
-      }))}
-      availableItems={tagDropdownItems.map((tag) => ({ id: tag.tag, ...tag }))}
+      selectedItem={selectedTags}
+      availableItems={tagDropdownItems}
       onClick={applyTag}
+      valueKey="tag"
+      labelKey="tag"
     />
   );
 };

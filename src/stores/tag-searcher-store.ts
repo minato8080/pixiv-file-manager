@@ -1,8 +1,9 @@
 import { create } from "zustand";
 
 import { ViewModeKey } from "../constants";
-import { AuthorDropdown, CharacterDropdown } from "../types/app-types";
 
+import { AuthorInfo } from "@/bindings/AuthorInfo";
+import { CharacterInfo } from "@/bindings/CharacterInfo";
 import { SearchResult } from "@/bindings/SearchResult";
 import { TagInfo } from "@/bindings/TagInfo";
 
@@ -15,8 +16,8 @@ type TagSearcherStore = {
   currentViewMode: ViewModeKey;
   selectedImage: string | null;
   selectedTags: TagInfo[];
-  selectedCharacter: CharacterDropdown | null;
-  selectedAuthor: AuthorDropdown | null;
+  selectedCharacter: CharacterInfo | null;
+  selectedAuthor: AuthorInfo | null;
   isViewModeDropdownOpen: boolean;
   setSearchCondition: (condition: "AND" | "OR") => void;
   setSearchResults: (results: SearchResult[]) => void;
@@ -26,8 +27,8 @@ type TagSearcherStore = {
   setCurrentViewMode: (viewMode: ViewModeKey) => void;
   setSelectedImage: (image: string | null) => void;
   setSelectedTags: (tags: TagInfo[]) => void;
-  setSelectedCharacter: (character: CharacterDropdown | null) => void;
-  setSelectedAuthor: (author: AuthorDropdown | null) => void;
+  setSelectedCharacter: (character: CharacterInfo | null) => void;
+  setSelectedAuthor: (author: AuthorInfo | null) => void;
   setIsViewModeDropdownOpen: (open: boolean) => void;
 };
 

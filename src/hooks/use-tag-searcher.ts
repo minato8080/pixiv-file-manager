@@ -40,12 +40,7 @@ export const useTagSearcher = () => {
   const fetchCharacters = async () => {
     try {
       const characters = await invoke<CharacterInfo[]>("get_unique_characters");
-      setCharacterDropdownItems(
-        characters.map((c) => ({
-          id: c.character,
-          ...c,
-        }))
-      );
+      setCharacterDropdownItems(characters);
     } catch (error) {
       console.error("Error fetching characters:", error);
     }
@@ -54,13 +49,7 @@ export const useTagSearcher = () => {
   const fetchAuthors = async () => {
     try {
       const authors = await invoke<AuthorInfo[]>("get_unique_authors");
-      setAuthorDropdownItems(
-        authors.map((a) => ({
-          id: a.author_id.toString(),
-          label: a.author_name,
-          ...a,
-        }))
-      );
+      setAuthorDropdownItems(authors);
     } catch (error) {
       console.error("Error fetching authors:", error);
     }

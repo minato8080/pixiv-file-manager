@@ -1,20 +1,20 @@
 import { create } from "zustand";
 
-import { AuthorDropdown, CharacterDropdown } from "../types/app-types";
-
+import { AuthorInfo } from "@/bindings/AuthorInfo";
+import { CharacterInfo } from "@/bindings/CharacterInfo";
 import { SearchHistory } from "@/bindings/SearchHistory";
 import { TagInfo } from "@/bindings/TagInfo";
 
 type DropdownStore = {
   uniqueTagList: TagInfo[];
   tagDropdownItems: TagInfo[];
-  characterDropdownItems: CharacterDropdown[];
-  authorDropdownItems: AuthorDropdown[];
+  characterDropdownItems: CharacterInfo[];
+  authorDropdownItems: AuthorInfo[];
   history: SearchHistory[];
   setUniqueTagList: (tags: TagInfo[]) => void;
   setTagDropdownItems: (items: TagInfo[]) => void;
-  setCharacterDropdownItems: (items: CharacterDropdown[]) => void;
-  setAuthorDropdownItems: (items: AuthorDropdown[]) => void;
+  setCharacterDropdownItems: (items: CharacterInfo[]) => void;
+  setAuthorDropdownItems: (items: AuthorInfo[]) => void;
   setHistory: (history: SearchHistory[]) => void;
   addHistory: (history: SearchHistory) => void;
   reset: () => void;

@@ -1,8 +1,8 @@
 import { User } from "lucide-react";
 
 import { DropdownButton } from "@/src/components/dropdown-button";
-import { useDropdownStore } from "@/stores/dropdown-store";
 import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
+import { useDropdownStore } from "@/stores/dropdown-store";
 
 export const DropdownAuthor = () => {
   const { selectedAuthor, setSelectedAuthor } = useTagSearcherStore();
@@ -16,6 +16,8 @@ export const DropdownAuthor = () => {
       selectedItem={selectedAuthor}
       availableItems={authorDropdownItems}
       onClick={(item) => setSelectedAuthor(item)}
+      valueKey="author_id"
+      labelKey="author_name"
     />
   );
 };

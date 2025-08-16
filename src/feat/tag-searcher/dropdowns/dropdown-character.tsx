@@ -1,8 +1,8 @@
 import { Users } from "lucide-react";
 
 import { DropdownButton } from "@/src/components/dropdown-button";
-import { useDropdownStore } from "@/stores/dropdown-store";
 import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
+import { useDropdownStore } from "@/stores/dropdown-store";
 
 export const DropdownCharacter = () => {
   const { selectedCharacter, setSelectedCharacter } = useTagSearcherStore();
@@ -16,6 +16,8 @@ export const DropdownCharacter = () => {
       selectedItem={selectedCharacter}
       availableItems={characterDropdownItems}
       onClick={(item) => setSelectedCharacter(item)}
+      valueKey="character"
+      labelKey="character"
     />
   );
 };

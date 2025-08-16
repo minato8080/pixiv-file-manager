@@ -1,15 +1,13 @@
 import { ChevronDown } from "lucide-react";
 import React, { useState, useRef, useEffect } from "react";
 
+import { useTagSearcherStore } from "../stores/tag-searcher-store";
+import { getNumber, getString, inferObjKey } from "../types/type-guard-util";
+import { LimitedKeyOf } from "../types/util-types";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-
-export type Item = {
-  id: string;
-  label?: string | null;
-  count?: number | null;
-};
 
 type DropdownProps<T> = DropdownSharedProps<T> &
   (DropdownMultipleProps<T> | DropdownSingleProps<T>);
@@ -21,6 +19,8 @@ type DropdownSharedProps<T> = {
   placeholderText?: string;
   badgeClassName?: string;
   availableItems: T[];
+  valueKey: LimitedKeyOf<T, string | number>;
+  labelKey: LimitedKeyOf<T, string>;
 };
 
 type DropdownMultipleProps<T> = {
@@ -39,7 +39,7 @@ export type DropdownHandle<T> = {
   addItem: (tag: T) => void;
 };
 
-export function DropdownButton<T extends Item>({
+export function DropdownButton<T>({
   mode,
   ButtonIcon,
   buttonText,
@@ -49,7 +49,11 @@ export function DropdownButton<T extends Item>({
   badgeClassName = "",
   availableItems,
   onClick,
+  valueKey,
+  labelKey,
 }: DropdownProps<T>) {
+  const { searchResults } = useTagSearcherStore();
+
   // State
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState("");
@@ -72,6 +76,8 @@ export function DropdownButton<T extends Item>({
     };
   }, [isOpen]);
 
+  useEffect(() => setFilter(""), [searchResults]);
+
   const addItem = (item: T) => {
     if (mode === "multiple") {
       onClick([...selectedItem, item]);
@@ -82,7 +88,13 @@ export function DropdownButton<T extends Item>({
   };
 
   // Filter available tags
-  const filteredTags = availableItems.filter((tag) => tag.id.includes(filter));
+  const filteredTags = availableItems.filter((item) =>
+    inferObjKey(item, labelKey, (obj, key) =>
+      (
+        getString(obj, key)?.toLowerCase() ?? getNumber(obj, key)?.toString()
+      )?.includes(filter.toLowerCase())
+    )
+  );
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -109,26 +121,40 @@ export function DropdownButton<T extends Item>({
           </div>
           <div className="max-h-64 overflow-auto">
             {filteredTags.length > 0 ? (
-              filteredTags.map((item) => (
-                <button
-                  key={item.id}
-                  className={
-                    "w-full px-3 py-2 text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 flex justify-between items-center" +
-                    buttonClassName
-                  }
-                  onClick={() => addItem(item)}
-                >
-                  <span className="truncate">{item.label ?? item.id}</span>
-                  <Badge
+              filteredTags.map((item) => {
+                const value =
+                  inferObjKey(item, valueKey, (obj, key) =>
+                    getString(obj, key)
+                  ) ?? "";
+                const label =
+                  inferObjKey(item, labelKey, (obj, key) =>
+                    getString(obj, key)
+                  ) ?? value;
+                return (
+                  <button
+                    key={value}
                     className={
-                      "ml-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" +
-                      badgeClassName
+                      "w-full px-3 py-2 text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 flex justify-between items-start" +
+                      buttonClassName
                     }
+                    onClick={() => addItem(item)}
                   >
-                    {item?.count}
-                  </Badge>
-                </button>
-              ))
+                    {inferObjKey(item, "count", (obj, key) => (
+                      <div className="flex justify-between items-start gap-2 text-xs w-full">
+                        <span className="flex-1">{label}</span>
+                        <Badge
+                          className={
+                            "ml-1 flex-shrink-0 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" +
+                            badgeClassName
+                          }
+                        >
+                          {getNumber(obj, key)}
+                        </Badge>
+                      </div>
+                    )) ?? label}
+                  </button>
+                );
+              })
             ) : (
               <div className="p-3 text-center text-gray-500">Not found</div>
             )}

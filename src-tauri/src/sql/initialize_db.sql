@@ -88,6 +88,7 @@ CREATE TABLE IF NOT EXISTS AUTHOR_INFO (
     author_account TEXT NOT NULL,
     PRIMARY KEY (author_id)
 );
+INSERT OR IGNORE INTO AUTHOR_INFO (author_id, author_name, author_account) VALUES (0, 'Missing', 'Missing');
 
 
 CREATE TABLE IF NOT EXISTS SEARCH_HISTORY (
@@ -111,7 +112,8 @@ CREATE INDEX IF NOT EXISTS idx_tag_fix_rules_src_tag ON TAG_FIX_RULES(src_tag);
 CREATE INDEX IF NOT EXISTS idx_tag_fix_rules_dst_tag ON TAG_FIX_RULES(dst_tag);
 
 
-
-CREATE TABLE IF NOT EXISTS DB_INFO (
-    root TEXT
+CREATE TABLE IF NOT EXISTS COMMON_MST (
+    key TEXT NOT NULL,
+    value TEXT,
+    PRIMARY KEY (key)
 );

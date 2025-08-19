@@ -1,11 +1,11 @@
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use std::{collections::HashMap, fs, path::PathBuf};
-use tauri::Manager;
+use tauri::{command, Manager};
 
 use crate::models::settings::EnvConfig;
 
-#[tauri::command]
+#[command]
 pub fn get_environment_variables(app: tauri::AppHandle) -> Result<Option<EnvConfig>, String> {
     let config_path = get_config_path(&app)?;
 
@@ -18,7 +18,7 @@ pub fn get_environment_variables(app: tauri::AppHandle) -> Result<Option<EnvConf
         .transpose()
 }
 
-#[tauri::command]
+#[command]
 pub fn save_environment_variables(
     config: EnvConfig,
     app: tauri::AppHandle,

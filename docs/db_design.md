@@ -90,5 +90,7 @@
   - `created_at`: INTEGER NOT NULL - 作成日時（UNIX time）
   - **PRIMARY KEY**: (`id`)
 
-- **DB_INFO**
-  - `root`: TEXT - ルートパス
+- **COMMON_MST**
+  - `key`: TEXT NOT NULL
+  - `value`: TEXT
+  - **PRIMARY KEY**: (`key`)

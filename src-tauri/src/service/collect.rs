@@ -4,12 +4,12 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use rusqlite::Connection;
 
-use crate::models::collect::CollectSummary;
+use crate::{constants, models::collect::CollectSummary};
 
 pub fn prepare_collect_ui_work(conn: &Connection) -> Result<()> {
-    let sql = include_str!("../sql/collect/prepare_collect_ui_work.sql");
-    conn.execute_batch(sql)?;
-
+    let sql = include_str!("../sql/collect/prepare_collect_ui_work.sql")
+        .replace(":collect_root", &format!("'{}'", constants::COLLECT_ROOT));
+    conn.execute_batch(&sql)?;
     Ok(())
 }
 
@@ -70,8 +70,9 @@ pub fn get_collect_summary(conn: &Connection) -> Result<Vec<CollectSummary>> {
 }
 
 pub fn collect_character_info(conn: &Connection) -> Result<()> {
-    let sql = include_str!("../sql/collect/collect_character_info.sql");
-    conn.execute_batch(sql)?;
+    let sql = include_str!("../sql/collect/prepare_collect_ui_work.sql")
+        .replace(":collect_root", &format!("'{}'", constants::COLLECT_ROOT));
+    conn.execute_batch(&sql)?;
     Ok(())
 }
 

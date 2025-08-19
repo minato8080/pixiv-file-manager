@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use rusqlite::params;
-use tauri::State;
+use tauri::{command, State};
 use trash::delete;
 
 use crate::{
@@ -19,7 +19,7 @@ use crate::{
     },
 };
 
-#[tauri::command]
+#[command]
 pub fn move_files(
     state: State<AppState>,
     file_names: Vec<String>,
@@ -34,7 +34,7 @@ pub fn move_files(
     Ok(())
 }
 
-#[tauri::command]
+#[command]
 pub fn label_character_name(
     state: State<AppState>,
     file_names: Vec<String>,
@@ -78,7 +78,7 @@ pub fn label_character_name(
     Ok(())
 }
 
-#[tauri::command]
+#[command]
 pub fn edit_tags(
     state: State<AppState>,
     edit_tag_req: EditTagReq,
@@ -106,7 +106,7 @@ pub fn edit_tags(
     Ok(())
 }
 
-#[tauri::command]
+#[command]
 pub fn delete_files(state: State<AppState>, file_names: Vec<String>) -> Result<(), String> {
     let mut conn = state.db.lock().unwrap();
     let tx = conn.transaction().map_err(|e| e.to_string())?;
@@ -166,7 +166,7 @@ pub fn delete_files(state: State<AppState>, file_names: Vec<String>) -> Result<(
     Ok(())
 }
 
-#[tauri::command]
+#[command]
 pub fn get_associated_info(
     state: State<AppState>,
     file_names: Vec<String>,

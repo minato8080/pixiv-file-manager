@@ -1,6 +1,6 @@
 use std::path::Path;
 use std::vec::Vec;
-use tauri::{Emitter, State};
+use tauri::{command, Emitter, State};
 use walkdir::WalkDir;
 
 use crate::models::common::AppState;
@@ -12,7 +12,7 @@ use crate::service::fetch::{
     prepare_illust_fetch_work,
 };
 
-#[tauri::command]
+#[command]
 pub fn count_files_in_dir(
     state: State<'_, AppState>,
     folders: Vec<String>,
@@ -86,7 +86,7 @@ pub fn count_files_in_dir(
     })
 }
 
-#[tauri::command]
+#[command]
 pub fn capture_illust_detail(
     state: State<'_, AppState>,
     window: tauri::Window,
@@ -100,19 +100,19 @@ pub fn capture_illust_detail(
 
     // 取得実行
     let result: ProcessStats = fetch_illust_detail(&mut conn, &app_pixiv_api, window.clone())
-            .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?;
 
-        // 削除を実行
+    // 削除を実行
     let conn = state.db.lock().unwrap();
-        delete_missing_tags(&conn).map_err(|e| e.to_string())?;
+    delete_missing_tags(&conn).map_err(|e| e.to_string())?;
 
-        // DB変更を通知
-        window.emit("update_db", ()).unwrap();
+    // DB変更を通知
+    window.emit("update_db", ()).unwrap();
 
     Ok(result)
 }
 
-#[tauri::command]
+#[command]
 pub fn recapture_illust_detail(
     state: State<'_, AppState>,
     window: tauri::Window,
@@ -132,13 +132,13 @@ pub fn recapture_illust_detail(
 
     // 再取得実行
     let result: ProcessStats = fetch_illust_detail(&mut conn, &app_pixiv_api, window.clone())
-            .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?;
 
-        // 取得できたレコードのMissingタグ削除を実行
-        delete_missing_tags(&conn).map_err(|e| e.to_string())?;
+    // 取得できたレコードのMissingタグ削除を実行
+    delete_missing_tags(&conn).map_err(|e| e.to_string())?;
 
-        // DB変更を通知
-        window.emit("update_db", ()).unwrap();
+    // DB変更を通知
+    window.emit("update_db", ()).unwrap();
 
-        Ok(result)
+    Ok(result)
 }

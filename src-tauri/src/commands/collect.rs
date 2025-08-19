@@ -1,6 +1,7 @@
 use rusqlite::{params, OptionalExtension};
 use tauri::{command, Emitter, State};
 
+use crate::constants;
 use crate::models::search::TagInfo;
 use crate::service::collect::{
     collect_character_info, collect_illust_detail, collect_illust_info, get_collect_summary,
@@ -57,9 +58,13 @@ pub fn assign_tag(
             .map_err(|e| e.to_string())?;
     }
 
-    // DB_INFO.root を取得（なければ None）
+    // root を取得（なければ None）
     let root: Option<String> = tx
-        .query_row("SELECT root FROM DB_INFO LIMIT 1", [], |row| row.get(0))
+        .query_row(
+            "SELECT value FROM COMMON_MST WHERE key = ?",
+            [constants::COLLECT_ROOT],
+            |row| row.get(0),
+        )
         .ok(); // 存在しないときは None
 
     let collect_dir = root.map(|r| {
@@ -215,14 +220,10 @@ pub fn perform_collect(
 pub fn set_root(root: String, state: State<AppState>) -> GeneralResponse {
     let conn = state.db.lock().unwrap();
 
-    if let Err(e) = conn.execute("DELETE FROM DB_INFO", []) {
-        return GeneralResponse {
-            success: None,
-            error: Some(e.to_string()),
-        };
-    }
-
-    match conn.execute("INSERT INTO DB_INFO (root) VALUES (?)", params![root]) {
+    match conn.execute(
+        "INSERT OR REPLACE INTO COMMON_MST (key, value) VALUES (?, ?)",
+        params![constants::COLLECT_ROOT, root],
+    ) {
         Ok(_) => GeneralResponse {
             success: Some(root),
             error: None,
@@ -238,16 +239,16 @@ pub fn set_root(root: String, state: State<AppState>) -> GeneralResponse {
 pub fn get_root(state: State<AppState>) -> Result<Option<String>, String> {
     let conn = state.db.lock().unwrap();
     let mut stmt = conn
-        .prepare("SELECT root FROM DB_INFO LIMIT 1")
+        .prepare("SELECT value FROM COMMON_MST WHERE key = ?")
         .map_err(|e| e.to_string())?;
     let root_path: Option<String> = stmt
-        .query_row([], |row| row.get(0))
+        .query_row([constants::COLLECT_ROOT], |row| row.get(0))
         .optional()
         .map_err(|e| e.to_string())?;
     Ok(root_path)
 }
 
-#[tauri::command]
+#[command]
 pub fn get_available_unique_tags(state: State<AppState>) -> Result<Vec<TagInfo>, String> {
     let conn = state.db.lock().unwrap();
 

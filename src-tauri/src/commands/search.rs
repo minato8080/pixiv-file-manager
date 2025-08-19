@@ -8,9 +8,9 @@ use crate::{
     service::search::save_search_history,
 };
 use rusqlite::{Result, ToSql};
-use tauri::State;
+use tauri::{command, State};
 
-#[tauri::command]
+#[command]
 pub fn get_unique_tags(state: State<AppState>) -> Result<Vec<TagInfo>, String> {
     let conn = state.db.lock().unwrap();
 
@@ -31,7 +31,7 @@ pub fn get_unique_tags(state: State<AppState>) -> Result<Vec<TagInfo>, String> {
     Ok(tags)
 }
 
-#[tauri::command]
+#[command]
 pub fn get_unique_characters(state: State<AppState>) -> Result<Vec<CharacterInfo>, String> {
     let conn = state.db.lock().unwrap();
 
@@ -54,7 +54,7 @@ pub fn get_unique_characters(state: State<AppState>) -> Result<Vec<CharacterInfo
     Ok(characters)
 }
 
-#[tauri::command]
+#[command]
 pub fn get_unique_authors(state: State<AppState>) -> Result<Vec<AuthorInfo>, String> {
     let conn = state.db.lock().unwrap();
 
@@ -81,7 +81,7 @@ pub fn get_unique_authors(state: State<AppState>) -> Result<Vec<AuthorInfo>, Str
     Ok(authors)
 }
 
-#[tauri::command]
+#[command]
 pub fn search_by_criteria(
     state: State<AppState>,
     tags: Vec<String>,
@@ -214,7 +214,7 @@ pub fn search_by_criteria(
     Ok(results)
 }
 
-#[tauri::command]
+#[command]
 pub fn get_search_history(state: State<AppState>) -> Result<Vec<SearchHistory>, String> {
     let conn = state.db.lock().unwrap();
 

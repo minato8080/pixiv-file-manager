@@ -1,5 +1,5 @@
 WITH root_value AS (
-    SELECT root FROM DB_INFO LIMIT 1
+    SELECT value as root FROM COMMON_MST WHERE key = :collect_root
 ),
 work_with_path AS (
     SELECT

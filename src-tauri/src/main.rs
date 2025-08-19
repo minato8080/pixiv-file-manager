@@ -5,6 +5,7 @@
 
 mod api;
 mod commands;
+mod constants;
 mod models;
 mod service;
 
@@ -116,12 +117,6 @@ fn initialize_db(conn: &mut Connection) -> Result<()> {
     let tx = conn.transaction()?;
     let sql = include_str!("./sql/initialize_db.sql");
     tx.execute_batch(sql)?;
-
-    tx.execute(
-        "INSERT OR IGNORE INTO AUTHOR_INFO (author_id, author_name, author_account) VALUES (?1, ?2, ?3)",
-        params![0, "Missing", "Missing"],
-    )?;
-
     tx.commit()?;
     Ok(())
 }

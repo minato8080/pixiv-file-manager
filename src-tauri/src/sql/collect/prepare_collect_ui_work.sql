@@ -3,7 +3,7 @@ DELETE FROM COLLECT_UI_WORK;
 
 -- キャラクター単位で件数集計し、COLLECT_UI_WORKへ挿入
 WITH root_value AS (
-    SELECT root FROM DB_INFO LIMIT 1
+    SELECT value as root FROM COMMON_MST WHERE key = :collect_root
 ),
 character_summary AS (
     SELECT 
@@ -53,14 +53,14 @@ FROM character_summary;
 
 -- シリーズの事前カウント
 WITH root_value AS (
-  SELECT root FROM DB_INFO LIMIT 1
+  SELECT value as root FROM COMMON_MST WHERE key = :collect_root
 ),
 series_paths AS (
   SELECT
     CI.series,
-    (RV.root || '\' || CI.series) AS save_path
+    (R.root || '\' || CI.series) AS save_path
   FROM CHARACTER_INFO CI
-  JOIN root_value RV
+  JOIN root_value R
   WHERE CI.character = '-'
 ),
 series_counts AS (

@@ -1,5 +1,5 @@
 use rusqlite::params;
-use tauri::{Emitter, State};
+use tauri::{command, Emitter, State};
 
 use crate::{
     models::{
@@ -13,7 +13,7 @@ use crate::{
     },
 };
 
-#[tauri::command]
+#[command]
 pub fn get_tag_fix_rules(state: State<AppState>) -> Result<Vec<TagFixRule>, String> {
     let conn = state.db.lock().unwrap();
     let mut stmt = conn
@@ -39,7 +39,7 @@ pub fn get_tag_fix_rules(state: State<AppState>) -> Result<Vec<TagFixRule>, Stri
     Ok(rules)
 }
 
-#[tauri::command]
+#[command]
 pub fn add_tag_fix_rule(
     src_tag: String,
     dst_tag: Option<String>,
@@ -52,7 +52,7 @@ pub fn add_tag_fix_rule(
         .map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[command]
 pub fn update_tag_fix_rule(
     id: i64,
     src_tag: String,
@@ -71,7 +71,7 @@ pub fn update_tag_fix_rule(
     Ok(())
 }
 
-#[tauri::command]
+#[command]
 pub fn delete_tag_fix_rule(id: i64, state: State<AppState>) -> Result<(), String> {
     let conn = state.db.lock().unwrap();
     conn.execute("DELETE FROM TAG_FIX_RULES WHERE id = ?1", params![id])
@@ -79,7 +79,7 @@ pub fn delete_tag_fix_rule(id: i64, state: State<AppState>) -> Result<(), String
     Ok(())
 }
 
-#[tauri::command]
+#[command]
 pub fn execute_tag_fixes(
     state: State<AppState>,
     window: tauri::Window,
@@ -94,7 +94,7 @@ pub fn execute_tag_fixes(
     Ok(result)
 }
 
-#[tauri::command]
+#[command]
 pub fn get_using_fix_rule_tags(state: State<AppState>) -> Result<Vec<TagInfo>, String> {
     let conn = state.db.lock().unwrap();
 

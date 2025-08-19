@@ -2,10 +2,11 @@ use rusqlite::{params, OptionalExtension};
 use tauri::{command, Emitter, State};
 
 use crate::constants;
+use crate::models::collect::FileSummary;
 use crate::models::search::TagInfo;
 use crate::service::collect::{
     collect_character_info, collect_illust_detail, collect_illust_info, get_collect_summary,
-    move_illust_files, prepare_collect_ui_work, reflesh_collect_work,
+    move_illust_files, prepare_collect_ui_work, process_sync_db, reflesh_collect_work,
 };
 use crate::{
     models::{
@@ -267,4 +268,44 @@ pub fn get_available_unique_tags(state: State<AppState>) -> Result<Vec<TagInfo>,
     let tags = iter.into_iter().filter_map(|tag| tag.ok()).collect();
 
     Ok(tags)
+}
+
+#[command]
+pub fn sync_db(root: String, state: State<AppState>) -> Result<Vec<FileSummary>, String> {
+    let mut conn = state.db.lock().unwrap();
+    let res = process_sync_db(root, &mut conn).map_err(|e| e.to_string())?;
+
+    Ok(res)
+}
+
+#[command]
+pub fn delete_missing_illusts(
+    items: Vec<FileSummary>,
+    state: State<AppState>,
+) -> Result<(), String> {
+    let mut conn = state.db.lock().unwrap();
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+
+    // 1. ILLUST_INFO から削除
+    for item in &items {
+        tx.execute(
+            "DELETE FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
+            params![item.illust_id, item.suffix],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    // 2. 孤立した ILLUST_DETAIL を削除
+    tx.execute(
+        "DELETE FROM ILLUST_DETAIL
+        WHERE NOT EXISTS (
+            SELECT 1 FROM ILLUST_INFO I
+            WHERE I.control_num = ILLUST_DETAIL.control_num
+        );",
+        (),
+    )
+    .map_err(|e| e.to_string())?;
+
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(())
 }

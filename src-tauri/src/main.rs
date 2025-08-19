@@ -14,8 +14,8 @@ use commands::catalog::{
     delete_files, edit_tags, get_associated_info, label_character_name, move_files,
 };
 use commands::collect::{
-    assign_tag, delete_collect, get_available_unique_tags, get_related_tags, get_root,
-    load_assignments, perform_collect, set_root,
+    assign_tag, delete_collect, delete_missing_illusts, get_available_unique_tags,
+    get_related_tags, get_root, load_assignments, perform_collect, set_root, sync_db,
 };
 use commands::fetch::{capture_illust_detail, count_files_in_dir, recapture_illust_detail};
 use commands::manage::{
@@ -28,7 +28,7 @@ use commands::search::{
 };
 use commands::settings::{get_environment_variables, save_environment_variables};
 use models::common::AppState;
-use rusqlite::{params, Connection, Result};
+use rusqlite::{Connection, Result};
 use std::sync::Mutex;
 use tauri::Manager;
 
@@ -81,12 +81,14 @@ fn main() {
             // collect
             assign_tag,
             delete_collect,
+            delete_missing_illusts,
             get_available_unique_tags,
             get_related_tags,
             get_root,
             load_assignments,
             perform_collect,
             set_root,
+            sync_db,
             // fetch
             capture_illust_detail,
             count_files_in_dir,

@@ -11,7 +11,9 @@ use trash::delete;
 
 use crate::api::pixiv::fetch_detail;
 use crate::models::fetch::{FileDetail, ProcessStats, TagProgress};
-use crate::service::common::{format_duration, parse_path_info, remove_invalid_chars};
+use crate::service::common::{
+    format_duration, parse_path_info, remove_invalid_chars, update_control_num,
+};
 
 pub fn extract_dir_detail<P: AsRef<Path>>(folder: P) -> Vec<FileDetail> {
     let mut details = Vec::new();
@@ -52,24 +54,58 @@ pub fn extract_dir_detail<P: AsRef<Path>>(folder: P) -> Vec<FileDetail> {
     details
 }
 
-pub fn fetch_illust_detail(
+pub fn process_fetch_illust_detail(
     conn: &mut Connection,
     app_pixiv_api: &PixivClient,
     window: tauri::Window,
 ) -> Result<ProcessStats> {
     let start = Instant::now();
 
+    let tx = conn.transaction()?;
+
+    // ワークテーブルを準備
+    let sql = include_str!("../sql/fetch/create_fetch_work.sql");
+    tx.execute_batch(sql)?;
+
+    // フェッチなしでインサートするファイルを処理
+    insert_illust_info_no_fetch(&tx)?;
+
+    tx.commit()?;
+
+    // メイン処理
+    let mut stats = core_fetch_illust_detail(conn, start, app_pixiv_api, window)?;
+
+    let tx = conn.transaction()?;
+
+    // 重複ファイルを検知して削除
+    delete_duplicate_files(&tx)?;
+
+    // 詳細を取得できたらMissingタグを削除
+    delete_missing_tags(&tx)?;
+
+    // 管理番号を更新
+    update_control_num(&tx)?;
+
+    tx.commit()?;
+
+    // 全体処理終了
+    let duration = start.elapsed();
+    stats.process_time = format_duration(duration.as_millis() as u64);
+
+    // 処理結果を通知
+    Ok(stats)
+}
+
+fn core_fetch_illust_detail(
+    conn: &mut Connection,
+    start: Instant,
+    app_pixiv_api: &PixivClient,
+    window: tauri::Window,
+) -> Result<ProcessStats> {
     // 結果用の集計情報
     let mut success_count = 0;
     let mut fail_count = 0;
     let mut failed_file_paths = Vec::new();
-
-    // ワークテーブルを準備
-    let sql = include_str!("../sql/fetch/create_fetch_work.sql");
-    conn.execute_batch(sql)?;
-
-    // フェッチなしでインサートするファイルを処理
-    insert_illust_info_no_fetch(conn)?;
 
     // フェッチ回数
     let total: u64 = conn.query_row("SELECT COUNT(*) FROM fetch_ids;", [], |row| row.get(0))?;
@@ -159,16 +195,9 @@ pub fn fetch_illust_detail(
         std::thread::sleep(std::time::Duration::from_millis(interval));
     }
 
-    // 重複ファイルを検知して削除
-    delete_duplicate_files(&conn)?;
-
-    // ワークテーブルをクリア
-    conn.execute("DELETE FROM ILLUST_FETCH_WORK", ())?;
-
     // 処理終了
     let duration = start.elapsed();
 
-    // 処理結果を通知
     Ok(ProcessStats {
         total_ids: success_count + fail_count,
         successed_ids: success_count,
@@ -305,7 +334,7 @@ pub fn extract_missing_files(conn: &Connection) -> Result<Vec<FileDetail>> {
     Ok(file_details)
 }
 
-pub fn delete_missing_tags(conn: &Connection) -> Result<()> {
+fn delete_missing_tags(conn: &Connection) -> Result<()> {
     // 対象の TAG_INFO を削除
     conn.execute(
         "DELETE FROM TAG_INFO

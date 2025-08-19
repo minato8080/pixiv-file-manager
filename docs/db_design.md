@@ -91,6 +91,15 @@
   - **PRIMARY KEY**: (`id`)
 
 - **COMMON_MST**
+
   - `key`: TEXT NOT NULL
   - `value`: TEXT
   - **PRIMARY KEY**: (`key`)
+
+- **SYNC_DB_WORK**
+
+  - `illust_id`: INTEGER NOT NULL - イラストの識別子
+  - `suffix`: INTEGER NOT NULL - ファイルのサフィックス
+  - `extension`: TEXT NOT NULL - ファイルの拡張子
+  - `save_dir`: TEXT NOT NULL - 保存ディレクトリのパス
+  - `in_db`: BOOLEAN DEFAULT 0 - データベースに存在するかのフラグ

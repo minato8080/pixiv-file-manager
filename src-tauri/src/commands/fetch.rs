@@ -8,8 +8,8 @@ use crate::models::fetch::{FileCounts, FileDetail, ProcessStats};
 
 use crate::models::fetch::FolderCount;
 use crate::service::fetch::{
-    delete_missing_tags, extract_dir_detail, extract_missing_files, fetch_illust_detail,
-    prepare_illust_fetch_work,
+    extract_dir_detail, extract_missing_files, prepare_illust_fetch_work,
+    process_fetch_illust_detail,
 };
 
 #[command]
@@ -99,12 +99,9 @@ pub fn capture_illust_detail(
     let mut conn = state.db.lock().unwrap();
 
     // 取得実行
-    let result: ProcessStats = fetch_illust_detail(&mut conn, &app_pixiv_api, window.clone())
-        .map_err(|e| e.to_string())?;
-
-    // 削除を実行
-    let conn = state.db.lock().unwrap();
-    delete_missing_tags(&conn).map_err(|e| e.to_string())?;
+    let result: ProcessStats =
+        process_fetch_illust_detail(&mut conn, &app_pixiv_api, window.clone())
+            .map_err(|e| e.to_string())?;
 
     // DB変更を通知
     window.emit("update_db", ()).unwrap();
@@ -131,11 +128,9 @@ pub fn recapture_illust_detail(
     prepare_illust_fetch_work(&mut conn, &file_details).map_err(|e| e.to_string())?;
 
     // 再取得実行
-    let result: ProcessStats = fetch_illust_detail(&mut conn, &app_pixiv_api, window.clone())
-        .map_err(|e| e.to_string())?;
-
-    // 取得できたレコードのMissingタグ削除を実行
-    delete_missing_tags(&conn).map_err(|e| e.to_string())?;
+    let result: ProcessStats =
+        process_fetch_illust_detail(&mut conn, &app_pixiv_api, window.clone())
+            .map_err(|e| e.to_string())?;
 
     // DB変更を通知
     window.emit("update_db", ()).unwrap();

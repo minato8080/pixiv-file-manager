@@ -1,30 +1,40 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
-import { Settings, Plus, FolderOpen } from "lucide-react";
+import {
+  Settings,
+  Plus,
+  FolderOpen,
+  Database,
+  Play,
+  ArrowBigRightDash,
+} from "lucide-react";
 import { useState, useEffect } from "react";
 
 import { ResultArea } from "./result-area";
+import { SyncResultsDialog } from "./sync-results-dialog";
 
-import { CollectSummary } from "@/bindings/CollectSummary";
-import { GeneralResponse } from "@/bindings/GeneralResponse";
-import { TagAssignment } from "@/bindings/TagAssignment";
-import { TagInfo } from "@/bindings/TagInfo";
+import type { CollectSummary } from "@/bindings/CollectSummary";
+import type { GeneralResponse } from "@/bindings/GeneralResponse";
+import type { TagAssignment } from "@/bindings/TagAssignment";
+import type { TagInfo } from "@/bindings/TagInfo";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { InputDropdown } from "@/src/components/input-dropdown";
-import { useTagOrganizerStore } from "@/src/stores/tag-organizer-store";
+import { useCommonStore } from "@/stores/common-store";
+import { useFileOrganizerStore } from "@/stores/file-organizer-store";
 
 export default function FileOrganizer() {
+  const { loading, setLoading } = useCommonStore();
   const {
     setCollectSummary,
-    loading,
-    setLoading,
     availableTagList,
     setAvailableTagList,
-  } = useTagOrganizerStore();
+    syncDB,
+    loadSummary,
+  } = useFileOrganizerStore();
 
   const [selectedSeriesTag, setSelectedSeriesTag] = useState<string>("");
   const [selectedCharacterTag, setSelectedCharacterTag] = useState<string>("");
@@ -42,7 +52,6 @@ export default function FileOrganizer() {
     setFilteredCharacterTagList(availableTagList);
   }, [setFilteredCharacterTagList, setFilteredSeriesTagList, availableTagList]);
 
-  // Call handlers to fetch data using useEffect
   useEffect(() => {
     const getTags = async () => {
       try {
@@ -56,8 +65,6 @@ export default function FileOrganizer() {
     const initialize = async () => {
       setLoading(true);
       try {
-        const tags = await invoke<TagInfo[]>("get_available_unique_tags");
-        setAvailableTagList(tags);
         const root: string | null = await invoke("get_root");
         if (!root) {
           setIsChangeRoot(true);
@@ -80,16 +87,6 @@ export default function FileOrganizer() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const loadSummary = async () => {
-    setLoading(true);
-    try {
-      const summary: CollectSummary[] = await invoke("load_assignments");
-      setCollectSummary(summary);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const addAssignment = async () => {
     if (!selectedSeriesTag && !selectedCharacterTag) {
@@ -145,7 +142,6 @@ export default function FileOrganizer() {
     }
   };
 
-  // Function to select folders
   const selectFolders = async () => {
     try {
       const selected = await open({
@@ -186,7 +182,7 @@ export default function FileOrganizer() {
       <div className="flex gap-4 mb-2">
         <div className="items-center gap-3  p-2 rounded border">
           {/* ルート設定 */}
-          <div className="flex items-center gap-3 pb-2">
+          <div className="flex items-center gap-2 pb-2">
             <Settings className="w-3 h-3 text-orange-600" />
             <Checkbox
               id="change-root"
@@ -199,17 +195,29 @@ export default function FileOrganizer() {
             <Button
               onClick={() => void selectFolders()}
               disabled={loading || !isChangeRoot}
-              className="flex items-center h-6 bg-green-600 hover:bg-green-700"
+              size="sm"
+              className="text-xs bg-green-600 hover:bg-green-700"
             >
-              <FolderOpen className="h-2 w-2" />
+              <FolderOpen />
+              Open
             </Button>
             <Button
               onClick={() => void setRoot()}
               disabled={loading || !isChangeRoot}
               size="sm"
-              className="h-6 text-xs bg-orange-600 hover:bg-orange-700"
+              className="text-xs bg-orange-600 hover:bg-orange-700"
             >
-              Set
+              <ArrowBigRightDash />
+              Update
+            </Button>
+            <Button
+              onClick={() => void syncDB()}
+              disabled={loading}
+              size="sm"
+              className="text-xs bg-purple-600 hover:bg-purple-700"
+            >
+              <Database />
+              Sync DB
             </Button>
           </div>
           <Input
@@ -256,7 +264,7 @@ export default function FileOrganizer() {
               size="sm"
               className="text-xs bg-blue-600 hover:bg-blue-700"
             >
-              <Plus className="w-3 h-3 mr-1" />
+              <Plus />
               Add
             </Button>
 
@@ -266,12 +274,15 @@ export default function FileOrganizer() {
               size="sm"
               className="text-xs bg-purple-600 hover:bg-purple-700"
             >
+              <Play />
               Execute
             </Button>
           </div>
         </div>
       </div>
       <ResultArea />
+
+      <SyncResultsDialog />
     </div>
   );
 }

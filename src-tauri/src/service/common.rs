@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, FixedOffset, Utc};
 use regex::Regex;
+use rusqlite::Connection;
 use std::path::Path;
 use std::time::Duration;
 
@@ -81,4 +82,10 @@ pub fn parse_file_info(file_name: &str) -> Result<FileInfo> {
         extension,
         save_dir: None,
     })
+}
+
+pub fn update_control_num(conn: &Connection) -> Result<()> {
+    let sql = include_str!("../sql/update_control_num.sql");
+    conn.execute_batch(sql)?;
+    Ok(())
 }

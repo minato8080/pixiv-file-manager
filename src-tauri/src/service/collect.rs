@@ -1,9 +1,14 @@
+use anyhow::{Context, Result};
+use regex::Regex;
+use rusqlite::params;
+use rusqlite::Connection;
 use std::fs;
 use std::path::Path;
+use std::path::PathBuf;
+use walkdir::WalkDir;
 
-use anyhow::{Context, Result};
-use rusqlite::Connection;
-
+use crate::models::collect::{FileSummary, TempFile};
+use crate::service::common::update_control_num;
 use crate::{constants, models::collect::CollectSummary};
 
 pub fn prepare_collect_ui_work(conn: &Connection) -> Result<()> {
@@ -166,4 +171,86 @@ fn update_save_dir(
     )?;
 
     Ok(())
+}
+
+pub fn process_sync_db(root: String, conn: &mut Connection) -> Result<Vec<FileSummary>> {
+    let tx = conn.transaction()?;
+    let missing_files;
+
+    {
+        let reg = Regex::new(r"^(\d+)_p(\d+)\.(jpg|png|jpeg)$")?;
+        let mut paths_to_insert = Vec::new();
+
+        // 1️⃣ root以下の解析
+        for entry in WalkDir::new(&root)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_type().is_file())
+        {
+            if let Some(caps) = reg.captures(&entry.file_name().to_string_lossy()) {
+                let path = entry.path();
+                let save_dir = path
+                    .parent()
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_default();
+
+                let temp_file = TempFile {
+                    illust_id: caps[1].parse()?,
+                    suffix: caps[2].parse()?,
+                    extension: caps[3].to_string(),
+                    save_dir,
+                    path: path.to_string_lossy().to_string(),
+                };
+                paths_to_insert.push(temp_file);
+            }
+        }
+
+        // 3️⃣ SYNC_DB_WORK に一括 INSERT
+        tx.execute("DELETE FROM SYNC_DB_WORK", ())?;
+        let mut stmt = tx.prepare(
+            "INSERT INTO SYNC_DB_WORK (illust_id, suffix, extension, save_dir, path)
+         VALUES (?, ?, ?, ?, ?)",
+        )?;
+        for file in paths_to_insert {
+            stmt.execute(params![
+                file.illust_id,
+                file.suffix,
+                file.extension,
+                file.save_dir,
+                file.path,
+            ])?;
+        }
+
+        // 4️⃣ メイン処理(SQL)
+        let sql = include_str!("../sql/collect/process_sync_db.sql");
+        tx.execute_batch(sql)?;
+
+        // 5️⃣ 重複ファイルをゴミ箱に
+        let mut stmt = tx.prepare("SELECT path FROM TEMP_TO_TRASH")?;
+        for path in stmt.query_map([], |row| row.get::<_, String>(0))? {
+            let path = PathBuf::from(path?);
+            if path.exists() {
+                trash::delete(path)?;
+            }
+        }
+
+        // 6️⃣ 結果を返却
+        let mut stmt = tx.prepare("SELECT illust_id, suffix, path FROM MISSING_FILES")?;
+        missing_files = stmt
+            .query_map([], |row| {
+                Ok(FileSummary {
+                    illust_id: row.get(0)?,
+                    suffix: row.get(1)?,
+                    path: row.get(2)?,
+                })
+            })?
+            .collect::<Result<Vec<FileSummary>, _>>()?;
+
+        // 管理番号を更新
+        update_control_num(&tx)?;
+    }
+
+    tx.commit()?;
+
+    Ok(missing_files)
 }

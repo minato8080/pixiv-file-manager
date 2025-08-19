@@ -117,3 +117,12 @@ CREATE TABLE IF NOT EXISTS COMMON_MST (
     value TEXT,
     PRIMARY KEY (key)
 );
+
+CREATE TABLE IF NOT EXISTS SYNC_DB_WORK (
+    illust_id INTEGER NOT NULL,
+    suffix INTEGER NOT NULL,
+    extension TEXT NOT NULL,
+    save_dir TEXT NOT NULL,
+    path TEXT NOT NULL,
+    in_db BOOLEAN DEFAULT 0
+);

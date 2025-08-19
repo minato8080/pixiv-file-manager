@@ -20,3 +20,20 @@ pub struct CollectSummary {
     pub new_path: Option<String>,
     pub is_new: bool,
 }
+
+#[derive(Debug)]
+pub struct TempFile {
+    pub illust_id: u32,
+    pub suffix: u8,
+    pub extension: String,
+    pub save_dir: String,
+    pub path: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, TS)]
+#[ts(export)]
+pub struct FileSummary {
+    pub illust_id: u32,
+    pub suffix: u8,
+    pub path: String,
+}

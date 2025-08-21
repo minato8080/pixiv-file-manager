@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
 const ITEM_HEIGHT = 22;
 const MAX_HEIGHT = 200;
@@ -85,9 +86,13 @@ export function InputDropdown<T>({
       if (value) {
         setFiltered(
           items.filter((item) =>
-            inferObjKey(item, valueKey, (obj, key) =>
-              getString(obj, key)?.toLowerCase().includes(value.toLowerCase())
-            )
+            typeof item === "string"
+              ? item.toLowerCase().includes(value.toLowerCase())
+              : inferObjKey(item, valueKey, (obj, key) =>
+                  getString(obj, key)
+                    ?.toLowerCase()
+                    .includes(value.toLowerCase())
+                )
           )
         );
       } else setFiltered(items);
@@ -208,7 +213,9 @@ export function InputDropdown<T>({
   // 項目選択ハンドラ
   const handleSelect = (item: T) => {
     const itemValue =
-      inferObjKey<string>(item, valueKey, (o, k) => getString(o, k)) ?? "";
+      typeof item === "string"
+        ? item
+        : inferObjKey<string>(item, valueKey, (o, k) => getString(o, k)) ?? "";
 
     if (!isControlled) {
       setInternalValue(itemValue);
@@ -231,9 +238,13 @@ export function InputDropdown<T>({
     setFiltered(
       value
         ? items.filter((item) =>
-            inferObjKey(item, valueKey, (obj, key) =>
-              getString(obj, key)?.toLowerCase().includes(value.toLowerCase())
-            )
+            typeof item === "string"
+              ? item.toLowerCase().includes(value.toLowerCase())
+              : inferObjKey(item, valueKey, (obj, key) =>
+                  getString(obj, key)
+                    ?.toLowerCase()
+                    .includes(value.toLowerCase())
+                )
           )
         : items
     );
@@ -262,17 +273,19 @@ export function InputDropdown<T>({
       >
         {filtered.length > 0 ? (
           <div
-            className={
-              "w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md max-h-60 overflow-auto scroll-transparent " +
+            className={cn(
+              "w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md max-h-60 overflow-auto scroll-transparent ",
               dropdownClassName
-            }
+            )}
           >
             <ScrollArea>
               {filtered.map((item, index) => {
                 const label =
-                  inferObjKey(item, labelKey, (obj, key) =>
-                    getString(obj, key)
-                  ) ?? "";
+                  typeof item === "string"
+                    ? item
+                    : inferObjKey(item, labelKey, (obj, key) =>
+                        getString(obj, key)
+                      ) ?? "";
                 return (
                   <div
                     key={index}

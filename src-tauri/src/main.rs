@@ -11,7 +11,8 @@ mod service;
 
 use api::pixiv::create_api;
 use commands::catalog::{
-    delete_files, edit_tags, get_associated_info, label_character_name, move_files,
+    add_remove_tags, delete_files, get_associated_info, label_character_name, move_files,
+    overwrite_tags,
 };
 use commands::collect::{
     assign_tag, delete_collect, delete_missing_illusts, get_available_unique_tags,
@@ -74,10 +75,11 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             // catalog
             delete_files,
-            edit_tags,
             get_associated_info,
             label_character_name,
             move_files,
+            add_remove_tags,
+            overwrite_tags,
             // collect
             assign_tag,
             delete_collect,

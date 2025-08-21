@@ -1,18 +1,6 @@
 import { X, Plus, Edit, Check } from "lucide-react";
-import React, {
-  forwardRef,
-  useImperativeHandle,
-  useState,
-  useRef,
-  useEffect,
-} from "react";
+import React, { useEffect, useRef } from "react";
 
-import { TagState } from "./dialog-edit-tag";
-
-import { EditTag } from "@/bindings/EditTag";
-import { EditTagReq } from "@/bindings/EditTagReq";
-import { SearchResult } from "@/bindings/SearchResult";
-import { TagInfo } from "@/bindings/TagInfo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,52 +13,25 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { InputDropdown } from "@/src/components/input-dropdown";
+import { useDialogEditStore } from "@/src/stores/dialog-edit-store";
 
-type OverwriteModeHandle = {
-  close: () => void;
-  getForm: () => EditTagReq;
-};
+export const OverwriteModeUI = () => {
+  const {
+    selectedFiles,
+    overwriteTags,
+    selectedFileForTags,
+    editingTagIndex,
+    editingTagValue,
+    availableTags,
+    tagToOverwrite,
+    setOverwriteTags,
+    setSelectedFileForTags,
+    setEditingTagIndex,
+    setEditingTagValue,
+    setTagToOverwrite,
+  } = useDialogEditStore();
 
-type OverwriteModeProps = {
-  selectedFiles: SearchResult[];
-  uniqueTagList: TagInfo[];
-};
-
-export const OverwriteModeUI = forwardRef<
-  OverwriteModeHandle,
-  OverwriteModeProps
->(({ selectedFiles, uniqueTagList }, ref) => {
-  const [tags, setTags] = useState<TagState[]>([]);
-  const [selectedFileForTags, setSelectedFileForTags] = useState<string>("");
-  const [editingTagIndex, setEditingTagIndex] = useState<number | null>(null);
-  const [editingTagValue, setEditingTagValue] = useState<string>("");
-  const [availableTags, setAvailableTags] = useState<string[]>([]);
-  const [inputValue, setInputvalue] = useState("");
   const editInputRef = useRef<HTMLInputElement>(null);
-
-  const resetState = () => {
-    setTags([]);
-    setSelectedFileForTags("");
-    setEditingTagIndex(null);
-    setEditingTagValue("");
-  };
-
-  const createForm = (): EditTagReq => {
-    // In overwrite mode, apply the same tags to all files
-    const finalTags = tags
-      .filter((tag) => tag.status !== "deleted")
-      .map((tag) => tag.value);
-
-    const vec: EditTag[] = selectedFiles.map((file) => ({
-      file_name: file.file_name,
-      individual_tags: null,
-    }));
-    return { vec, overwrite_tags: finalTags };
-  };
-  // Extract all unique tags from selected files
-  useEffect(() => {
-    setAvailableTags(uniqueTagList.map((p) => p.tag));
-  }, [uniqueTagList]);
 
   useEffect(() => {
     if (selectedFiles.length > 0) {
@@ -81,17 +42,12 @@ export const OverwriteModeUI = forwardRef<
             .map((tag) => tag.trim())
             .filter(Boolean)
         : [];
-      setTags(
+      setOverwriteTags(
         firstFileTags.map((tag) => ({ value: tag, status: "unchanged" }))
       );
       setSelectedFileForTags(`${selectedFiles[0].file_name}`);
     }
-  }, [selectedFiles]);
-
-  useImperativeHandle(ref, () => ({
-    close: resetState,
-    getForm: createForm,
-  }));
+  }, [selectedFiles, setSelectedFileForTags, setOverwriteTags]);
 
   // Update tags when a different file is selected from the dropdown
   const handleFileTagsSelect = (fileName: string) => {
@@ -106,37 +62,42 @@ export const OverwriteModeUI = forwardRef<
             .map((tag) => tag.trim())
             .filter(Boolean)
         : [];
-      setTags(fileTags.map((tag) => ({ value: tag, status: "unchanged" })));
+      setOverwriteTags(
+        fileTags.map((tag) => ({ value: tag, status: "unchanged" }))
+      );
     }
   };
 
   // Handle tag deletion in overwrite mode
   const handleDeleteTag = (index: number) => {
-    setTags((prevTags) => {
-      // If the tag was newly added, remove it completely
-      if (prevTags[index].status === "added") {
-        return prevTags.filter((_, i) => i !== index);
-      }
-      // Otherwise mark it as deleted
-      return prevTags.map((tag, i) =>
-        i === index
-          ? {
-              ...tag,
-              status: tag.status === "deleted" ? "unchanged" : "deleted",
-            }
-          : tag
+    // If the tag was newly added, remove it completely
+    if (overwriteTags[index].status === "added") {
+      setOverwriteTags(overwriteTags.filter((_, i) => i !== index));
+    }
+    // Otherwise mark it as deleted
+    else {
+      setOverwriteTags(
+        overwriteTags.map((tag, i) =>
+          i === index
+            ? {
+                ...tag,
+                status: tag.status === "deleted" ? "unchanged" : "deleted",
+              }
+            : tag
+        )
       );
-    });
+    }
   };
 
   // Start editing a tag
   const handleEditTag = (index: number) => {
     setEditingTagIndex(index);
-    setEditingTagValue(tags[index].value);
+    setEditingTagValue(overwriteTags[index].value);
     setTimeout(() => {
       editInputRef.current?.focus();
     }, 0);
   };
+
   // Handle key press in edit input
   const handleEditKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
@@ -156,8 +117,8 @@ export const OverwriteModeUI = forwardRef<
   // Save edited tag
   const handleSaveEdit = () => {
     if (editingTagIndex !== null) {
-      setTags((prevTags) =>
-        prevTags.map((tag, i) =>
+      setOverwriteTags(
+        overwriteTags.map((tag, i) =>
           i === editingTagIndex
             ? {
                 value: editingTagValue,
@@ -175,12 +136,12 @@ export const OverwriteModeUI = forwardRef<
 
   // Add a new tag in overwrite mode
   const handleAddTag = () => {
-    if (!tags.some((tag) => tag.value === inputValue)) {
-      setTags((prevTags) => [
-        ...prevTags,
-        { value: inputValue, status: "added" },
+    if (!overwriteTags.some((tag) => tag.value === tagToOverwrite)) {
+      setOverwriteTags([
+        ...overwriteTags,
+        { value: tagToOverwrite, status: "added" },
       ]);
-      setInputvalue("");
+      setTagToOverwrite("");
     }
   };
 
@@ -221,11 +182,11 @@ export const OverwriteModeUI = forwardRef<
           <InputDropdown
             items={availableTags}
             placeholder="Add new tag"
-            value={inputValue}
-            onChange={setInputvalue}
+            value={tagToOverwrite}
+            onChange={setTagToOverwrite}
             onKeyDown={handleKeyDown}
             inputClassName="border-blue-200 dark:border-blue-800 h-8"
-            dropdownClassName="h-30"
+            dropdownClassName="max-h-60"
           />
           <Button
             onClick={handleAddTag}
@@ -237,8 +198,8 @@ export const OverwriteModeUI = forwardRef<
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2 p-2 min-h-[80px] border rounded-md bg-slate-50 dark:bg-slate-800">
-        {tags.map((tag, index) =>
+      <div className="flex flex-wrap gap-2 p-2 min-h-53 border rounded-md bg-slate-50 dark:bg-slate-800">
+        {overwriteTags.map((tag, index) =>
           editingTagIndex === index ? (
             <div
               key={index}
@@ -315,5 +276,5 @@ export const OverwriteModeUI = forwardRef<
       </div>
     </div>
   );
-});
+};
 OverwriteModeUI.displayName = "OverwriteModeUI";

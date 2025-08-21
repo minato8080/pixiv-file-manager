@@ -1,16 +1,5 @@
-import React, {
-  forwardRef,
-  useImperativeHandle,
-  useState,
-  useEffect,
-} from "react";
+import React, { useEffect } from "react";
 
-import { FileTagState } from "./dialog-edit-tag";
-
-import { EditTag } from "@/bindings/EditTag";
-import { EditTagReq } from "@/bindings/EditTagReq";
-import { SearchResult } from "@/bindings/SearchResult";
-import { TagInfo } from "@/bindings/TagInfo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,31 +13,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { InputDropdown } from "@/src/components/input-dropdown";
+import { useDialogEditStore } from "@/src/stores/dialog-edit-store";
 
-type AddRemoveModeHandle = {
-  close: () => void;
-  getForm: () => EditTagReq;
-};
-
-type AddRemoveModeProps = {
-  selectedFiles: SearchResult[];
-  uniqueTagList: TagInfo[];
-};
-
-export const AddRemoveModeUI = forwardRef<
-  AddRemoveModeHandle,
-  AddRemoveModeProps
->(({ selectedFiles, uniqueTagList }, ref) => {
-  const [fileTagStates, setFileTagStates] = useState<FileTagState[]>([]);
-  const [availableTags, setAvailableTags] = useState<string[]>([]);
-  const [tagsToAdd, setTagsToAdd] = useState<string>("");
-  const [tagsToRemove, setTagsToRemove] = useState<string>("");
-  const [allExistingTags, setAllExistingTags] = useState<string[]>([]);
-
-  // Extract all unique tags from selected files
-  useEffect(() => {
-    setAvailableTags(uniqueTagList.map((p) => p.tag));
-  }, [uniqueTagList]);
+export const AddRemoveModeUI = () => {
+  const {
+    selectedFiles,
+    fileTagStates,
+    availableTags,
+    tagToAdd,
+    allExistingTags,
+    setFileTagStates,
+    setTagToAdd,
+    setTagToRemove,
+    setAllExistingTags,
+    addTagsToAll,
+    removeTagsFromAll,
+  } = useDialogEditStore();
 
   // Extract all unique tags from selected files
   useEffect(() => {
@@ -67,7 +47,7 @@ export const AddRemoveModeUI = forwardRef<
 
       setAllExistingTags(Array.from(uniqueTags).sort());
     }
-  }, [selectedFiles]);
+  }, [selectedFiles, setAllExistingTags]);
 
   // Initialize file tag states for add/remove mode
   useEffect(() => {
@@ -86,84 +66,12 @@ export const AddRemoveModeUI = forwardRef<
 
       setFileTagStates(initialFileTagStates);
     }
-  }, [selectedFiles]);
-
-  const resetState = () => {
-    setFileTagStates([]);
-    setTagsToAdd("");
-    setTagsToRemove("");
-    setAllExistingTags([]);
-  };
-
-  const createForm = (): EditTagReq => {
-    const vec: EditTag[] = fileTagStates.map((fileState) => ({
-      file_name: fileState.fileName,
-      individual_tags: fileState.tags
-        .filter((tag) => tag.status !== "deleted")
-        .map((tag) => tag.value),
-    }));
-    return { vec, overwrite_tags: null };
-  };
-
-  useImperativeHandle(ref, () => ({
-    close: resetState,
-    getForm: () => createForm(),
-  }));
-
-  // Add tags in add/remove mode
-  const handleAddTagsToAll = () => {
-    if (tagsToAdd) {
-      const tagsArray = tagsToAdd
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter(Boolean);
-      setTagsToAdd("");
-
-      // Update each file's tags
-      setFileTagStates((prevFileTagStates) =>
-        prevFileTagStates.map((fileState) => ({
-          ...fileState,
-          tags: [
-            ...fileState.tags,
-            ...tagsArray
-              .filter((tag) => !fileState.tags.some((t) => t.value === tag))
-              .map((tag) => ({ value: tag, status: "added" as const })),
-          ],
-        }))
-      );
-
-      setAllExistingTags((prevTags) => [...prevTags, tagsToAdd]);
-    }
-  };
-
-  // Remove tags in add/remove mode
-  const handleRemoveTagsFromAll = () => {
-    if (tagsToRemove) {
-      const tagsArray = tagsToRemove
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter(Boolean);
-      setTagsToRemove("");
-
-      // Mark tags for removal in all files
-      setFileTagStates((prevFileTagStates) =>
-        prevFileTagStates.map((fileState) => ({
-          ...fileState,
-          tags: fileState.tags.map((tag) =>
-            tagsArray.includes(tag.value) ? { ...tag, status: "deleted" } : tag
-          ),
-        }))
-      );
-      setAllExistingTags((prevTags) =>
-        prevTags.filter((tag) => tag !== tagsToRemove)
-      );
-    }
-  };
+  }, [selectedFiles, setFileTagStates]);
 
   // Handle key press in add tag input
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
-      handleAddTagsToAll();
+      addTagsToAll();
     }
   };
 
@@ -178,14 +86,14 @@ export const AddRemoveModeUI = forwardRef<
             <InputDropdown
               items={availableTags}
               placeholder="Add new tag"
-              value={tagsToAdd}
-              onChange={setTagsToAdd}
+              value={tagToAdd}
+              onChange={setTagToAdd}
               onKeyDown={handleKeyDown}
               inputClassName="border-green-200 dark:border-green-800 h-8"
-              dropdownClassName="h-50"
+              dropdownClassName="max-h-50"
             />
             <Button
-              onClick={handleAddTagsToAll}
+              onClick={addTagsToAll}
               size="sm"
               className="bg-green-500 hover:bg-green-600 text-white h-8 px-2"
             >
@@ -199,7 +107,7 @@ export const AddRemoveModeUI = forwardRef<
             Remove tags from all files:
           </Label>
           <div className="flex space-x-1">
-            <Select onValueChange={setTagsToRemove}>
+            <Select onValueChange={setTagToRemove}>
               <SelectTrigger className="border-red-200 dark:border-red-800  w-full">
                 <SelectValue placeholder="Select a tag to remove" />
               </SelectTrigger>
@@ -212,7 +120,7 @@ export const AddRemoveModeUI = forwardRef<
               </SelectContent>
             </Select>
             <Button
-              onClick={handleRemoveTagsFromAll}
+              onClick={removeTagsFromAll}
               size="sm"
               className="bg-red-500 hover:bg-red-600 text-white h-8 px-2"
             >
@@ -275,5 +183,5 @@ export const AddRemoveModeUI = forwardRef<
       </ScrollArea>
     </div>
   );
-});
+};
 AddRemoveModeUI.displayName = "AddRemoveModeUI";

@@ -6,14 +6,14 @@ use trash::delete;
 
 use crate::{
     models::{
-        catalog::{AssociateCharacter, AssociateInfo, AssociateSaveDir, EditTagReq},
+        catalog::{AssociateCharacter, AssociateInfo, AssociateSaveDir, EditTag},
         common::AppState,
     },
     service::{
         catalog::{
-            create_base_map, create_base_map_with_opt, delete_unused_character_info,
-            prepare_id_tags_map, prepare_suffiexes_map, prepare_update_mode_map, process_edit_tags,
-            process_move_files, update_character_info, update_illust_info,
+            create_base_map, delete_unused_character_info, prepare_suffiexes_map,
+            prepare_update_mode_map, process_add_remove_tags, process_move_files,
+            process_overwrite_tags, update_character_info, update_illust_info,
         },
         common::parse_file_info,
     },
@@ -79,30 +79,27 @@ pub fn label_character_name(
 }
 
 #[command]
-pub fn edit_tags(
-    state: State<AppState>,
-    edit_tag_req: EditTagReq,
+pub fn add_remove_tags(
+    edit_tags: Vec<EditTag>,
     update_linked_files: bool,
+    state: State<AppState>,
 ) -> Result<(), String> {
     let mut conn = state.db.lock().unwrap();
-    let tx = conn.transaction().map_err(|e| e.to_string())?;
-    let file_names_with_opt: Vec<(String, Option<Vec<String>>)> = edit_tag_req
-        .vec
-        .into_iter()
-        .map(|edit_tag| (edit_tag.file_name, edit_tag.individual_tags))
-        .collect();
-    let base_map = create_base_map_with_opt(&tx, file_names_with_opt).map_err(|e| e.to_string())?;
-    let id_tags_map = prepare_id_tags_map(
-        &tx,
-        base_map,
-        update_linked_files,
-        &edit_tag_req.overwrite_tags.clone(),
-    )
-    .map_err(|e| e.to_string())?;
-    process_edit_tags(&tx, id_tags_map).map_err(|e| e.to_string())?;
+    process_add_remove_tags(edit_tags, update_linked_files, &mut conn)
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
 
-    tx.commit().map_err(|e| e.to_string())?;
-
+#[command]
+pub fn overwrite_tags(
+    file_names: Vec<String>,
+    tags: Vec<String>,
+    update_linked_files: bool,
+    state: State<AppState>,
+) -> Result<(), String> {
+    let mut conn = state.db.lock().unwrap();
+    process_overwrite_tags(file_names, tags, update_linked_files, &mut conn)
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 

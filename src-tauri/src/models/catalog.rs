@@ -5,14 +5,7 @@ use ts_rs::TS;
 #[ts(export)]
 pub struct EditTag {
     pub file_name: String,
-    pub individual_tags: Option<Vec<String>>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, TS)]
-#[ts(export)]
-pub struct EditTagReq {
-    pub vec: Vec<EditTag>,
-    pub overwrite_tags: Option<Vec<String>>,
+    pub tags: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, TS)]

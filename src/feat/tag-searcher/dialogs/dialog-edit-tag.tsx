@@ -1,11 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useState, useRef, useEffect } from "react";
+import { useEffect } from "react";
 
 import { AddRemoveModeUI } from "./dialog-edit-tag-add-remove-ui";
 import { OverwriteModeUI } from "./dialog-edit-tag-overwrite-ui";
 
 import { AssociateInfo } from "@/bindings/AssociateInfo";
-import { EditTagReq } from "@/bindings/EditTagReq";
 import { SearchResult } from "@/bindings/SearchResult";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,6 +19,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useTagSearcher } from "@/src/hooks/use-tag-searcher";
+import { useCommonStore } from "@/src/stores/common-store";
 import { useDialogEditStore } from "@/stores/dialog-edit-store";
 import { useDropdownStore } from "@/stores/dropdown-store";
 
@@ -35,57 +35,35 @@ export type FileTagState = {
   tags: TagState[];
 };
 
-type EditTagsSubmitType = {
-  editTagReq: EditTagReq;
-  updateLinkedFiles: boolean;
-};
-
-type OverwriteModeHandle = {
-  open: (items: SearchResult[]) => void;
-  close: () => void;
-  getForm: () => EditTagReq;
-};
-
-type AddRemoveModeHandle = {
-  close: () => void;
-  fileTagStates: FileTagState[];
-  getForm: () => EditTagReq;
-};
-
 export const DialogEditTag = () => {
   const {
     isEditTagsDialogOpen,
-    editTagsDialogSelectedFiles,
+    selectedFiles,
     isEditTagsDialogSubmitting,
-    setEditTagsDialogSelectedFiles,
+    isOverwriteMode,
+    isUpdateLinkedFiles,
+    associateInfo,
     closeEditTagsDialog,
     setEditTagsDialogSubmitting,
+    setAvailableTags,
+    createAddRemoveForm,
+    createOverwriteForm,
+    setIsOverwriteMode,
+    setIsUpdateLinkedFiles,
+    setAssociateInfo,
   } = useDialogEditStore();
+  const { loading, setLoading } = useCommonStore();
   const { uniqueTagList } = useDropdownStore();
-
-  const [isOverwriteMode, setIsOverwriteMode] = useState(false);
-
-  // 影響を受けるファイル数の状態
-  const [isUpdateLinkedFiles, setIsUpdateLinkedFiles] = useState(false); // Whether to update linked files
-  const [isLoadingAssociations, setIsLoadingAssociations] = useState(false);
-  const [associateInfo, setAssociateInfo] = useState<AssociateInfo | null>(
-    null
-  );
-
-  const overwriteModeUIRef = useRef<OverwriteModeHandle>(null);
-  const addRemoveHandleRef = useRef<AddRemoveModeHandle>(null);
-
   const { fetchTags, handleSearch } = useTagSearcher();
 
-  const confirmTags = async (param: EditTagsSubmitType) => {
-    await invoke("edit_tags", param);
-    await fetchTags();
-    handleSearch();
-  };
+  // Extract all unique tags from selected files
+  useEffect(() => {
+    setAvailableTags(uniqueTagList.map((p) => p.tag));
+  }, [setAvailableTags, uniqueTagList]);
 
   // 紐づけ更新の情報を取得
   const fetchAssociations = async (searchResult: SearchResult[]) => {
-    setIsLoadingAssociations(true);
+    setLoading(true);
     try {
       const result: AssociateInfo = await invoke("get_associated_info", {
         fileNames: searchResult.map((p) => p.file_name),
@@ -97,27 +75,15 @@ export const DialogEditTag = () => {
     } catch (error) {
       console.error("Failed to fetch associations:", error);
     } finally {
-      setIsLoadingAssociations(false);
+      setLoading(false);
     }
-  };
-
-  const resetState = () => {
-    setEditTagsDialogSelectedFiles([]);
-    setIsOverwriteMode(false);
-  };
-
-  const close = () => {
-    resetState();
-    closeEditTagsDialog();
-    overwriteModeUIRef.current?.close();
-    addRemoveHandleRef.current?.close();
   };
 
   useEffect(() => {
     if (isEditTagsDialogOpen) {
-      void fetchAssociations(editTagsDialogSelectedFiles);
+      void fetchAssociations(selectedFiles);
     } else {
-      close();
+      closeEditTagsDialog();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditTagsDialogOpen]);
@@ -127,29 +93,35 @@ export const DialogEditTag = () => {
     setEditTagsDialogSubmitting(true);
     try {
       if (isOverwriteMode) {
-        const form = overwriteModeUIRef.current?.getForm();
-        if (form)
-          await confirmTags({
-            editTagReq: form,
-            updateLinkedFiles: isUpdateLinkedFiles,
-          });
+        const form = createOverwriteForm();
+        await invoke("overwrite_tags", {
+          fileNames: form.fileNames,
+          tags: form.tags,
+          updateLinkedFiles: isUpdateLinkedFiles,
+        });
+        await fetchTags();
+        handleSearch();
       } else {
-        const form = addRemoveHandleRef.current?.getForm();
-        if (form)
-          await confirmTags({
-            editTagReq: form,
-            updateLinkedFiles: isUpdateLinkedFiles,
-          });
+        const form = createAddRemoveForm();
+        await invoke("add_remove_tags", {
+          editTags: form,
+          updateLinkedFiles: isUpdateLinkedFiles,
+        });
+        await fetchTags();
+        handleSearch();
       }
 
-      close();
+      closeEditTagsDialog();
     } finally {
       setEditTagsDialogSubmitting(false);
     }
   };
 
   return (
-    <Dialog open={isEditTagsDialogOpen} onOpenChange={(b) => !b && close()}>
+    <Dialog
+      open={isEditTagsDialogOpen}
+      onOpenChange={(b) => !b && closeEditTagsDialog()}
+    >
       <DialogContent
         aria-describedby="A dialog to edit tags."
         className="sm:max-w-2xl max-h-[80vh] overflow-hidden flex flex-col bg-white"
@@ -197,7 +169,7 @@ export const DialogEditTag = () => {
                   variant="outline"
                   className="bg-red-50 text-red-600 border-red-200"
                 >
-                  {isLoadingAssociations
+                  {loading
                     ? "Loading..."
                     : `${associateInfo?.characters.reduce(
                         (total, p) => total + p.count,
@@ -210,29 +182,19 @@ export const DialogEditTag = () => {
 
           {/* Main UI */}
           <div className={isOverwriteMode ? "" : "hidden"}>
-            <OverwriteModeUI
-              ref={overwriteModeUIRef}
-              selectedFiles={editTagsDialogSelectedFiles}
-              uniqueTagList={uniqueTagList}
-            />
+            <OverwriteModeUI />
           </div>
           <div className={isOverwriteMode ? "hidden" : ""}>
-            <AddRemoveModeUI
-              ref={addRemoveHandleRef}
-              selectedFiles={editTagsDialogSelectedFiles}
-              uniqueTagList={uniqueTagList}
-            />
+            <AddRemoveModeUI />
           </div>
         </div>
 
         <DialogFooter className="pt-2 flex items-center justify-between">
           <div className="text-xs text-slate-500">
-            {editTagsDialogSelectedFiles.length > 1
-              ? `This will update tags for ${editTagsDialogSelectedFiles.length} files.`
-              : "This will update tags for 1 file."}
+            {`This will update tags for ${selectedFiles.length} files.`}
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={close} size="sm">
+            <Button variant="outline" onClick={closeEditTagsDialog} size="sm">
               Cancel
             </Button>
             <Button

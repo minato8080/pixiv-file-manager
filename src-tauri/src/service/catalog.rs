@@ -1,12 +1,12 @@
 use anyhow::{anyhow, Result};
-use rusqlite::{params, Transaction};
+use rusqlite::{params, Connection, Transaction};
 use std::{
     collections::{HashMap, HashSet},
     fs,
     path::Path,
 };
 
-use crate::service::common::parse_file_info;
+use crate::{models::catalog::EditTag, service::common::parse_file_info};
 
 const UPDATE_MODE_CONTROL: UpdateMode = 0;
 const UPDATE_MODE_INCREMENT: UpdateMode = 1;
@@ -15,12 +15,10 @@ type Id = u32;
 type Suffix = u8;
 type ControlNum = i32;
 type UpdateMode = i8;
-type Tag = String;
 type Dummy = String;
 type BaseMap<O> = HashMap<(Id, Suffix, ControlNum), Option<O>>;
 type UpdateModeMap = HashMap<(Id, Option<Suffix>, ControlNum), UpdateMode>;
 type SuffixesMap = HashMap<(Id, ControlNum, UpdateMode), Vec<Option<Suffix>>>;
-type IdTagsMap = HashMap<(Id, Option<Vec<Tag>>), Vec<(Suffix, ControlNum)>>;
 
 pub fn process_move_files(
     tx: &Transaction,
@@ -339,170 +337,83 @@ pub fn delete_unused_character_info(
     Ok(())
 }
 
-pub fn prepare_id_tags_map(
-    tx: &rusqlite::Transaction,
-    base_map: BaseMap<Vec<String>>,
+pub fn process_add_remove_tags(
+    edit_tags: Vec<EditTag>,
     update_linked_files: bool,
-    overwrite_tags_opt: &Option<Vec<Tag>>,
-) -> Result<IdTagsMap> {
-    let mut id_tags_map: IdTagsMap = HashMap::new();
-    for ((id, suffix, control_num), tags_opt) in base_map {
-        if update_linked_files {
-            // update_linked_filesがtrueなら、同じillust_idの全suffixをILLUST_INFOから取得して全て追加する
-            let mut stmt = tx.prepare(
-                "SELECT suffix FROM ILLUST_INFO WHERE illust_id = ? AND control_num = ?",
-            )?;
-            let rows = stmt.query_map(params![&id, control_num], |row| row.get(0))?;
+    conn: &mut Connection,
+) -> Result<()> {
+    let tx = conn.transaction()?;
 
-            for row in rows {
-                let suffix = row?;
-                let target_tags: Option<Vec<String>> =
-                    if let Some(ref overwrite_tags) = *overwrite_tags_opt {
-                        Some(overwrite_tags.clone())
-                    } else {
-                        tags_opt.clone()
-                    };
-                id_tags_map
-                    .entry((id.clone(), target_tags))
-                    .or_insert_with(Vec::new)
-                    .push((suffix, control_num))
-            }
-            continue;
-        } else {
-            let target: Option<Vec<String>> = if let Some(ref overwrite_tags) = *overwrite_tags_opt
-            {
-                Some(overwrite_tags.clone())
-            } else {
-                tags_opt.clone()
-            };
-            id_tags_map
-                .entry((id.clone(), target))
-                .or_insert_with(Vec::new)
-                .push((suffix, control_num));
-        }
-    }
-    Ok(id_tags_map)
-}
+    // 一時テーブル作成
+    let init_sql = include_str!("../sql/catalog/init_temp_edit_tags.sql");
+    tx.execute_batch(&init_sql)?;
 
-pub fn process_edit_tags(tx: &rusqlite::Transaction, id_tags_map: IdTagsMap) -> Result<()> {
-    // idとtagsの一対一で処理
-    for ((id, tags_opt), suffixes_and_control_num) in id_tags_map {
-        // 管理番号のセット
-        let unique_control_nums: std::collections::HashSet<i32> = suffixes_and_control_num
-            .iter()
-            .map(|(_, control_num)| *control_num)
-            .collect();
-
-        // suffixの配列
-        let suffixes: Vec<u8> = suffixes_and_control_num
-            .iter()
-            .map(|(suffix, _)| suffix.clone())
-            .collect();
-
-        // 管理番号変更フラグ
-        let is_change_control_num = if unique_control_nums.len() == 1 {
-            // 一個目の管理番号
-            let first_control_num = *unique_control_nums.iter().next().unwrap();
-            // 一個目の管理番号でカウント
-            let count: i32 = tx.query_row(
-                "SELECT COUNT(*) FROM ILLUST_INFO WHERE illust_id = ? AND control_num = ?",
-                params![&id, first_control_num],
-                |row| row.get(0),
-            )?;
-            // 全件更新なら未変更
-            count != suffixes.len() as i32
-        }
-        // それ以外は変更
-        else {
-            true
-        };
-
-        // 次の管理番号
-        // 管理番号が未変更ならそのまま
-        let next_control_num = if !is_change_control_num {
-            *unique_control_nums.iter().next().unwrap()
-        }
-        // そうでないなら最新を取得してインクリメント
-        else {
-            let max_control_num: i32 = tx
-                .query_row(
-                    "SELECT MAX(control_num) FROM ILLUST_INFO WHERE illust_id = ?",
-                    params![&id],
-                    |row| row.get::<_, Option<i32>>(0),
-                )?
-                .unwrap_or(0);
-            max_control_num + 1
-        };
-
-        // suffixのIN句で管理番号をupdateする
-        let in_clause = suffixes.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-
-        let mut params_vec: Vec<&dyn rusqlite::ToSql> = Vec::new();
-        params_vec.push(&next_control_num);
-        params_vec.push(&id);
-        for suffix in &suffixes {
-            params_vec.push(suffix);
-        }
-
-        tx.execute(
-            &format!(
-                "UPDATE ILLUST_INFO SET control_num = ? WHERE illust_id = ? AND suffix IN ({})",
-                in_clause
-            ),
-            params_vec.as_slice(),
+    // 全データを tmp_edit_tags に投入
+    for edit in edit_tags {
+        let file_info = parse_file_info(&edit.file_name)?;
+        let control_num: i32 = tx.query_row(
+            "SELECT control_num FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
+            params![file_info.illust_id, file_info.suffix],
+            |row| row.get(0),
         )?;
 
-        // 管理番号を変更してるならILLUST_DETAILを複製
-        if is_change_control_num {
-            let some_control_num = unique_control_nums.iter().next().unwrap();
+        for tag in edit.tags {
             tx.execute(
-                "
-                INSERT OR IGNORE INTO ILLUST_DETAIL (illust_id, control_num, author_id, character)
-                SELECT illust_id, ? as control_num, author_id, character
-                FROM ILLUST_DETAIL WHERE illust_id = ? AND control_num = ?
-                ",
-                params![&next_control_num, &id, &some_control_num],
+                "INSERT INTO tmp_edit_tags (illust_id, suffix, control_num, tag) VALUES (?, ?, ?, ?)",
+                params![file_info.illust_id, file_info.suffix, control_num, tag],
             )?;
         }
-
-        // 関連テーブルの更新
-        for control_num in unique_control_nums {
-            // 旧番でカウント
-            let count: i32 = tx.query_row(
-                "SELECT COUNT(*) FROM ILLUST_INFO WHERE illust_id = ? AND control_num = ?",
-                params![&id, &control_num],
-                |row| row.get(0),
-            )?;
-
-            // カウントが0なら削除
-            // 洗い替えの場合も削除
-            if count == 0 || is_change_control_num {
-                // TAG_INFOからDELETE
-                tx.execute(
-                    "DELETE FROM TAG_INFO WHERE illust_id = ? AND control_num = ?",
-                    params![&id, &control_num],
-                )?;
-            }
-
-            // カウントが0なら削除
-            if count == 0 {
-                // ILLUST_DETAILを削除
-                tx.execute(
-                    "DELETE ILLUST_DETAIL WHERE illust_id = ? AND control_num = ?",
-                    params![&next_control_num, &id, &control_num],
-                )?;
-            }
-        }
-
-        // 新しいタグを挿入
-        if let Some(tags) = tags_opt {
-            for tag in tags {
-                tx.execute(
-                    "INSERT OR IGNORE INTO TAG_INFO (illust_id, control_num, tag) VALUES (?, ?, ?)",
-                    params![id, next_control_num, tag],
-                )?;
-            }
-        };
     }
+
+    // 洗い替え
+    let overwrite_sql = if update_linked_files {
+        include_str!("../sql/catalog/overwrite_tags_linked.sql")
+    } else {
+        include_str!("../sql/catalog/overwrite_tags_individual.sql")
+    };
+    tx.execute_batch(&overwrite_sql)?;
+
+    tx.commit()?;
+    Ok(())
+}
+
+pub fn process_overwrite_tags(
+    file_names: Vec<String>,
+    tags: Vec<String>,
+    update_linked_files: bool,
+    conn: &mut Connection,
+) -> Result<()> {
+    let tx = conn.transaction()?;
+
+    // 一時テーブル作成
+    let init_sql = include_str!("../sql/catalog/init_temp_edit_tags.sql");
+    tx.execute_batch(&init_sql)?;
+
+    // 全データを tmp_edit_tags に投入
+    for file_name in file_names {
+        let file_info = parse_file_info(&file_name)?;
+        let control_num: i32 = tx.query_row(
+            "SELECT control_num FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
+            params![file_info.illust_id, file_info.suffix],
+            |row| row.get(0),
+        )?;
+
+        for tag in &tags {
+            tx.execute(
+                "INSERT INTO tmp_edit_tags (illust_id, suffix, control_num, tag) VALUES (?, ?, ?, ?)",
+                params![file_info.illust_id, file_info.suffix, control_num, tag],
+            )?;
+        }
+    }
+
+    // 洗い替え
+    let overwrite_sql = if update_linked_files {
+        include_str!("../sql/catalog/overwrite_tags_linked.sql")
+    } else {
+        include_str!("../sql/catalog/overwrite_tags_individual.sql")
+    };
+    tx.execute_batch(&overwrite_sql)?;
+
+    tx.commit()?;
     Ok(())
 }

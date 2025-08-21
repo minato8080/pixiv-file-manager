@@ -1,11 +1,12 @@
 {
   "name": "pixiv-file-manager",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && xcopy /E /I src-tauri\\target\\release\\bundle bundle",
+    "build": "tsc && vite build",
+    "postbuild:copy": "robocopy src-tauri\\target\\release\\bundle bundle /MIR",
     "preview": "vite preview",
     "tauri": "tauri"
   },

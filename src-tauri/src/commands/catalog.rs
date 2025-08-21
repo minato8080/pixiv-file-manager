@@ -56,7 +56,7 @@ pub fn label_character_name(
             .query_row(
                 "SELECT D.character FROM ILLUST_DETAIL D 
                 INNER JOIN ILLUST_INFO I ON D.illust_id = I.illust_id 
-                AND D.control_num = I.control_num 
+                AND D.cnum = I.cnum 
                 WHERE I.illust_id = ? AND I.suffix = ?",
                 params![id, suffix],
                 |row| row.get(0),
@@ -111,9 +111,9 @@ pub fn delete_files(state: State<AppState>, file_names: Vec<String>) -> Result<(
     for file_name in file_names {
         let file_info = parse_file_info(file_name.as_str()).map_err(|e| e.to_string())?;
 
-        let (save_dir, control_num): (String, i32) = tx
+        let (save_dir, cnum): (String, i32) = tx
             .query_row(
-                "SELECT save_dir, control_num FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
+                "SELECT save_dir, cnum FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
                 params![file_info.illust_id, file_info.suffix],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
@@ -130,32 +130,32 @@ pub fn delete_files(state: State<AppState>, file_names: Vec<String>) -> Result<(
         )
         .map_err(|e| e.to_string())?;
 
-        // control_numを取り出して0件の場合、TAG_INFOおよびILLUST_DETAILから削除する
+        // cnumを取り出して0件の場合、TAG_INFOおよびILLUST_DETAILから削除する
         tx.execute(
             "
             DELETE FROM TAG_INFO
-            WHERE illust_id = ?1 AND control_num = ?2
+            WHERE illust_id = ?1 AND cnum = ?2
             AND NOT EXISTS (
                 SELECT 1
                 FROM ILLUST_INFO
-                WHERE illust_id = ?1 AND control_num = ?2
+                WHERE illust_id = ?1 AND cnum = ?2
             )
             ",
-            params![file_info.illust_id, control_num],
+            params![file_info.illust_id, cnum],
         )
         .map_err(|e| e.to_string())?;
 
         tx.execute(
             "
             DELETE FROM ILLUST_DETAIL
-            WHERE illust_id = ?1 AND control_num = ?2
+            WHERE illust_id = ?1 AND cnum = ?2
             AND NOT EXISTS (
                 SELECT 1
                 FROM ILLUST_INFO
-                WHERE illust_id = ?1 AND control_num = ?2
+                WHERE illust_id = ?1 AND cnum = ?2
             )
             ",
-            params![file_info.illust_id, control_num],
+            params![file_info.illust_id, cnum],
         )
         .map_err(|e| e.to_string())?;
     }
@@ -174,31 +174,31 @@ pub fn get_associated_info(
     for file_name in &file_names {
         let file_info = parse_file_info(file_name.as_str()).map_err(|e| e.to_string())?;
 
-        // control_num の取得
-        let control_num: i64 = conn
+        // cnum の取得
+        let cnum: i64 = conn
             .query_row(
-                "SELECT control_num FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
+                "SELECT cnum FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
                 params![file_info.illust_id, file_info.suffix],
                 |row| row.get(0),
             )
             .map_err(|e| {
                 format!(
-                    "Failed to get control_num for {}_{}: {}",
+                    "Failed to get cnum for {}_{}: {}",
                     file_info.illust_id, file_info.suffix, e
                 )
             })?;
 
-        // 同じ control_num を持つレコードを取得
+        // 同じ cnum を持つレコードを取得
         let mut stmt = conn.prepare(
             "SELECT (I.illust_id || '_p' || I.suffix || '.' || I.extension) as key, D.character, I.save_dir
              FROM ILLUST_INFO I
              LEFT JOIN ILLUST_DETAIL D
-             ON I.illust_id = D.illust_id AND I.control_num = D.control_num
-             WHERE I.illust_id = ? AND I.control_num = ?",
+             ON I.illust_id = D.illust_id AND I.cnum = D.cnum
+             WHERE I.illust_id = ? AND I.cnum = ?",
         ).map_err(|e| e.to_string())?;
 
         let rows = stmt
-            .query_map(params![file_info.illust_id, control_num], |row| {
+            .query_map(params![file_info.illust_id, cnum], |row| {
                 let key: String = row.get(0)?;
                 let character: Option<String> = row.get(1)?;
                 let save_dir: String = row.get(2)?;

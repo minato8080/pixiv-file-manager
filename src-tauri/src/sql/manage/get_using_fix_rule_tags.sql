@@ -13,7 +13,7 @@ LEFT JOIN (
     FROM TAG_INFO T
     JOIN ILLUST_INFO I
       ON T.illust_id = I.illust_id
-     AND T.control_num = I.control_num
+     AND T.cnum = I.cnum
     GROUP BY T.tag
 ) tag_usage
   ON r.tag = tag_usage.tag

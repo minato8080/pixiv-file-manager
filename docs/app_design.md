@@ -32,7 +32,7 @@
    5. 一意の id を取得して配列に格納する。
    6. 配列をループして以下処理を行う。
       1. `igonre_flg`が 1 の場合、
-         1. `ILLUST_INFO`から`control_num`が最小のレコードを取得する。
+         1. `ILLUST_INFO`から`cnum`が最小のレコードを取得する。
          2. `insert_flg`が 1 の`suffix`をインサート。
       2. `igonre_flg`が 0 の場合
          1. N 秒待機する。
@@ -106,7 +106,7 @@
 1. **(画面)** ファイル移動ダイアログ
    1. [一括で移動する]チェックボックスの値を`move_accompany`に設定する。
 2. **(APP)** ファイル移動処理
-   1. `move_accompany`が true の場合、`ILLUST_INFO`の`illust_id`が一致し、`control_num`が一致するレコードの`save_dir`を更新する。
+   1. `move_accompany`が true の場合、`ILLUST_INFO`の`illust_id`が一致し、`cnum`が一致するレコードの`save_dir`を更新する。
    2. 物理ファイルを移動する。
    3. コミットを発行し、結果をクライアントに返却する。
 3. **(画面)** 成功後処理
@@ -118,9 +118,9 @@
    1. [ファイル削除]ボタン押下時、選択したファイルをパラメータに[ファイル削除ダイアログ]を表示する。
    2. [ファイル削除ダイアログ]で[OK]押下時、ファイル削除を実行する。
 2. **(APP)** ファイル削除処理
-   1. `ILLUST_INFO`テーブルからパラメータ`illust_id`で検索し、`control_num`を取得する。
+   1. `ILLUST_INFO`テーブルからパラメータ`illust_id`で検索し、`cnum`を取得する。
    2. `ILLUST_INFO`テーブルから該当レコードを削除。
-   3. `ILLUST_INFO`テーブルからパラメータ`illust_id`、1 で取得した`control_num`で検索し、0 件の場合、`TAG_INFO`を削除する。
+   3. `ILLUST_INFO`テーブルからパラメータ`illust_id`、1 で取得した`cnum`で検索し、0 件の場合、`TAG_INFO`を削除する。
    4. 物理ファイルを削除する。
    5. コミットを発行し、結果をクライアントに返却する。
 3. **(画面)** 成功後処理
@@ -149,11 +149,11 @@
 2. **(APP)** 名前登録処理
    1. `collect_dir`が設定されている場合、`CHARACTER_INFO`に入力情報を登録する。
    2. `ILLUST_INFO`を更新する。
-      1. `associate`が true の場合、`illust_id`、`control_num`が同一の`character`を更新する。
-      2. `associate`が false の場合、`control_num`をインクリメントして更新する。
+      1. `associate`が true の場合、`illust_id`、`cnum`が同一の`character`を更新する。
+      2. `associate`が false の場合、`cnum`をインクリメントして更新する。
       3. `move_file`が true の場合、`save_dir`を`collect_dir`に更新する。
    3. `TAG_INFO`を更新する。
-      1. `associate`が false の場合、`TAG_INFO`を複製し、対象の`control_num`を更新する。
+      1. `associate`が false の場合、`TAG_INFO`を複製し、対象の`cnum`を更新する。
    4. `move_file`が true の場合、`collect_dir`に物理ファイルを移動する。
    5. コミットを発行し、結果をクライアントに返却する。
 3. **(画面)** 成功後処理

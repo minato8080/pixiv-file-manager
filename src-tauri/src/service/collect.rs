@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use walkdir::WalkDir;
 
 use crate::models::collect::{FileSummary, TempFile};
-use crate::service::common::update_control_num;
+use crate::service::common::update_cnum;
 use crate::{constants, models::collect::CollectSummary};
 
 pub fn prepare_collect_ui_work(conn: &Connection) -> Result<()> {
@@ -106,7 +106,7 @@ pub fn move_illust_files(conn: &Connection) -> Result<()> {
             FROM COLLECT_FILTER_WORK F
             JOIN ILLUST_INFO I
             ON F.illust_id = I.illust_id
-            AND F.control_num = I.control_num",
+            AND F.cnum = I.cnum",
     )?;
 
     let rows = stmt.query_map([], |row| {
@@ -247,7 +247,7 @@ pub fn process_sync_db(root: String, conn: &mut Connection) -> Result<Vec<FileSu
             .collect::<Result<Vec<FileSummary>, _>>()?;
 
         // 管理番号を更新
-        update_control_num(&tx)?;
+        update_cnum(&tx)?;
     }
 
     tx.commit()?;

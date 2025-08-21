@@ -300,7 +300,7 @@ pub fn delete_missing_illusts(
         "DELETE FROM ILLUST_DETAIL
         WHERE NOT EXISTS (
             SELECT 1 FROM ILLUST_INFO I
-            WHERE I.control_num = ILLUST_DETAIL.control_num
+            WHERE I.cnum = ILLUST_DETAIL.cnum
         );",
         (),
     )

@@ -1,25 +1,25 @@
 CREATE TABLE IF NOT EXISTS ILLUST_INFO (
     illust_id INTEGER NOT NULL,
     suffix INTEGER NOT NULL,
-    control_num INTEGER NOT NULL,
+    cnum INTEGER NOT NULL,
     extension TEXT NOT NULL,
     save_dir TEXT,
     PRIMARY KEY (illust_id, suffix)
 );
-CREATE INDEX IF NOT EXISTS idx_illust_info_illust_control ON ILLUST_INFO(illust_id, control_num);
+CREATE INDEX IF NOT EXISTS idx_illust_info_illust_control ON ILLUST_INFO(illust_id, cnum);
 CREATE INDEX IF NOT EXISTS idx_illust_info_save_dir ON ILLUST_INFO(save_dir);
 
 
 CREATE TABLE IF NOT EXISTS ILLUST_DETAIL (
     illust_id INTEGER NOT NULL,
-    control_num INTEGER NOT NULL,
+    cnum INTEGER NOT NULL,
     author_id INTEGER NOT NULL,
     series TEXT,
     character TEXT,
-    PRIMARY KEY (illust_id, control_num)
+    PRIMARY KEY (illust_id, cnum)
 );
 CREATE INDEX IF NOT EXISTS idx_illust_detail_character ON ILLUST_DETAIL(character);
-CREATE INDEX IF NOT EXISTS idx_illust_detail_illust_control ON ILLUST_DETAIL(illust_id, control_num);
+CREATE INDEX IF NOT EXISTS idx_illust_detail_illust_control ON ILLUST_DETAIL(illust_id, cnum);
 
 
 CREATE TABLE IF NOT EXISTS ILLUST_FETCH_WORK (
@@ -37,12 +37,12 @@ CREATE INDEX IF NOT EXISTS idx_illust_fetch_save_dir ON ILLUST_FETCH_WORK (save_
 
 CREATE TABLE IF NOT EXISTS TAG_INFO (
     illust_id INTEGER NOT NULL,
-    control_num INTEGER NOT NULL,
+    cnum INTEGER NOT NULL,
     tag TEXT NOT NULL,
-    PRIMARY KEY (illust_id, control_num, tag)
+    PRIMARY KEY (illust_id, cnum, tag)
 );
 CREATE INDEX IF NOT EXISTS idx_tag_info_tag ON TAG_INFO(tag);
-CREATE INDEX IF NOT EXISTS idx_tag_info_illust_control ON TAG_INFO(illust_id, control_num);
+CREATE INDEX IF NOT EXISTS idx_tag_info_illust_control ON TAG_INFO(illust_id, cnum);
 
 
 CREATE TABLE IF NOT EXISTS CHARACTER_INFO (
@@ -71,15 +71,15 @@ CREATE INDEX IF NOT EXISTS idx_collect_ui_work_series ON COLLECT_UI_WORK(series)
 
 CREATE TABLE IF NOT EXISTS COLLECT_FILTER_WORK (
     illust_id INTEGER NOT NULL,
-    control_num INTEGER NOT NULL,
+    cnum INTEGER NOT NULL,
     series TEXT NOT NULL,
     character TEXT NOT NULL,
     save_dir TEXT,
     collect_dir TEXT,
     collect_type INTEGER NOT NULL,
-    PRIMARY KEY (illust_id, control_num, collect_type)
+    PRIMARY KEY (illust_id, cnum, collect_type)
 );
-CREATE INDEX IF NOT EXISTS idx_cfw_ic_type ON COLLECT_FILTER_WORK (illust_id, control_num, collect_type);
+CREATE INDEX IF NOT EXISTS idx_cfw_ic_type ON COLLECT_FILTER_WORK (illust_id, cnum, collect_type);
 
 
 CREATE TABLE IF NOT EXISTS AUTHOR_INFO (

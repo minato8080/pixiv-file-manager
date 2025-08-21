@@ -36,14 +36,14 @@ pub fn process_move_files(
     for file_name in &file_names {
         let file_info = parse_file_info(file_name.as_str())?;
 
-        let control_num: ControlNum = tx.query_row(
-            "SELECT control_num FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
+        let cnum: ControlNum = tx.query_row(
+            "SELECT cnum FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
             params![file_info.illust_id, file_info.suffix],
             |row| Ok(row.get(0)?),
         )?;
 
         if move_linked_files {
-            updates.insert((file_info.illust_id, None, Some(control_num)));
+            updates.insert((file_info.illust_id, None, Some(cnum)));
         } else {
             updates.insert((file_info.illust_id, Some(file_info.suffix), None));
             // suffixで更新する
@@ -51,14 +51,14 @@ pub fn process_move_files(
     }
 
     // ILLUST_INFOを更新
-    for (id, suffix_opt, control_num_opt) in updates {
+    for (id, suffix_opt, cnum_opt) in updates {
         let mut update_sql = String::from("UPDATE ILLUST_INFO SET save_dir = ?");
         let mut param_vec: Vec<&dyn rusqlite::ToSql> = vec![&target_folder];
 
-        if let Some(ref control_num) = control_num_opt {
-            update_sql.push_str(" WHERE illust_id = ? AND control_num = ?");
+        if let Some(ref cnum) = cnum_opt {
+            update_sql.push_str(" WHERE illust_id = ? AND cnum = ?");
             param_vec.push(&id);
-            param_vec.push(control_num);
+            param_vec.push(cnum);
         } else {
             // suffix指定
             update_sql.push_str(" WHERE illust_id = ? AND suffix = ?");
@@ -74,14 +74,14 @@ pub fn process_move_files(
         let mut select_param_vec: Vec<&dyn rusqlite::ToSql> = Vec::new();
         select_param_vec.push(&id);
 
-        if let Some(ref control_num) = control_num_opt {
-            select_sql.push_str("control_num = ?");
-            select_param_vec.push(control_num);
+        if let Some(ref cnum) = cnum_opt {
+            select_sql.push_str("cnum = ?");
+            select_param_vec.push(cnum);
         } else if let Some(ref suffix) = suffix_opt {
             select_sql.push_str("suffix = ?");
             select_param_vec.push(suffix);
         } else {
-            return Err(anyhow!("Either suffix or control_num is required"));
+            return Err(anyhow!("Either suffix or cnum is required"));
         }
 
         let mut stmt = tx.prepare(&select_sql)?;
@@ -128,15 +128,12 @@ where
     let mut base_map = HashMap::new();
     for (file_name, options) in file_names {
         let file_info = parse_file_info(file_name.as_str())?;
-        let control_num: ControlNum = tx.query_row(
-            "SELECT control_num FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
+        let cnum: ControlNum = tx.query_row(
+            "SELECT cnum FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
             params![file_info.illust_id, file_info.suffix],
             |row| Ok(row.get(0)?),
         )?;
-        base_map.insert(
-            (file_info.illust_id, file_info.suffix, control_num),
-            options,
-        );
+        base_map.insert((file_info.illust_id, file_info.suffix, cnum), options);
     }
     // base_mapのOption<O>をソートして再格納する
     // O: Ord + Clone なので、Option<O>もsort可能
@@ -162,30 +159,28 @@ pub fn prepare_update_mode_map(
     update_linked_files: bool,
 ) -> Result<UpdateModeMap> {
     let mut updates_map: UpdateModeMap = HashMap::new();
-    for ((id, suffix, control_num), _options) in base_map.clone() {
+    for ((id, suffix, cnum), _options) in base_map.clone() {
         if update_linked_files {
-            updates_map.insert((id.clone(), None, control_num), UPDATE_MODE_CONTROL);
+            updates_map.insert((id.clone(), None, cnum), UPDATE_MODE_CONTROL);
         } else {
             let total_control_count: u64 = tx.query_row(
-                "SELECT COUNT(*) FROM ILLUST_INFO WHERE illust_id = ? AND control_num = ?",
-                params![id, control_num],
+                "SELECT COUNT(*) FROM ILLUST_INFO WHERE illust_id = ? AND cnum = ?",
+                params![id, cnum],
                 |row| row.get(0),
             )?;
 
             let update_control_count: u64 = base_map
                 .iter()
-                .filter(|((i_id, _, i_control_num), _)| {
-                    id == *i_id && control_num == *i_control_num
-                })
+                .filter(|((i_id, _, i_cnum), _)| id == *i_id && cnum == *i_cnum)
                 .count()
                 .try_into()
                 .unwrap();
 
             let needs_increment = update_control_count < total_control_count;
             if needs_increment {
-                updates_map.insert((id, Some(suffix), control_num), UPDATE_MODE_INCREMENT);
+                updates_map.insert((id, Some(suffix), cnum), UPDATE_MODE_INCREMENT);
             } else {
-                updates_map.insert((id, Some(suffix), control_num), UPDATE_MODE_CONTROL);
+                updates_map.insert((id, Some(suffix), cnum), UPDATE_MODE_CONTROL);
             }
         }
     }
@@ -194,9 +189,9 @@ pub fn prepare_update_mode_map(
 
 pub fn prepare_suffiexes_map(updates_map: UpdateModeMap) -> SuffixesMap {
     let mut grouped_map: SuffixesMap = HashMap::new();
-    for ((id, suffix_opt, control_num), update_mode) in updates_map {
+    for ((id, suffix_opt, cnum), update_mode) in updates_map {
         grouped_map
-            .entry((id, control_num, update_mode))
+            .entry((id, cnum, update_mode))
             .or_default()
             .push(suffix_opt);
     }
@@ -214,49 +209,47 @@ pub fn update_illust_info(
     character_name: &str,
 ) -> Result<()> {
     // db_design.mdに基づき、ILLUST_DETAILテーブルを更新する形に修正
-    for ((id, control_num, update_mode), suffixes) in suffixes_map {
+    for ((id, cnum, update_mode), suffixes) in suffixes_map {
         match *update_mode {
             UPDATE_MODE_CONTROL => {
-                // control_num指定でILLUST_DETAILを更新
+                // cnum指定でILLUST_DETAILを更新
                 tx.execute(
-                    "UPDATE ILLUST_DETAIL SET character = ? WHERE illust_id = ? AND control_num = ?",
-                    params![character_name, id, control_num])
-                    ?;
+                    "UPDATE ILLUST_DETAIL SET character = ? WHERE illust_id = ? AND cnum = ?",
+                    params![character_name, id, cnum],
+                )?;
             }
             UPDATE_MODE_INCREMENT => {
                 // suffixesが空でないことを確認
                 if !suffixes.is_empty() {
                     // 次の管理番号
-                    let next_control_num: i32 = tx
-                        .query_row(
-                            "SELECT IFNULL(MAX(control_num), 0) + 1 FROM ILLUST_INFO WHERE illust_id = ?",
-                            params![&id],
-                            |row| row.get(0),
-                        )
-                        ?;
+                    let next_cnum: i32 = tx.query_row(
+                        "SELECT IFNULL(MAX(cnum), 0) + 1 FROM ILLUST_INFO WHERE illust_id = ?",
+                        params![&id],
+                        |row| row.get(0),
+                    )?;
 
                     // 元の管理番号からauthor_idをSELECTして使用
-                    let author_id: i32 = tx
-                        .query_row(
-                            "SELECT author_id FROM ILLUST_DETAIL WHERE illust_id = ? AND control_num = ?",
-                            params![id, control_num],
-                            |row| row.get(0),
-                        )
-                        ?;
+                    let author_id: i32 = tx.query_row(
+                        "SELECT author_id FROM ILLUST_DETAIL WHERE illust_id = ? AND cnum = ?",
+                        params![id, cnum],
+                        |row| row.get(0),
+                    )?;
 
-                    // control_numを新規発番し、ILLUST_DETAILにINSERT
+                    // cnumを新規発番し、ILLUST_DETAILにINSERT
                     tx.execute(
-                        "INSERT INTO ILLUST_DETAIL (illust_id, control_num, author_id, character) VALUES (?, ?, ?, ?)",
-                        params![id, next_control_num, author_id, character_name],
+                        "INSERT INTO ILLUST_DETAIL (illust_id, cnum, author_id, character) VALUES (?, ?, ?, ?)",
+                        params![id, next_cnum, author_id, character_name],
                     )
                     ?;
 
-                    // ILLUST_INFOの該当suffixのcontrol_numを新しいものに更新
-                    let mut update_info_sql = String::from("UPDATE ILLUST_INFO SET control_num = ? WHERE illust_id = ? AND suffix IN (");
+                    // ILLUST_INFOの該当suffixのcnumを新しいものに更新
+                    let mut update_info_sql = String::from(
+                        "UPDATE ILLUST_INFO SET cnum = ? WHERE illust_id = ? AND suffix IN (",
+                    );
                     update_info_sql.push_str(&vec!["?"; suffixes.len()].join(", "));
                     update_info_sql.push(')');
                     let mut update_info_params: Vec<Box<dyn rusqlite::ToSql>> =
-                        vec![Box::new(next_control_num), Box::new(id)];
+                        vec![Box::new(next_cnum), Box::new(id)];
                     for suffix in suffixes.iter() {
                         if let Some(suffix) = suffix {
                             update_info_params.push(Box::new(suffix));
@@ -267,17 +260,17 @@ pub fn update_illust_info(
                         rusqlite::params_from_iter(update_info_params.iter().map(|b| b.as_ref())),
                     )?;
 
-                    // TAG_INFOも新しいcontrol_numで複製
+                    // TAG_INFOも新しいcnumで複製
                     let insert_tags_sql = "
-                        INSERT INTO TAG_INFO (illust_id, control_num, tag)
-                        SELECT illust_id, ? as control_num, tag
+                        INSERT INTO TAG_INFO (illust_id, cnum, tag)
+                        SELECT illust_id, ? as cnum, tag
                         FROM TAG_INFO
-                        WHERE illust_id = ? AND control_num = ?
+                        WHERE illust_id = ? AND cnum = ?
                         ";
                     let mut insert_tags_param_vec: Vec<Box<dyn rusqlite::ToSql>> = vec![];
-                    insert_tags_param_vec.push(Box::new(next_control_num));
+                    insert_tags_param_vec.push(Box::new(next_cnum));
                     insert_tags_param_vec.push(Box::new(id));
-                    insert_tags_param_vec.push(Box::new(control_num));
+                    insert_tags_param_vec.push(Box::new(cnum));
                     tx.execute(
                         insert_tags_sql,
                         rusqlite::params_from_iter(
@@ -351,16 +344,16 @@ pub fn process_add_remove_tags(
     // 全データを tmp_edit_tags に投入
     for edit in edit_tags {
         let file_info = parse_file_info(&edit.file_name)?;
-        let control_num: i32 = tx.query_row(
-            "SELECT control_num FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
+        let cnum: i32 = tx.query_row(
+            "SELECT cnum FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
             params![file_info.illust_id, file_info.suffix],
             |row| row.get(0),
         )?;
 
         for tag in edit.tags {
             tx.execute(
-                "INSERT INTO tmp_edit_tags (illust_id, suffix, control_num, tag) VALUES (?, ?, ?, ?)",
-                params![file_info.illust_id, file_info.suffix, control_num, tag],
+                "INSERT INTO tmp_edit_tags (illust_id, suffix, cnum, tag) VALUES (?, ?, ?, ?)",
+                params![file_info.illust_id, file_info.suffix, cnum, tag],
             )?;
         }
     }
@@ -392,16 +385,16 @@ pub fn process_overwrite_tags(
     // 全データを tmp_edit_tags に投入
     for file_name in file_names {
         let file_info = parse_file_info(&file_name)?;
-        let control_num: i32 = tx.query_row(
-            "SELECT control_num FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
+        let cnum: i32 = tx.query_row(
+            "SELECT cnum FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
             params![file_info.illust_id, file_info.suffix],
             |row| row.get(0),
         )?;
 
         for tag in &tags {
             tx.execute(
-                "INSERT INTO tmp_edit_tags (illust_id, suffix, control_num, tag) VALUES (?, ?, ?, ?)",
-                params![file_info.illust_id, file_info.suffix, control_num, tag],
+                "INSERT INTO tmp_edit_tags (illust_id, suffix, cnum, tag) VALUES (?, ?, ?, ?)",
+                params![file_info.illust_id, file_info.suffix, cnum, tag],
             )?;
         }
     }

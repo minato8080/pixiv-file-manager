@@ -6,17 +6,17 @@
   - `suffix`: INTEGER NOT NULL - イラストのサフィックス
   - `extension`: TEXT NOT NULL - ファイルの拡張子
   - `save_dir`: TEXT - イラストが保存されているディレクトリのパス
-  - `control_num`: INTEGER NOT NULL - タグ用の管理番号
+  - `cnum`: INTEGER NOT NULL - タグ用の管理番号
   - **PRIMARY KEY**: (`illust_id`, `suffix`)
 
 - **ILLUST_DETAIL**
 
   - `illust_id`: INTEGER NOT NULL - イラストの識別子
-  - `control_num`: INTEGER NOT NULL - タグ用の管理番号
+  - `cnum`: INTEGER NOT NULL - タグ用の管理番号
   - `author_id`: INTEGER NOT NULL - 作者の識別子
   - `series`: TEXT - シリーズ名
   - `character`: TEXT - イラストのキャラクター名
-  - **PRIMARY KEY**: (`illust_id`, `control_num`)
+  - **PRIMARY KEY**: (`illust_id`, `cnum`)
 
 - **ILLUST_FETCH_WORK**
 
@@ -32,9 +32,9 @@
 - **TAG_INFO**
 
   - `illust_id`: INTEGER NOT NULL - イラストの識別子
-  - `control_num`: INTEGER NOT NULL - 管理番号
+  - `cnum`: INTEGER NOT NULL - 管理番号
   - `tag`: TEXT NOT NULL - タグ名
-  - **PRIMARY KEY**: (`illust_id`, `control_num`, `tag`)
+  - **PRIMARY KEY**: (`illust_id`, `cnum`, `tag`)
 
 - **CHARACTER_INFO**
 
@@ -57,13 +57,13 @@
 - **COLLECT_FILTER_WORK**
 
   - `illust_id`: INTEGER NOT NULL - イラストの識別子
-  - `control_num`: INTEGER NOT NULL - タグ用の管理番号
+  - `cnum`: INTEGER NOT NULL - タグ用の管理番号
   - `collect_type`: INTEGER NOT NULL - 0: キャラクター, 1: シリーズ
   - `series`: TEXT NOT NULL - シリーズ名
   - `character`: TEXT NOT NULL - イラストのキャラクター名
   - `save_dir`: TEXT - イラストが保存されているディレクトリのパス
   - `collect_dir`: TEXT - コレクションディレクトリ
-  - **PRIMARY KEY**: (`illust_id`, `control_num`, `collect_type`)
+  - **PRIMARY KEY**: (`illust_id`, `cnum`, `collect_type`)
 
 - **AUTHOR_INFO**
 

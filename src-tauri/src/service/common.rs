@@ -84,8 +84,8 @@ pub fn parse_file_info(file_name: &str) -> Result<FileInfo> {
     })
 }
 
-pub fn update_control_num(conn: &Connection) -> Result<()> {
-    let sql = include_str!("../sql/update_control_num.sql");
+pub fn update_cnum(conn: &Connection) -> Result<()> {
+    let sql = include_str!("../sql/update_cnum.sql");
     conn.execute_batch(sql)?;
     Ok(())
 }

@@ -30,7 +30,7 @@ CREATE TEMP TABLE add_rules AS
 
 
 -- === REPLACE（action_type = 1） ===
--- merged: src が存在し、同じ (illust_id, control_num) に dst もある件数（削除対象）
+-- merged: src が存在し、同じ (illust_id, cnum) に dst もある件数（削除対象）
 WITH merged_count AS (
   SELECT COUNT(*) AS cnt
   FROM TAG_INFO t
@@ -38,7 +38,7 @@ WITH merged_count AS (
   WHERE EXISTS (
     SELECT 1 FROM TAG_INFO t2
     WHERE t2.illust_id = t.illust_id
-      AND t2.control_num = t.control_num
+      AND t2.cnum = t.cnum
       AND t2.tag = r.dst
   )
 )
@@ -52,20 +52,20 @@ WHERE EXISTS (
     AND EXISTS (
       SELECT 1 FROM TAG_INFO t2
       WHERE t2.illust_id = TAG_INFO.illust_id
-        AND t2.control_num = TAG_INFO.control_num
+        AND t2.cnum = TAG_INFO.cnum
         AND t2.tag = r.dst
     )
 );
 
 -- 変換対象を一時テーブルに
 CREATE TEMP TABLE tmp_replacements AS
-SELECT illust_id, control_num, r.dst AS tag
+SELECT illust_id, cnum, r.dst AS tag
 FROM TAG_INFO t
 JOIN rep_rules r ON t.tag = r.src
 WHERE NOT EXISTS (
   SELECT 1 FROM TAG_INFO t2
   WHERE t2.illust_id = t.illust_id
-    AND t2.control_num = t.control_num
+    AND t2.cnum = t.cnum
     AND t2.tag = r.dst
 );
 
@@ -79,8 +79,8 @@ UPDATE tag_fix_counts SET replaced = (SELECT cnt FROM updated_count);
 DELETE FROM TAG_INFO WHERE tag IN (SELECT src FROM rep_rules);
 
 -- 変換後のタグをINSERT
-INSERT OR IGNORE INTO TAG_INFO (illust_id, control_num, tag)
-SELECT illust_id, control_num, tag FROM tmp_replacements;
+INSERT OR IGNORE INTO TAG_INFO (illust_id, cnum, tag)
+SELECT illust_id, cnum, tag FROM tmp_replacements;
 
 -- merged + updated を replaced として合算
 UPDATE tag_fix_counts
@@ -100,12 +100,12 @@ DELETE FROM TAG_INFO WHERE tag IN (SELECT src FROM del_rules);
 -- === ADD（action_type = 0） ===
 -- 追加対象（重複除去）を一時テーブルに作る
 CREATE TEMP TABLE add_targets AS
-SELECT DISTINCT t.illust_id, t.control_num, r.dst
+SELECT DISTINCT t.illust_id, t.cnum, r.dst
 FROM TAG_INFO t
 JOIN add_rules r ON r.src = t.tag
 LEFT JOIN TAG_INFO t2
   ON t2.illust_id = t.illust_id
- AND t2.control_num = t.control_num
+ AND t2.cnum = t.cnum
  AND t2.tag = r.dst
 WHERE t2.illust_id IS NULL;
 
@@ -116,5 +116,5 @@ WITH added_count AS (
 UPDATE tag_fix_counts SET added = (SELECT cnt FROM added_count);
 
 -- 実際に追加（重複があれば無視）
-INSERT OR IGNORE INTO TAG_INFO (illust_id, control_num, tag)
-SELECT illust_id, control_num, dst FROM add_targets;
+INSERT OR IGNORE INTO TAG_INFO (illust_id, cnum, tag)
+SELECT illust_id, cnum, dst FROM add_targets;

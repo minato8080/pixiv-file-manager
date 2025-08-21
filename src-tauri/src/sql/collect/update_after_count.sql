@@ -7,7 +7,7 @@ SELECT
   COUNT(DISTINCT I.illust_id || '-' || I.suffix) AS cnt
 FROM COLLECT_FILTER_WORK CF
 JOIN ILLUST_INFO I
-  ON CF.illust_id = I.illust_id AND CF.control_num = I.control_num
+  ON CF.illust_id = I.illust_id AND CF.cnum = I.cnum
 WHERE collect_type = 2
 GROUP BY CF.character;
 
@@ -24,7 +24,7 @@ SELECT
   COUNT(DISTINCT I.illust_id || '-' || I.suffix) AS cnt
 FROM COLLECT_FILTER_WORK CF
 JOIN ILLUST_INFO I
-  ON CF.illust_id = I.illust_id AND CF.control_num = I.control_num
+  ON CF.illust_id = I.illust_id AND CF.cnum = I.cnum
 WHERE collect_type = 1
 GROUP BY CF.series;
 

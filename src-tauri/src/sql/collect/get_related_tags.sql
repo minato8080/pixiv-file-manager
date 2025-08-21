@@ -4,10 +4,10 @@ SELECT
 FROM TAG_INFO T1
 JOIN TAG_INFO T2
     ON T1.illust_id = T2.illust_id
-    AND T1.control_num = T2.control_num
+    AND T1.cnum = T2.cnum
 JOIN ILLUST_INFO I
     ON T2.illust_id = I.illust_id 
-    AND T2.control_num = I.control_num
+    AND T2.cnum = I.cnum
 LEFT JOIN CHARACTER_INFO CI
     ON T2.tag = CI.character OR T2.tag = CI.series
 WHERE T1.tag = ?1

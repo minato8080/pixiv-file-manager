@@ -1,5 +1,5 @@
 INSERT OR IGNORE INTO ILLUST_INFO (
-    illust_id, suffix, extension, save_dir, control_num
+    illust_id, suffix, extension, save_dir, cnum
 )
 WITH base AS (
     SELECT f.*
@@ -11,12 +11,12 @@ control_map AS (
     SELECT
         illust_id,
         COALESCE(
-            (SELECT control_num
+            (SELECT cnum
              FROM ILLUST_INFO ii
              WHERE ii.illust_id = b.illust_id
-             ORDER BY control_num ASC LIMIT 1),
+             ORDER BY cnum ASC LIMIT 1),
             0
-        ) AS control_num
+        ) AS cnum
     FROM base b
     GROUP BY illust_id
 )
@@ -25,6 +25,6 @@ SELECT
     b.suffix,
     b.extension,
     b.save_dir,
-    cm.control_num
+    cm.cnum
 FROM base b
 JOIN control_map cm ON b.illust_id = cm.illust_id;

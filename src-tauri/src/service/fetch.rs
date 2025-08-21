@@ -11,9 +11,7 @@ use trash::delete;
 
 use crate::api::pixiv::fetch_detail;
 use crate::models::fetch::{FileDetail, ProcessStats, TagProgress};
-use crate::service::common::{
-    format_duration, parse_path_info, remove_invalid_chars, update_control_num,
-};
+use crate::service::common::{format_duration, parse_path_info, remove_invalid_chars, update_cnum};
 
 pub fn extract_dir_detail<P: AsRef<Path>>(folder: P) -> Vec<FileDetail> {
     let mut details = Vec::new();
@@ -84,7 +82,7 @@ pub fn process_fetch_illust_detail(
     delete_missing_tags(&tx)?;
 
     // 管理番号を更新
-    update_control_num(&tx)?;
+    update_cnum(&tx)?;
 
     tx.commit()?;
 
@@ -125,25 +123,25 @@ fn core_fetch_illust_detail(
     for fetch_id in fetch_ids {
         let tx = conn.transaction()?;
         // イラスト情報を登録
-        let control_num = insert_illust_info(&tx, fetch_id)?;
+        let cnum = insert_illust_info(&tx, fetch_id)?;
         // フェッチ処理
         match fetch_detail(app_pixiv_api, fetch_id) {
             Ok(resp) => {
                 // 詳細情報を登録
                 tx.execute(
-                    "INSERT OR REPLACE INTO ILLUST_DETAIL (illust_id, author_id, character, control_num) VALUES (?1, ?2, ?3, ?4)",
+                    "INSERT OR REPLACE INTO ILLUST_DETAIL (illust_id, author_id, character, cnum) VALUES (?1, ?2, ?3, ?4)",
                     params![
                     resp.illust.id(),
                     resp.illust.user().id(),
                         None::<String>,
-                        control_num,
+                        cnum,
                     ],
                 )?;
 
                 // タグ情報を登録
                 for tag in resp.illust.tags() {
-                    tx.execute("INSERT OR REPLACE INTO TAG_INFO (illust_id, control_num, tag) VALUES (?1, ?2, ?3)",
-                    params![fetch_id, control_num, remove_invalid_chars(tag.name())],
+                    tx.execute("INSERT OR REPLACE INTO TAG_INFO (illust_id, cnum, tag) VALUES (?1, ?2, ?3)",
+                    params![fetch_id, cnum, remove_invalid_chars(tag.name())],
                 )?;
                 }
 
@@ -161,14 +159,14 @@ fn core_fetch_illust_detail(
                 fail_count += 1;
                 // 失敗時はデフォルト値で詳細情報を登録
                 tx.execute(
-                    "INSERT OR IGNORE INTO ILLUST_DETAIL (illust_id, author_id, character, control_num) VALUES (?1, 0, NULL, ?2)",
-                    params![fetch_id, control_num],
+                    "INSERT OR IGNORE INTO ILLUST_DETAIL (illust_id, author_id, character, cnum) VALUES (?1, 0, NULL, ?2)",
+                    params![fetch_id, cnum],
                 )?;
 
                 // 失敗時のタグ情報
                 tx.execute(
-                    "INSERT OR IGNORE INTO TAG_INFO (illust_id, control_num, tag) VALUES (?1, ?2, 'Missing')",
-                    params![fetch_id, control_num],
+                    "INSERT OR IGNORE INTO TAG_INFO (illust_id, cnum, tag) VALUES (?1, ?2, 'Missing')",
+                    params![fetch_id, cnum],
                 )?;
 
                 // 失敗したIDを結果に追加
@@ -237,10 +235,11 @@ pub fn prepare_illust_fetch_work(conn: &mut Connection, file_details: &[FileDeta
 }
 
 fn insert_illust_info(conn: &Connection, illust_id: u32) -> Result<i64> {
-    // 既存のILLUST_INFOからcontrol_numを取得
-    let control_num = match conn.prepare(
-        "SELECT control_num FROM ILLUST_INFO WHERE illust_id = ?1 ORDER BY control_num ASC LIMIT 1;"
-    )?.query_row(params![illust_id], |row| row.get::<_, i64>(0)) {
+    // 既存のILLUST_INFOからcnumを取得
+    let cnum = match conn
+        .prepare("SELECT cnum FROM ILLUST_INFO WHERE illust_id = ?1 ORDER BY cnum ASC LIMIT 1;")?
+        .query_row(params![illust_id], |row| row.get::<_, i64>(0))
+    {
         Ok(num) => num,
         Err(rusqlite::Error::QueryReturnedNoRows) => 0,
         Err(e) => return Err(e.into()), // 他のエラーはそのまま返す
@@ -248,15 +247,15 @@ fn insert_illust_info(conn: &Connection, illust_id: u32) -> Result<i64> {
 
     conn.prepare(
         "INSERT OR IGNORE INTO ILLUST_INFO (
-            illust_id, suffix, extension, save_dir, control_num
+            illust_id, suffix, extension, save_dir, cnum
         )
         SELECT illust_id, suffix, extension, save_dir, ?1
         FROM insert_files
         WHERE illust_id = ?2;",
     )?
-    .execute(params![control_num, illust_id])?;
+    .execute(params![cnum, illust_id])?;
 
-    Ok(control_num)
+    Ok(cnum)
 }
 
 fn insert_illust_info_no_fetch(conn: &Connection) -> Result<()> {
@@ -285,8 +284,7 @@ fn delete_duplicate_files(conn: &Connection) -> Result<()> {
 
 pub fn extract_missing_files(conn: &Connection) -> Result<Vec<FileDetail>> {
     // author_id = 0 のイラスト情報を取得
-    let mut stmt =
-        conn.prepare("SELECT illust_id, control_num FROM ILLUST_DETAIL WHERE author_id = 0")?;
+    let mut stmt = conn.prepare("SELECT illust_id, cnum FROM ILLUST_DETAIL WHERE author_id = 0")?;
 
     let failed_records = stmt
         .query_map([], |row| Ok((row.get::<_, i32>(0)?, row.get::<_, i32>(1)?)))?
@@ -306,7 +304,7 @@ pub fn extract_missing_files(conn: &Connection) -> Result<Vec<FileDetail>> {
          WHERE illust_id = ?",
     )?;
 
-    for (illust_id, _control_num) in &failed_records {
+    for (illust_id, _cnum) in &failed_records {
         let rows = info_stmt.query_map([illust_id], |row| {
             let suffix = row.get::<_, i64>(0)? as u8;
             let extension = row.get::<_, String>(1)?;

@@ -19,13 +19,11 @@ export const OverwriteModeUI = () => {
   const {
     selectedFiles,
     overwriteTags,
-    selectedFileForTags,
     editingTagIndex,
     editingTagValue,
     availableTags,
     tagToOverwrite,
     setOverwriteTags,
-    setSelectedFileForTags,
     setEditingTagIndex,
     setEditingTagValue,
     setTagToOverwrite,
@@ -36,22 +34,12 @@ export const OverwriteModeUI = () => {
   useEffect(() => {
     if (selectedFiles.length > 0) {
       // Default to the first file's tags
-      const firstFileTags = selectedFiles[0].tags
-        ? selectedFiles[0].tags
-            .split(",")
-            .map((tag) => tag.trim())
-            .filter(Boolean)
-        : [];
-      setOverwriteTags(
-        firstFileTags.map((tag) => ({ value: tag, status: "unchanged" }))
-      );
-      setSelectedFileForTags(`${selectedFiles[0].file_name}`);
+      setOverwriteTags([]);
     }
-  }, [selectedFiles, setSelectedFileForTags, setOverwriteTags]);
+  }, [selectedFiles, setOverwriteTags]);
 
   // Update tags when a different file is selected from the dropdown
   const handleFileTagsSelect = (fileName: string) => {
-    setSelectedFileForTags(fileName);
     const selectedFile = selectedFiles.find(
       (file) => file.file_name === fileName
     );
@@ -161,12 +149,9 @@ export const OverwriteModeUI = () => {
           >
             Select file:
           </Label>
-          <Select
-            value={selectedFileForTags}
-            onValueChange={handleFileTagsSelect}
-          >
+          <Select onValueChange={handleFileTagsSelect}>
             <SelectTrigger className="border-blue-200 dark:border-blue-800 h-8">
-              <SelectValue placeholder="Select a file" />
+              <SelectValue placeholder="Select a template" />
             </SelectTrigger>
             <SelectContent className="bg-white">
               {selectedFiles.map((file) => (

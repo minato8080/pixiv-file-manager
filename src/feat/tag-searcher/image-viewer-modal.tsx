@@ -160,7 +160,7 @@ export function ImageViewerModal() {
           <div className="p-2 bg-gray-800 border-gray-700">
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-200">
-                {currentItem.author.author_name}
+                {currentItem.author_name}
                 {currentItem.character && (
                   <span className="text-gray-400 ml-2">
                     • {currentItem.character}

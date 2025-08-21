@@ -4,20 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import { SearchHistory } from "@/bindings/SearchHistory";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useDropdownStore } from "@/stores/dropdown-store";
 import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
+import { useDropdownStore } from "@/stores/dropdown-store";
 
 export const DropdownHistory = () => {
   const { history } = useDropdownStore();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const {
-    setSearchCondition,
-    setSelectedTags,
-    setSelectedCharacter,
-    setSelectedAuthor,
-  } = useTagSearcherStore();
+  const { setSelectedTags, setSelectedCharacter, setSelectedAuthor } =
+    useTagSearcherStore();
 
   // Handle click outside for dropdowns
   useEffect(() => {
@@ -40,22 +36,12 @@ export const DropdownHistory = () => {
     setSelectedCharacter(
       history.character
         ? {
-            id: history.character,
             character: history.character,
             count: null,
           }
         : null
     );
-    setSelectedAuthor(
-      history.author
-        ? {
-            id: history.author.author_id.toString(),
-            label: history.author.author_name,
-            ...history.author,
-          }
-        : null
-    );
-    setSearchCondition(history.condition as "AND" | "OR");
+    setSelectedAuthor(history.author);
   };
 
   return (
@@ -114,7 +100,7 @@ export const DropdownHistory = () => {
                 </div>
                 <div className="flex justify-between items-center text-xs text-gray-500 w-full">
                   <span className="font-medium text-blue-600 dark:text-blue-400">
-                    {item.condition} • {item.result_count} results
+                    {item.result_count} results
                   </span>
                   <span>{item.timestamp}</span>
                 </div>

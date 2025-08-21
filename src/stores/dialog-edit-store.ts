@@ -46,12 +46,10 @@ type AddRemoveTagStore = {
 
 type OverwriteStore = {
   overwriteTags: TagState[];
-  selectedFileForTags: string;
   editingTagIndex: number | null;
   editingTagValue: string;
   tagToOverwrite: string;
   setOverwriteTags: (tags: TagState[]) => void;
-  setSelectedFileForTags: (file: string) => void;
   setEditingTagIndex: (index: number | null) => void;
   setEditingTagValue: (val: string) => void;
   setTagToOverwrite: (val: string) => void;
@@ -92,7 +90,6 @@ export const useDialogEditStore = create<
       isEditTagsDialogOpen: false,
       selectedFiles: [],
       isEditTagsDialogSubmitting: false,
-      isOverwriteMode: false,
       isUpdateLinkedFiles: false,
       associateInfo: null,
     }),
@@ -169,13 +166,11 @@ export const useDialogEditStore = create<
 
   // Overwrite UI
   overwriteTags: [],
-  selectedFileForTags: "",
   editingTagIndex: null,
   editingTagValue: "",
   tagToOverwrite: "",
 
   setOverwriteTags: (tags) => set({ overwriteTags: tags }),
-  setSelectedFileForTags: (file) => set({ selectedFileForTags: file }),
   setEditingTagIndex: (index) => set({ editingTagIndex: index }),
   setEditingTagValue: (val) => set({ editingTagValue: val }),
   setTagToOverwrite: (val) => set({ tagToOverwrite: val }),
@@ -183,7 +178,6 @@ export const useDialogEditStore = create<
   resetOverwriteState: () =>
     set({
       overwriteTags: [],
-      selectedFileForTags: "",
       editingTagIndex: null,
       editingTagValue: "",
       tagToOverwrite: "",

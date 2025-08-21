@@ -10,12 +10,12 @@ import { useDropdownStore } from "@/stores/dropdown-store";
 
 export const useTagSearcher = () => {
   const {
-    searchCondition,
     setSearchResults,
     setSelectedFiles,
     selectedTags,
     selectedCharacter,
     selectedAuthor,
+    searchId,
   } = useTagSearcherStore();
   const {
     setUniqueTagList,
@@ -66,19 +66,29 @@ export const useTagSearcher = () => {
 
   // Perform search
   const handleSearch = () => {
-    if (!selectedTags) return;
-    if (selectedTags.length === 0 && !selectedCharacter && !selectedAuthor) {
+    if (
+      selectedTags.length === 0 &&
+      !selectedCharacter &&
+      !selectedAuthor &&
+      !searchId
+    ) {
       return;
     }
 
     const performSearch = async () => {
       try {
-        const results: SearchResult[] = await invoke("search_by_criteria", {
-          tags: selectedTags.map((iter) => iter.tag),
-          condition: searchCondition,
-          character: selectedCharacter?.character,
-          author: selectedAuthor?.author_id,
-        });
+        let results: SearchResult[] = [];
+        if (searchId) {
+          results = await invoke("search_by_id", {
+            id: Number(searchId),
+          });
+        } else {
+          results = await invoke("search_by_criteria", {
+            tags: selectedTags.map((iter) => iter.tag),
+            character: selectedCharacter?.character,
+            author: selectedAuthor?.author_id,
+          });
+        }
 
         setSearchResults(
           results.map((r) => {
@@ -93,7 +103,6 @@ export const useTagSearcher = () => {
         if (results.length > 0) {
           const newHistoryItem: SearchHistory = {
             tags: selectedTags.map((tags) => tags.tag),
-            condition: searchCondition,
             timestamp: new Date().toLocaleString(),
             result_count: results.length,
             character: selectedCharacter?.character ?? "",

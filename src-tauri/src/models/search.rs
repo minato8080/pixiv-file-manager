@@ -7,7 +7,7 @@ pub struct SearchResult {
     pub id: u32,
     pub file_name: String,
     pub thumbnail_url: String,
-    pub author: AuthorInfo,
+    pub author_name: String,
     pub character: Option<String>,
     pub save_dir: String,
     pub update_time: String,
@@ -20,7 +20,6 @@ pub struct SearchHistory {
     pub tags: Vec<String>,
     pub character: Option<String>,
     pub author: Option<AuthorInfo>,
-    pub condition: String,
     pub timestamp: String,
     pub result_count: u32,
 }

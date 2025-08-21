@@ -8,7 +8,6 @@ import { SearchResult } from "@/bindings/SearchResult";
 import { TagInfo } from "@/bindings/TagInfo";
 
 type TagSearcherStore = {
-  searchCondition: "AND" | "OR";
   searchResults: SearchResult[];
   selectedFiles: SearchResult[];
   operationMode: boolean;
@@ -19,7 +18,7 @@ type TagSearcherStore = {
   selectedCharacter: CharacterInfo | null;
   selectedAuthor: AuthorInfo | null;
   isViewModeDropdownOpen: boolean;
-  setSearchCondition: (condition: "AND" | "OR") => void;
+  searchId: string;
   setSearchResults: (results: SearchResult[]) => void;
   setSelectedFiles: (files: SearchResult[]) => void;
   setOperationMode: (mode: boolean) => void;
@@ -30,10 +29,10 @@ type TagSearcherStore = {
   setSelectedCharacter: (character: CharacterInfo | null) => void;
   setSelectedAuthor: (author: AuthorInfo | null) => void;
   setIsViewModeDropdownOpen: (open: boolean) => void;
+  setSearchId: (id: string) => void;
 };
 
 export const useTagSearcherStore = create<TagSearcherStore>((set) => ({
-  searchCondition: "AND",
   searchResults: [],
   selectedFiles: [],
   operationMode: false,
@@ -44,7 +43,7 @@ export const useTagSearcherStore = create<TagSearcherStore>((set) => ({
   selectedCharacter: null,
   selectedAuthor: null,
   isViewModeDropdownOpen: false,
-  setSearchCondition: (condition) => set({ searchCondition: condition }),
+  searchId: "",
   setSearchResults: (results) => set({ searchResults: results }),
   setSelectedFiles: (files) => set({ selectedFiles: files }),
   setOperationMode: (mode) => set({ operationMode: mode }),
@@ -55,4 +54,5 @@ export const useTagSearcherStore = create<TagSearcherStore>((set) => ({
   setSelectedCharacter: (character) => set({ selectedCharacter: character }),
   setSelectedAuthor: (author) => set({ selectedAuthor: author }),
   setIsViewModeDropdownOpen: (open) => set({ isViewModeDropdownOpen: open }),
+  setSearchId: (id: string) => set({ searchId: id }),
 }));

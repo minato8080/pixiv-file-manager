@@ -94,8 +94,7 @@ INSERT OR IGNORE INTO AUTHOR_INFO (author_id, author_name, author_account) VALUE
 CREATE TABLE IF NOT EXISTS SEARCH_HISTORY (
     tags TEXT NOT NULL,
     character TEXT,
-    author_info TEXT,
-    condition TEXT NOT NULL,
+    author_id INTEGER,
     timestamp TEXT NOT NULL,
     result_count INTEGER NOT NULL
 );

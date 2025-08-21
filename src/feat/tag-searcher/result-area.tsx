@@ -25,9 +25,6 @@ export const TagsSearcherResultArea = () => {
   } = useTagSearcherStore();
 
   useEffect(() => {
-    if (searchResults.length === 0) return;
-    if (timeoutId.current) clearTimeout(timeoutId.current);
-
     setInnerSearchResults([]);
     // 遅延読み込み
     const updateResultsInBatches = (results: SearchResult[]) => {
@@ -54,6 +51,10 @@ export const TagsSearcherResultArea = () => {
       processBatch();
     };
     updateResultsInBatches(searchResults);
+
+    return () => {
+      if (timeoutId.current) clearTimeout(timeoutId.current);
+    };
   }, [searchResults]);
 
   // Toggle item selection
@@ -131,7 +132,7 @@ export const TagsSearcherResultArea = () => {
                         {result.save_dir}
                       </td>
                       <td className="p-2 text-sm text-gray-600 dark:text-gray-300">
-                        {result.author.author_name || "-"}
+                        {result.author_name}
                       </td>
                       <td className="p-2 text-sm text-gray-600 dark:text-gray-300">
                         {result.character ?? "-"}

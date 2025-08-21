@@ -5,15 +5,14 @@ import { DropdownCharacter } from "./dropdowns/dropdown-character";
 import { DropdownHistory } from "./dropdowns/dropdown-history";
 import { DropdownTags } from "./dropdowns/dropdown-tags";
 import { DropdownViewMode } from "./dropdowns/dropdown-view-mode";
-import { SearchConditionSwitch } from "./search-condition-switch";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useTagSearcher } from "@/src/hooks/use-tag-searcher";
 import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 
 export const ControlArea = () => {
   const {
-    setSearchCondition,
     operationMode,
     setOperationMode,
     selectedTags,
@@ -22,15 +21,22 @@ export const ControlArea = () => {
     setSelectedCharacter,
     selectedAuthor,
     setSelectedAuthor,
+    searchResults,
+    setSearchResults,
+    searchId,
+    setSearchId,
   } = useTagSearcherStore();
   const { handleSearch } = useTagSearcher();
+
   // Clear all search conditions
   const clearSearchConditions = () => {
     setSelectedTags([]);
-    setSearchCondition("AND");
     setSelectedCharacter(null);
     setSelectedAuthor(null);
+    setSearchResults([]);
+    setSearchId("");
   };
+
   return (
     <div className="flex flex-wrap items-center gap-2 mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md">
       {/* Tags Dropdown */}
@@ -42,8 +48,15 @@ export const ControlArea = () => {
       {/* Author Dropdown */}
       <DropdownAuthor />
 
-      {/* Condition Switch */}
-      <SearchConditionSwitch />
+      <div className="flex items-center gap-1">
+        <Input
+          type="number"
+          placeholder="Search by ID..."
+          value={searchId}
+          onChange={(e) => setSearchId(e.target.value)}
+          className="h-9 w-32 bg-white dark:bg-gray-800"
+        />
+      </div>
 
       {/* Clear Button */}
       <Button
@@ -52,21 +65,28 @@ export const ControlArea = () => {
         className="h-9 bg-white dark:bg-gray-800"
         onClick={clearSearchConditions}
         disabled={
-          selectedTags.length === 0 && !selectedCharacter && !selectedAuthor
+          selectedTags.length === 0 &&
+          !selectedCharacter &&
+          !selectedAuthor &&
+          searchResults.length === 0 &&
+          !searchId
         }
       >
         <Trash2 className="h-4 w-4 mr-1 text-red-500" />
         Clear
       </Button>
 
-      {/* Serach Button */}
+      {/* Search Button */}
       <Button
         variant="default"
         size="sm"
         className="h-9 bg-blue-600 hover:bg-blue-700 text-white"
         onClick={handleSearch}
         disabled={
-          selectedTags.length === 0 && !selectedCharacter && !selectedAuthor
+          selectedTags.length === 0 &&
+          !selectedCharacter &&
+          !selectedAuthor &&
+          !searchId
         }
       >
         <Search className="h-4 w-4 mr-1" />

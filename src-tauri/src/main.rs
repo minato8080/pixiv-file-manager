@@ -25,7 +25,7 @@ use commands::manage::{
 };
 use commands::search::{
     get_search_history, get_unique_authors, get_unique_characters, get_unique_tags,
-    search_by_criteria,
+    search_by_criteria, search_by_id,
 };
 use commands::settings::{get_environment_variables, save_environment_variables};
 use models::common::AppState;
@@ -108,6 +108,7 @@ fn main() {
             get_unique_characters,
             get_unique_tags,
             search_by_criteria,
+            search_by_id,
             // settings
             get_environment_variables,
             save_environment_variables

@@ -5,7 +5,6 @@ import { SearchResult } from "@/bindings/SearchResult";
 type DialogLabelStore = {
   isLabelCharacterDialogOpen: boolean;
   labelCharacterDialogSelectedFiles: SearchResult[];
-  isLabelCharacterDialogSubmitting: boolean;
   initialName?: string;
   availableCharacters: string[];
   setAvailableCharacters: (files: string[]) => void;
@@ -15,14 +14,12 @@ type DialogLabelStore = {
     availableCharacters: string[]
   ) => void;
   closeLabelCharacterDialog: () => void;
-  setLabelCharacterDialogSubmitting: (submitting: boolean) => void;
   reset: () => void;
 };
 
 export const useDialogLabelStore = create<DialogLabelStore>((set) => ({
   isLabelCharacterDialogOpen: false,
   labelCharacterDialogSelectedFiles: [],
-  isLabelCharacterDialogSubmitting: false,
   availableCharacters: [],
   setAvailableCharacters: (items: string[]) =>
     set({ availableCharacters: items }),
@@ -41,16 +38,12 @@ export const useDialogLabelStore = create<DialogLabelStore>((set) => ({
     set({
       isLabelCharacterDialogOpen: false,
       labelCharacterDialogSelectedFiles: [],
-      isLabelCharacterDialogSubmitting: false,
       availableCharacters: [],
     }),
-  setLabelCharacterDialogSubmitting: (submitting: boolean) =>
-    set({ isLabelCharacterDialogSubmitting: submitting }),
   reset: () =>
     set({
       isLabelCharacterDialogOpen: false,
       labelCharacterDialogSelectedFiles: [],
-      isLabelCharacterDialogSubmitting: false,
       availableCharacters: [],
     }),
 }));

@@ -17,18 +17,17 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useTagSearcher } from "@/src/hooks/use-tag-searcher";
+import { useCommonStore } from "@/src/stores/common-store";
 import { useDialogMoveStore } from "@/stores/dialog-move-store";
 
 export const DialogMoveFiles = () => {
   const {
     isMoveFilesDialogOpen,
     moveFilesDialogSelectedFiles,
-    isMoveFilesDialogSubmitting,
-    openMoveFilesDialog,
     closeMoveFilesDialog,
-    setMoveFilesDialogSubmitting,
     reset,
   } = useDialogMoveStore();
+  const { loading, setLoading } = useCommonStore();
 
   const [moveLinkedFiles, setMoveLinkedFiles] = useState(false);
   const [targetFolder, setTargetFolder] = useState("");
@@ -39,7 +38,7 @@ export const DialogMoveFiles = () => {
     null
   );
 
-  const { handleSearch } = useTagSearcher();
+  const { quickReload } = useTagSearcher();
 
   // 紐づけ更新の情報を取得
   const fetchAssociations = async (searchResult: SearchResult[]) => {
@@ -98,7 +97,7 @@ export const DialogMoveFiles = () => {
     setTargetFolder("");
     setPathsToUpdate(0);
     setSelectedFiles([]);
-    setMoveFilesDialogSubmitting(false);
+    setLoading(false);
     setIsLoadingAssociations(false);
     setAssociateInfo(null);
   };
@@ -132,7 +131,7 @@ export const DialogMoveFiles = () => {
 
   // Confirm move operation
   const handleSubmit = async () => {
-    setMoveFilesDialogSubmitting(true);
+    setLoading(true);
     if (!targetFolder) return;
 
     const fileNames = selectedFiles.map((p) => p.file_name);
@@ -153,15 +152,13 @@ export const DialogMoveFiles = () => {
     }
 
     // refresh
-    handleSearch();
+    await quickReload();
   };
 
   return (
     <Dialog
       open={isMoveFilesDialogOpen}
-      onOpenChange={(open) =>
-        open ? openMoveFilesDialog : closeMoveFilesDialog
-      }
+      onOpenChange={(b) => !b && closeMoveFilesDialog()}
     >
       <DialogContent
         aria-describedby="A dialog to move files."
@@ -218,15 +215,15 @@ export const DialogMoveFiles = () => {
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => closeMoveFilesDialog()}>
+          <Button variant="outline" onClick={closeMoveFilesDialog}>
             Cancel
           </Button>
           <Button
             onClick={() => void handleSubmit()}
             className="bg-blue-600 hover:bg-blue-700 text-white"
-            disabled={isMoveFilesDialogSubmitting}
+            disabled={loading}
           >
-            {isMoveFilesDialogSubmitting ? "Moving..." : "Move Files"}
+            {loading ? "Moving..." : "Move Files"}
           </Button>
         </DialogFooter>
       </DialogContent>

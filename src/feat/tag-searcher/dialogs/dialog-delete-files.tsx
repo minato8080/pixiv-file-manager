@@ -9,6 +9,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useTagSearcher } from "@/src/hooks/use-tag-searcher";
+import { useCommonStore } from "@/src/stores/common-store";
 import { useDialogDeleteStore } from "@/src/stores/dialog-delete-store";
 import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 
@@ -16,18 +17,16 @@ export const DialogDeleteFiles = () => {
   const {
     isDeleteFilesDialogOpen,
     deleteFilesDialogSelectedFiles,
-    isDeleteFilesDialogSubmitting,
-    openDeleteFilesDialog,
     closeDeleteFilesDialog,
-    setDeleteFilesDialogSubmitting,
   } = useDialogDeleteStore();
+  const { loading, setLoading } = useCommonStore();
   const { selectedFiles, searchResults, setSearchResults, setSelectedFiles } =
     useTagSearcherStore();
 
   const { fetchTags, fetchCharacters, fetchAuthors } = useTagSearcher();
 
   const handleDelete = async () => {
-    setDeleteFilesDialogSubmitting(true);
+    setLoading(true);
     try {
       // Invoke to Rust backend
       await invoke("delete_files", {
@@ -52,9 +51,7 @@ export const DialogDeleteFiles = () => {
   return (
     <Dialog
       open={isDeleteFilesDialogOpen}
-      onOpenChange={(isOpen) =>
-        isOpen ? openDeleteFilesDialog : closeDeleteFilesDialog
-      }
+      onOpenChange={(b) => !b && closeDeleteFilesDialog}
     >
       <DialogContent
         aria-describedby="A dialog to delete files."
@@ -73,15 +70,15 @@ export const DialogDeleteFiles = () => {
           </p>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => closeDeleteFilesDialog}>
+          <Button variant="outline" onClick={closeDeleteFilesDialog}>
             Cancel
           </Button>
           <Button
             variant="outline"
             onClick={() => void handleDelete()}
-            disabled={isDeleteFilesDialogSubmitting}
+            disabled={loading}
           >
-            {isDeleteFilesDialogSubmitting ? "Deleting..." : "Delete"}
+            {loading ? "Deleting..." : "Delete"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -16,6 +16,7 @@ export const useTagSearcher = () => {
     selectedCharacter,
     selectedAuthor,
     searchId,
+    isQuickReload,
   } = useTagSearcherStore();
   const {
     setUniqueTagList,
@@ -65,7 +66,7 @@ export const useTagSearcher = () => {
   };
 
   // Perform search
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (
       selectedTags.length === 0 &&
       !selectedCharacter &&
@@ -110,11 +111,17 @@ export const useTagSearcher = () => {
           };
           addHistory(newHistoryItem);
         }
+        return results;
       } catch (error) {
         console.error("Error search illusts:", error);
       }
     };
-    void performSearch();
+    return await performSearch();
+  };
+
+  const quickReload = async () => {
+    isQuickReload.current = true;
+    await handleSearch();
   };
 
   return {
@@ -123,5 +130,6 @@ export const useTagSearcher = () => {
     fetchCharacters,
     fetchSearchHistory,
     handleSearch,
+    quickReload,
   };
 };

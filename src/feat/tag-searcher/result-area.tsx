@@ -9,23 +9,30 @@ import { VIEW_MODES } from "@/src/constants";
 import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 
 export const TagsSearcherResultArea = () => {
-  const [innerSearchResults, setInnerSearchResults] = useState<SearchResult[]>(
-    []
-  );
+  const {
+    searchResults,
+    currentViewMode,
+    operationMode,
+    toggleItemSelection,
+    setSelectedImage,
+    selectedFiles,
+    isQuickReload,
+  } = useTagSearcherStore();
+
+  const [delayedSearchResults, setDelayedSearchResults] = useState<
+    SearchResult[]
+  >([]);
 
   const timeoutId = useRef<NodeJS.Timeout | null>(null);
 
-  const {
-    searchResults,
-    selectedFiles,
-    setSelectedFiles,
-    operationMode,
-    currentViewMode,
-    setSelectedImage,
-  } = useTagSearcherStore();
-
   useEffect(() => {
-    setInnerSearchResults([]);
+    if (isQuickReload.current) {
+      setDelayedSearchResults(searchResults);
+      isQuickReload.current = false;
+      return;
+    }
+
+    setDelayedSearchResults([]);
     // 遅延読み込み
     const updateResultsInBatches = (results: SearchResult[]) => {
       let index = 0;
@@ -37,7 +44,7 @@ export const TagsSearcherResultArea = () => {
         const batch = results.slice(index, index + batchSize);
 
         // searchResultsに追加
-        setInnerSearchResults((prevResults) => [...prevResults, ...batch]);
+        setDelayedSearchResults((prevResults) => [...prevResults, ...batch]);
 
         index += batchSize;
 
@@ -55,139 +62,133 @@ export const TagsSearcherResultArea = () => {
     return () => {
       if (timeoutId.current) clearTimeout(timeoutId.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchResults]);
 
-  // Toggle item selection
-  const toggleItemSelection = (fileName: SearchResult) => {
-    if (operationMode) {
-      setSelectedFiles(
-        selectedFiles.includes(fileName)
-          ? selectedFiles.filter((p) => p !== fileName)
-          : [...selectedFiles, fileName]
-      );
-    }
+  const renderDetails = () => {
+    return (
+      <div className="w-full">
+        <table className="w-full">
+          <thead className="bg-gray-100 dark:bg-gray-800 sticky top-0">
+            <tr>
+              {operationMode && <th className="w-8 p-2"></th>}
+              <th className="text-left p-2 text-xs font-medium">File</th>
+              <th className="text-left p-2 text-xs font-medium">Location</th>
+              <th className="text-left p-2 text-xs font-medium">Author</th>
+              <th className="text-left p-2 text-xs font-medium">Character</th>
+              <th className="text-left p-2 text-xs font-medium">Tags</th>
+            </tr>
+          </thead>
+          <tbody>
+            {delayedSearchResults.map((result) => (
+              <tr
+                key={result.file_name}
+                className={cn(
+                  "hover:bg-blue-50 dark:hover:bg-blue-900/20 border-b border-gray-200 dark:border-gray-700",
+                  operationMode &&
+                    selectedFiles.includes(result) &&
+                    "bg-blue-100 dark:bg-blue-900/30"
+                )}
+                onClick={() => {
+                  if (operationMode) {
+                    toggleItemSelection(result);
+                  } else {
+                    setSelectedImage(result.file_name);
+                  }
+                }}
+              >
+                {operationMode && (
+                  <td className="p-2">
+                    {selectedFiles.includes(result) ? (
+                      <CheckSquare className="h-4 w-4 text-blue-600" />
+                    ) : (
+                      <Square className="h-4 w-4 text-gray-400" />
+                    )}
+                  </td>
+                )}
+                <td className="p-2">
+                  <div className="flex items-center gap-2">
+                    <img
+                      src={result.thumbnail_url || "./placeholder.svg"}
+                      alt={result.file_name}
+                      className="h-8 w-8 object-contain rounded border border-gray-200 dark:border-gray-700"
+                    />
+                    <span className="text-sm">{result.file_name}</span>
+                  </div>
+                </td>
+                <td className="p-2 text-sm text-gray-600 dark:text-gray-300">
+                  {result.save_dir}
+                </td>
+                <td className="p-2 text-sm text-gray-600 dark:text-gray-300">
+                  {result.author_name}
+                </td>
+                <td className="p-2 text-sm text-gray-600 dark:text-gray-300">
+                  {result.character ?? "-"}
+                </td>
+                <td className="p-2 text-sm text-gray-600 dark:text-gray-300">
+                  {result.tags ?? "-"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  const renderGdid = () => {
+    return (
+      <div className={`grid ${VIEW_MODES[currentViewMode].gridCols} gap-1 p-2`}>
+        {delayedSearchResults.map((result) => (
+          <div
+            key={result.file_name}
+            className={cn(
+              "flex flex-col items-center p-1 rounded-md border hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer",
+              operationMode &&
+                selectedFiles.includes(result) &&
+                "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700",
+              !selectedFiles.includes(result) &&
+                "border-gray-200 dark:border-gray-700"
+            )}
+            onClick={() => {
+              if (operationMode) {
+                toggleItemSelection(result);
+              } else {
+                setSelectedImage(result.file_name);
+              }
+            }}
+          >
+            {operationMode && (
+              <div className="self-start mb-1">
+                {selectedFiles.includes(result) ? (
+                  <CheckSquare className="h-4 w-4 text-blue-600" />
+                ) : (
+                  <Square className="h-4 w-4 text-gray-400" />
+                )}
+              </div>
+            )}
+            <img
+              src={result.thumbnail_url || "./placeholder.svg"}
+              alt={result.file_name}
+              className={`object-contain mb-1 rounded border border-gray-200 dark:border-gray-700 ${VIEW_MODES[currentViewMode].size}`}
+            />
+            <span className="text-xs text-center truncate w-full">
+              {result.file_name}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   return (
     <Card className="flex-1 overflow-hidden border-2 border-gray-200 dark:border-gray-700">
       <ScrollArea className="h-full overflow-auto">
-        {innerSearchResults.length > 0 ? (
+        {delayedSearchResults.length > 0 ? (
           currentViewMode === "details" ? (
-            <div className="w-full">
-              <table className="w-full">
-                <thead className="bg-gray-100 dark:bg-gray-800 sticky top-0">
-                  <tr>
-                    {operationMode && <th className="w-8 p-2"></th>}
-                    <th className="text-left p-2 text-xs font-medium">File</th>
-                    <th className="text-left p-2 text-xs font-medium">
-                      Location
-                    </th>
-                    <th className="text-left p-2 text-xs font-medium">
-                      Author
-                    </th>
-                    <th className="text-left p-2 text-xs font-medium">
-                      Character
-                    </th>
-                    <th className="text-left p-2 text-xs font-medium">Tags</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {innerSearchResults.map((result) => (
-                    <tr
-                      key={result.file_name}
-                      className={cn(
-                        "hover:bg-blue-50 dark:hover:bg-blue-900/20 border-b border-gray-200 dark:border-gray-700",
-                        operationMode &&
-                          selectedFiles.includes(result) &&
-                          "bg-blue-100 dark:bg-blue-900/30"
-                      )}
-                      onClick={() => {
-                        if (operationMode) {
-                          toggleItemSelection(result);
-                        } else {
-                          setSelectedImage(result.file_name);
-                        }
-                      }}
-                    >
-                      {operationMode && (
-                        <td className="p-2">
-                          {selectedFiles.includes(result) ? (
-                            <CheckSquare className="h-4 w-4 text-blue-600" />
-                          ) : (
-                            <Square className="h-4 w-4 text-gray-400" />
-                          )}
-                        </td>
-                      )}
-                      <td className="p-2">
-                        <div className="flex items-center gap-2">
-                          <img
-                            src={result.thumbnail_url || "./placeholder.svg"}
-                            alt={result.file_name}
-                            className="h-8 w-8 object-contain rounded border border-gray-200 dark:border-gray-700"
-                          />
-                          <span className="text-sm">{result.file_name}</span>
-                        </div>
-                      </td>
-                      <td className="p-2 text-sm text-gray-600 dark:text-gray-300">
-                        {result.save_dir}
-                      </td>
-                      <td className="p-2 text-sm text-gray-600 dark:text-gray-300">
-                        {result.author_name}
-                      </td>
-                      <td className="p-2 text-sm text-gray-600 dark:text-gray-300">
-                        {result.character ?? "-"}
-                      </td>
-                      <td className="p-2 text-sm text-gray-600 dark:text-gray-300">
-                        {result.tags ?? "-"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            renderDetails()
           ) : (
-            <div
-              className={`grid ${VIEW_MODES[currentViewMode].gridCols} gap-1 p-2`}
-            >
-              {innerSearchResults.map((result) => (
-                <div
-                  key={result.file_name}
-                  className={cn(
-                    "flex flex-col items-center p-1 rounded-md border hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer",
-                    operationMode &&
-                      selectedFiles.includes(result) &&
-                      "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700",
-                    !selectedFiles.includes(result) &&
-                      "border-gray-200 dark:border-gray-700"
-                  )}
-                  onClick={() => {
-                    if (operationMode) {
-                      toggleItemSelection(result);
-                    } else {
-                      setSelectedImage(result.file_name);
-                    }
-                  }}
-                >
-                  {operationMode && (
-                    <div className="self-start mb-1">
-                      {selectedFiles.includes(result) ? (
-                        <CheckSquare className="h-4 w-4 text-blue-600" />
-                      ) : (
-                        <Square className="h-4 w-4 text-gray-400" />
-                      )}
-                    </div>
-                  )}
-                  <img
-                    src={result.thumbnail_url || "./placeholder.svg"}
-                    alt={result.file_name}
-                    className={`object-contain mb-1 rounded border border-gray-200 dark:border-gray-700 ${VIEW_MODES[currentViewMode].size}`}
-                  />
-                  <span className="text-xs text-center truncate w-full">
-                    {result.file_name}
-                  </span>
-                </div>
-              ))}
-            </div>
+            renderGdid()
           )
         ) : (
           <div className="flex flex-col items-center justify-center h-[200px] text-gray-500">

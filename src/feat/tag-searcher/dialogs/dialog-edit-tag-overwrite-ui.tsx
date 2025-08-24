@@ -1,10 +1,10 @@
-import { X, Plus, Edit, Check } from "lucide-react";
-import React, { useEffect, useRef } from "react";
+import { X, Plus, Edit, Check, History, File } from "lucide-react";
+import type React from "react";
+import { useEffect, useRef } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { InputDropdown } from "@/src/components/input-dropdown";
 import { useDialogEditStore } from "@/src/stores/dialog-edit-store";
+import { useHistoryStore } from "@/src/stores/history-store";
 
 export const OverwriteModeUI = () => {
   const {
@@ -29,6 +30,8 @@ export const OverwriteModeUI = () => {
     setTagToOverwrite,
   } = useDialogEditStore();
 
+  const { overwriteHistory } = useHistoryStore();
+
   const editInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -38,7 +41,6 @@ export const OverwriteModeUI = () => {
     }
   }, [selectedFiles, setOverwriteTags]);
 
-  // Update tags when a different file is selected from the dropdown
   const handleFileTagsSelect = (fileName: string) => {
     const selectedFile = selectedFiles.find(
       (file) => file.file_name === fileName
@@ -56,14 +58,10 @@ export const OverwriteModeUI = () => {
     }
   };
 
-  // Handle tag deletion in overwrite mode
   const handleDeleteTag = (index: number) => {
-    // If the tag was newly added, remove it completely
     if (overwriteTags[index].status === "added") {
       setOverwriteTags(overwriteTags.filter((_, i) => i !== index));
-    }
-    // Otherwise mark it as deleted
-    else {
+    } else {
       setOverwriteTags(
         overwriteTags.map((tag, i) =>
           i === index
@@ -77,7 +75,6 @@ export const OverwriteModeUI = () => {
     }
   };
 
-  // Start editing a tag
   const handleEditTag = (index: number) => {
     setEditingTagIndex(index);
     setEditingTagValue(overwriteTags[index].value);
@@ -86,7 +83,6 @@ export const OverwriteModeUI = () => {
     }, 0);
   };
 
-  // Handle key press in edit input
   const handleEditKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       handleSaveEdit();
@@ -95,14 +91,12 @@ export const OverwriteModeUI = () => {
     }
   };
 
-  // Handle key press in add tag input
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       handleAddTag();
     }
   };
 
-  // Save edited tag
   const handleSaveEdit = () => {
     if (editingTagIndex !== null) {
       setOverwriteTags(
@@ -111,8 +105,6 @@ export const OverwriteModeUI = () => {
             ? {
                 value: editingTagValue,
                 status: tag.value !== editingTagValue ? "edited" : "unchanged",
-                originalValue:
-                  tag.status === "unchanged" ? tag.value : tag.originalValue,
               }
             : tag
         )
@@ -122,7 +114,6 @@ export const OverwriteModeUI = () => {
     }
   };
 
-  // Add a new tag in overwrite mode
   const handleAddTag = () => {
     if (!overwriteTags.some((tag) => tag.value === tagToOverwrite)) {
       setOverwriteTags([
@@ -133,22 +124,26 @@ export const OverwriteModeUI = () => {
     }
   };
 
-  // Cancel editing
   const handleCancelEdit = () => {
     setEditingTagIndex(null);
     setEditingTagValue("");
   };
 
+  const handleLoadFromHistory = (historyIndex: string) => {
+    const index = Number.parseInt(historyIndex);
+    if (index >= 0 && index < overwriteHistory.length) {
+      const historicalTags = overwriteHistory[index];
+      setOverwriteTags(
+        historicalTags.map((v) => ({ value: v, status: "added" }))
+      );
+    }
+  };
+
   return (
     <div className="space-y-2 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
       <div className="flex flex-wrap gap-2 items-center">
-        <div className="flex items-center gap-2 flex-1">
-          <Label
-            htmlFor="file-select"
-            className="text-blue-600 whitespace-nowrap"
-          >
-            Select file:
-          </Label>
+        <div className="flex items-center gap-2">
+          <File className="h-4 w-4" />
           <Select onValueChange={handleFileTagsSelect}>
             <SelectTrigger className="border-blue-200 dark:border-blue-800 h-8">
               <SelectValue placeholder="Select a template" />
@@ -157,6 +152,22 @@ export const OverwriteModeUI = () => {
               {selectedFiles.map((file) => (
                 <SelectItem key={file.id} value={file.file_name}>
                   {file.file_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <History className="h-4 w-4" />
+          <Select onValueChange={handleLoadFromHistory}>
+            <SelectTrigger className="border-blue-200 dark:border-blue-800 h-8 w-38">
+              <SelectValue placeholder="Load History" />
+            </SelectTrigger>
+            <SelectContent className="bg-white">
+              {overwriteHistory.map((historyEntry, index) => (
+                <SelectItem key={index} value={index.toString()}>
+                  {`${historyEntry[0]} + ${historyEntry.length - 1}`}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -218,25 +229,23 @@ export const OverwriteModeUI = () => {
             <Badge
               key={index}
               variant="secondary"
-              className={`
-          h-7 flex items-center
-          ${
-            tag.status === "deleted"
-              ? "line-through opacity-70 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300"
-              : ""
-          }
-          ${
-            tag.status === "edited"
-              ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
-              : ""
-          }
-          ${
-            tag.status === "added"
-              ? "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300"
-              : ""
-          }
-          ${tag.status === "unchanged" ? "bg-slate-200 dark:bg-slate-700" : ""}
-        `}
+              className={`h-7 flex items-center ${
+                tag.status === "deleted"
+                  ? "line-through opacity-70 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300"
+                  : ""
+              } ${
+                tag.status === "edited"
+                  ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
+                  : ""
+              } ${
+                tag.status === "added"
+                  ? "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300"
+                  : ""
+              } ${
+                tag.status === "unchanged"
+                  ? "bg-slate-200 dark:bg-slate-700"
+                  : ""
+              }`}
             >
               {tag.value}
               <Button

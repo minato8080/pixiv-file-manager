@@ -1,19 +1,26 @@
 import { create } from "zustand";
 
-import {
-  FileTagState,
-  TagState,
-} from "../feat/tag-searcher/dialogs/dialog-edit-tag";
+import { useHistoryStore } from "./history-store";
 
 import { AssociateInfo } from "@/bindings/AssociateInfo";
 import { EditTag } from "@/bindings/EditTag";
 import { SearchResult } from "@/bindings/SearchResult";
 
+export type TagState = {
+  value: string;
+  status: "unchanged" | "deleted" | "edited" | "added";
+};
+
+export type FileTagState = {
+  fileId: number;
+  fileName: string;
+  tags: TagState[];
+};
+
 type DialogEditStore = {
   isEditTagsDialogOpen: boolean;
   selectedFiles: SearchResult[];
   availableTags: string[];
-  isEditTagsDialogSubmitting: boolean;
   isOverwriteMode: boolean;
   isUpdateLinkedFiles: boolean;
   associateInfo: AssociateInfo | null;
@@ -21,7 +28,6 @@ type DialogEditStore = {
   setAvailableTags: (tags: string[]) => void;
   openEditTagsDialog: (files: SearchResult[]) => void;
   closeEditTagsDialog: () => void;
-  setEditTagsDialogSubmitting: (submitting: boolean) => void;
   setIsOverwriteMode: (mode: boolean) => void;
   setIsUpdateLinkedFiles: (update: boolean) => void;
   setAssociateInfo: (info: AssociateInfo | null) => void;
@@ -67,7 +73,6 @@ export const useDialogEditStore = create<
   isEditTagsDialogOpen: false,
   selectedFiles: [],
   availableTags: [],
-  isEditTagsDialogSubmitting: false,
   isOverwriteMode: false,
   isUpdateLinkedFiles: false,
   associateInfo: null,
@@ -83,13 +88,10 @@ export const useDialogEditStore = create<
     get().resetAddRemoveState();
     get().resetOverwriteState();
   },
-  setEditTagsDialogSubmitting: (submitting: boolean) =>
-    set({ isEditTagsDialogSubmitting: submitting }),
   resetMainUI: () =>
     set({
       isEditTagsDialogOpen: false,
       selectedFiles: [],
-      isEditTagsDialogSubmitting: false,
       isUpdateLinkedFiles: false,
       associateInfo: null,
     }),
@@ -184,10 +186,12 @@ export const useDialogEditStore = create<
     }),
 
   createOverwriteForm: () => {
-    const { overwriteTags: tags } = get();
-    const finalTags = tags
+    const { overwriteTags } = get();
+    const finalTags = overwriteTags
       .filter((t) => t.status !== "deleted")
       .map((t) => t.value);
+
+    useHistoryStore.getState().addOverwriteHistory(finalTags);
 
     return {
       fileNames: get().selectedFiles.map((f) => f.file_name),

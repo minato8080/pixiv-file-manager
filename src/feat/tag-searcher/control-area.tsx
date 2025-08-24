@@ -81,7 +81,7 @@ export const ControlArea = () => {
         variant="default"
         size="sm"
         className="h-9 bg-blue-600 hover:bg-blue-700 text-white"
-        onClick={handleSearch}
+        onClick={() => void handleSearch()}
         disabled={
           selectedTags.length === 0 &&
           !selectedCharacter &&

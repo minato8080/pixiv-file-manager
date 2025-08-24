@@ -19,6 +19,7 @@ type TagSearcherStore = {
   selectedAuthor: AuthorInfo | null;
   isViewModeDropdownOpen: boolean;
   searchId: string;
+  isQuickReload: { current: boolean };
   setSearchResults: (results: SearchResult[]) => void;
   setSelectedFiles: (files: SearchResult[]) => void;
   setOperationMode: (mode: boolean) => void;
@@ -30,9 +31,10 @@ type TagSearcherStore = {
   setSelectedAuthor: (author: AuthorInfo | null) => void;
   setIsViewModeDropdownOpen: (open: boolean) => void;
   setSearchId: (id: string) => void;
+  toggleItemSelection: (fileName: SearchResult) => void;
 };
 
-export const useTagSearcherStore = create<TagSearcherStore>((set) => ({
+export const useTagSearcherStore = create<TagSearcherStore>((set, get) => ({
   searchResults: [],
   selectedFiles: [],
   operationMode: false,
@@ -44,6 +46,7 @@ export const useTagSearcherStore = create<TagSearcherStore>((set) => ({
   selectedAuthor: null,
   isViewModeDropdownOpen: false,
   searchId: "",
+  isQuickReload: { current: false },
   setSearchResults: (results) => set({ searchResults: results }),
   setSelectedFiles: (files) => set({ selectedFiles: files }),
   setOperationMode: (mode) => set({ operationMode: mode }),
@@ -54,5 +57,16 @@ export const useTagSearcherStore = create<TagSearcherStore>((set) => ({
   setSelectedCharacter: (character) => set({ selectedCharacter: character }),
   setSelectedAuthor: (author) => set({ selectedAuthor: author }),
   setIsViewModeDropdownOpen: (open) => set({ isViewModeDropdownOpen: open }),
-  setSearchId: (id: string) => set({ searchId: id }),
+  setSearchId: (id) => set({ searchId: id }),
+
+  toggleItemSelection: (fileName) => {
+    const { operationMode, selectedFiles, setSelectedFiles } = get();
+    if (operationMode) {
+      setSelectedFiles(
+        selectedFiles.includes(fileName)
+          ? selectedFiles.filter((p) => p !== fileName)
+          : [...selectedFiles, fileName]
+      );
+    }
+  },
 }));

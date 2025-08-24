@@ -23,28 +23,14 @@ import { useCommonStore } from "@/src/stores/common-store";
 import { useDialogEditStore } from "@/stores/dialog-edit-store";
 import { useDropdownStore } from "@/stores/dropdown-store";
 
-export type TagState = {
-  value: string;
-  status: "unchanged" | "deleted" | "edited" | "added";
-  originalValue?: string;
-};
-
-export type FileTagState = {
-  fileId: number;
-  fileName: string;
-  tags: TagState[];
-};
-
 export const DialogEditTag = () => {
   const {
     isEditTagsDialogOpen,
     selectedFiles,
-    isEditTagsDialogSubmitting,
     isOverwriteMode,
     isUpdateLinkedFiles,
     associateInfo,
     closeEditTagsDialog,
-    setEditTagsDialogSubmitting,
     setAvailableTags,
     createAddRemoveForm,
     createOverwriteForm,
@@ -54,7 +40,7 @@ export const DialogEditTag = () => {
   } = useDialogEditStore();
   const { loading, setLoading } = useCommonStore();
   const { uniqueTagList } = useDropdownStore();
-  const { fetchTags, handleSearch } = useTagSearcher();
+  const { fetchTags, quickReload } = useTagSearcher();
 
   // Extract all unique tags from selected files
   useEffect(() => {
@@ -90,7 +76,7 @@ export const DialogEditTag = () => {
 
   // Handle form submission
   const handleSubmit = async () => {
-    setEditTagsDialogSubmitting(true);
+    setLoading(true);
     try {
       if (isOverwriteMode) {
         const form = createOverwriteForm();
@@ -100,7 +86,7 @@ export const DialogEditTag = () => {
           updateLinkedFiles: isUpdateLinkedFiles,
         });
         await fetchTags();
-        handleSearch();
+        await quickReload();
       } else {
         const form = createAddRemoveForm();
         await invoke("add_remove_tags", {
@@ -108,12 +94,12 @@ export const DialogEditTag = () => {
           updateLinkedFiles: isUpdateLinkedFiles,
         });
         await fetchTags();
-        handleSearch();
+        await quickReload();
       }
 
       closeEditTagsDialog();
     } finally {
-      setEditTagsDialogSubmitting(false);
+      setLoading(false);
     }
   };
 
@@ -199,7 +185,7 @@ export const DialogEditTag = () => {
             </Button>
             <Button
               onClick={() => void handleSubmit()}
-              disabled={isEditTagsDialogSubmitting}
+              disabled={loading}
               className={
                 isOverwriteMode
                   ? "bg-blue-500 hover:bg-blue-600 text-white"
@@ -207,7 +193,7 @@ export const DialogEditTag = () => {
               }
               size="sm"
             >
-              {isEditTagsDialogSubmitting ? "Saving..." : "Save Tags"}
+              {loading ? "Saving..." : "Save Tags"}
             </Button>
           </div>
         </DialogFooter>

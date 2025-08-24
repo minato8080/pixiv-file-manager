@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { InputDropdown } from "@/src/components/input-dropdown";
 import { useTagSearcher } from "@/src/hooks/use-tag-searcher";
+import { useCommonStore } from "@/src/stores/common-store";
 import { useDialogLabelStore } from "@/stores/dialog-label-store";
 
 type DialogLabelCharaSubmitParams = {
@@ -35,12 +36,11 @@ export const DialogLabelCharacter = () => {
     initialName,
     isLabelCharacterDialogOpen,
     labelCharacterDialogSelectedFiles,
-    isLabelCharacterDialogSubmitting,
     availableCharacters,
     setAvailableCharacters,
     closeLabelCharacterDialog,
-    setLabelCharacterDialogSubmitting,
   } = useDialogLabelStore();
+  const { loading, setLoading } = useCommonStore();
 
   // Character management
   const [characterName, setCharacterName] = useState(""); // Current character name
@@ -53,12 +53,11 @@ export const DialogLabelCharacter = () => {
   // 影響を受けるファイル数の状態
   const [namesToUpdate, setNamesToUpdate] = useState(0);
   const [pathsToUpdate, setPathsToUpdate] = useState(0);
-  const [isLoadingAssociations, setIsLoadingAssociations] = useState(false);
   const [associateInfo, setAssociateInfo] = useState<AssociateInfo | null>(
     null
   );
 
-  const { fetchCharacters, handleSearch } = useTagSearcher();
+  const { fetchCharacters, quickReload } = useTagSearcher();
 
   // 最も頻度の高いパスを見つける関数
   const findMostCommonPath = (files: SearchResult[]): string => {
@@ -85,7 +84,6 @@ export const DialogLabelCharacter = () => {
 
   // 紐づけ更新の情報を取得
   const fetchAssociations = async (searchResult: SearchResult[]) => {
-    setIsLoadingAssociations(true);
     try {
       const result: AssociateInfo = await invoke("get_associated_info", {
         fileNames: searchResult.map((p) => p.file_name),
@@ -96,8 +94,6 @@ export const DialogLabelCharacter = () => {
       }
     } catch (error) {
       console.error("Failed to fetch associations:", error);
-    } finally {
-      setIsLoadingAssociations(false);
     }
   };
 
@@ -174,7 +170,6 @@ export const DialogLabelCharacter = () => {
     setCollectDir("");
     setNamesToUpdate(0);
     setPathsToUpdate(0);
-    setIsLoadingAssociations(false);
     setAssociateInfo(null);
   };
 
@@ -234,11 +229,11 @@ export const DialogLabelCharacter = () => {
       collectDir,
     });
     await fetchCharacters();
-    handleSearch();
+    await quickReload();
   };
 
   const handleSubmit = async () => {
-    setLabelCharacterDialogSubmitting(true);
+    setLoading(true);
     try {
       await confirmName({
         characterName: characterName,
@@ -247,7 +242,7 @@ export const DialogLabelCharacter = () => {
       });
       onClose();
     } finally {
-      setLabelCharacterDialogSubmitting(false);
+      setLoading(false);
     }
   };
 
@@ -390,12 +385,10 @@ export const DialogLabelCharacter = () => {
                 variant="outline"
                 className="bg-red-50 text-red-600 border-red-200"
               >
-                {isLoadingAssociations
-                  ? "Loading..."
-                  : `${associateInfo?.characters.reduce(
-                      (total, p) => total + p.count,
-                      0
-                    )} files linked`}
+                {`${associateInfo?.characters.reduce(
+                  (total, p) => total + p.count,
+                  0
+                )} files linked`}
               </Badge>
             </div>
 
@@ -421,9 +414,7 @@ export const DialogLabelCharacter = () => {
                   : "bg-blue-50 text-blue-700 border-blue-200"
               }`}
             >
-              {isLoadingAssociations
-                ? "Loading..."
-                : `${namesToUpdate} files will be renamed`}
+              {`${namesToUpdate} files will be relabeled`}
             </Badge>
             <Badge
               variant="outline"
@@ -433,23 +424,25 @@ export const DialogLabelCharacter = () => {
                   : "bg-blue-50 text-blue-700 border-blue-200"
               }`}
             >
-              {isLoadingAssociations
-                ? "Loading..."
-                : `${pathsToUpdate} files will be moved`}
+              {`${pathsToUpdate} files will be moved`}
             </Badge>
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" size="sm" onClick={onClose}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={closeLabelCharacterDialog}
+          >
             Cancel
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => void handleSubmit()}
-            disabled={isLabelCharacterDialogSubmitting}
+            disabled={loading}
           >
-            {isLabelCharacterDialogSubmitting ? "Submitting..." : "OK"}
+            {loading ? "Submitting..." : "OK"}
           </Button>
         </DialogFooter>
       </DialogContent>

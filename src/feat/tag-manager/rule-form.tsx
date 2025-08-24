@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { InputDropdown } from "@/src/components/input-dropdown";
+import { useCommonStore } from "@/src/stores/common-store";
 import { useDropdownStore } from "@/src/stores/dropdown-store";
 
 type Props = {
@@ -31,13 +32,13 @@ export default function RuleForm({
   submitLabel = "Save",
 }: Props) {
   const { uniqueTagList } = useDropdownStore();
+  const { loading, setLoading } = useCommonStore();
 
   const [src, setSrc] = useState(initial?.src_tag ?? "");
   const [dst, setDst] = useState(initial?.dst_tag ?? "");
   const [action, setAction] = useState<TagFixRuleAction>(
     initial?.action_type ?? "replace"
   );
-  const [submitting, setSubmitting] = useState(false);
 
   const disabledDst = action === "delete";
 
@@ -112,7 +113,7 @@ export default function RuleForm({
       <div className="flex justify-end">
         <Button
           className="bg-violet-600 hover:bg-violet-700 text-white"
-          disabled={submitting}
+          disabled={loading}
           onClick={() =>
             void (async () => {
               const errs = validate();
@@ -121,14 +122,14 @@ export default function RuleForm({
                 throw new Error(errs.join(" / "));
               }
               try {
-                setSubmitting(true);
+                setLoading(true);
                 await onSubmit({
                   src_tag: src.trim(),
                   dst_tag: disabledDst ? null : dst.trim(),
                   action_type: action,
                 });
               } finally {
-                setSubmitting(false);
+                setLoading(false);
               }
             })()
           }

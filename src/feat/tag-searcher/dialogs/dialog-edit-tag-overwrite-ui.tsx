@@ -141,7 +141,7 @@ export const OverwriteModeUI = () => {
 
   return (
     <div className="space-y-2 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
-      <div className="flex flex-wrap gap-2 items-center">
+      <div className="flex flex-nowrap gap-2 items-center">
         <div className="flex items-center gap-2">
           <File className="h-4 w-4" />
           <Select onValueChange={handleFileTagsSelect}>
@@ -194,7 +194,7 @@ export const OverwriteModeUI = () => {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2 p-2 min-h-53 border rounded-md bg-slate-50 dark:bg-slate-800">
+      <div className="flex flex-wrap items-start content-start gap-2 p-2 min-h-53 border rounded-md bg-slate-50 dark:bg-slate-800">
         {overwriteTags.map((tag, index) =>
           editingTagIndex === index ? (
             <div

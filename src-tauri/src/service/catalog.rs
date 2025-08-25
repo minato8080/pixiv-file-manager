@@ -1,31 +1,23 @@
 use anyhow::{anyhow, Result};
-use rusqlite::{params, Connection, Transaction};
+use rusqlite::{named_params, params, Connection};
 use std::{
     collections::{HashMap, HashSet},
     fs,
     path::Path,
 };
 
-use crate::{models::catalog::EditTag, service::common::parse_file_info};
-
-const UPDATE_MODE_CONTROL: UpdateMode = 0;
-const UPDATE_MODE_INCREMENT: UpdateMode = 1;
-
-type Id = u32;
-type Suffix = u8;
-type ControlNum = i32;
-type UpdateMode = i8;
-type Dummy = String;
-type BaseMap<O> = HashMap<(Id, Suffix, ControlNum), Option<O>>;
-type UpdateModeMap = HashMap<(Id, Option<Suffix>, ControlNum), UpdateMode>;
-type SuffixesMap = HashMap<(Id, ControlNum, UpdateMode), Vec<Option<Suffix>>>;
+use crate::{
+    models::catalog::{AssociateCharacter, AssociateInfo, AssociateSaveDir, EditTag},
+    service::common::{execute_sql_script, parse_file_info, remove_invalid_chars},
+};
 
 pub fn process_move_files(
-    tx: &Transaction,
+    conn: &mut Connection,
     file_names: Vec<String>,
     target_folder: &str,
     move_linked_files: bool,
 ) -> Result<()> {
+    let tx = conn.transaction()?;
     let mut updates = HashSet::new();
     // target_folderがない場合、作成
     if !Path::new(target_folder).exists() {
@@ -36,7 +28,7 @@ pub fn process_move_files(
     for file_name in &file_names {
         let file_info = parse_file_info(file_name.as_str())?;
 
-        let cnum: ControlNum = tx.query_row(
+        let cnum: i32 = tx.query_row(
             "SELECT cnum FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
             params![file_info.illust_id, file_info.suffix],
             |row| Ok(row.get(0)?),
@@ -104,229 +96,58 @@ pub fn process_move_files(
         // DBを更新
         tx.execute(&update_sql, param_vec.as_slice())?;
     }
+    tx.commit()?;
+
     Ok(())
 }
 
-pub fn create_base_map(
-    tx: &rusqlite::Transaction,
-    file_names: &Vec<String>,
-) -> Result<BaseMap<String>> {
-    let file_names_with_none: Vec<(String, _)> = file_names
-        .iter()
-        .map(|file_name| (file_name.clone(), None::<Dummy>))
-        .collect();
-    create_base_map_with_opt(tx, file_names_with_none)
-}
-
-pub fn create_base_map_with_opt<O>(
-    tx: &rusqlite::Transaction,
-    file_names: Vec<(String, Option<O>)>,
-) -> Result<BaseMap<O>>
-where
-    O: Ord + Clone,
-{
-    let mut base_map = HashMap::new();
-    for (file_name, options) in file_names {
-        let file_info = parse_file_info(file_name.as_str())?;
-        let cnum: ControlNum = tx.query_row(
-            "SELECT cnum FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
-            params![file_info.illust_id, file_info.suffix],
-            |row| Ok(row.get(0)?),
-        )?;
-        base_map.insert((file_info.illust_id, file_info.suffix, cnum), options);
-    }
-    // base_mapのOption<O>をソートして再格納する
-    // O: Ord + Clone なので、Option<O>もsort可能
-    let mut options_vec: Vec<Option<O>> = base_map.values().cloned().collect();
-    // Noneは最後に来るようにOption<O>でソート
-    options_vec.sort_by(|a, b| match (a, b) {
-        (Some(a_val), Some(b_val)) => a_val.cmp(b_val),
-        (None, Some(_)) => std::cmp::Ordering::Greater,
-        (Some(_), None) => std::cmp::Ordering::Less,
-        (None, None) => std::cmp::Ordering::Equal,
-    });
-    // base_mapのキーを取得して、ソート済みの値で再格納
-    let keys: Vec<_> = base_map.keys().cloned().collect();
-    for (key, opt) in keys.into_iter().zip(options_vec.into_iter()) {
-        base_map.insert(key, opt);
-    }
-    Ok(base_map)
-}
-
-pub fn prepare_update_mode_map(
-    tx: &rusqlite::Transaction,
-    base_map: &BaseMap<String>,
+pub fn process_label_character_name(
+    conn: &mut Connection,
+    file_names: &[String],
+    character_name: Option<&str>,
     update_linked_files: bool,
-) -> Result<UpdateModeMap> {
-    let mut updates_map: UpdateModeMap = HashMap::new();
-    for ((id, suffix, cnum), _options) in base_map.clone() {
-        if update_linked_files {
-            updates_map.insert((id.clone(), None, cnum), UPDATE_MODE_CONTROL);
-        } else {
-            let total_control_count: u64 = tx.query_row(
-                "SELECT COUNT(*) FROM ILLUST_INFO WHERE illust_id = ? AND cnum = ?",
-                params![id, cnum],
-                |row| row.get(0),
-            )?;
+    collect_dir: Option<&str>,
+) -> Result<()> {
+    let tx = conn.transaction()?;
 
-            let update_control_count: u64 = base_map
-                .iter()
-                .filter(|((i_id, _, i_cnum), _)| id == *i_id && cnum == *i_cnum)
-                .count()
-                .try_into()
-                .unwrap();
+    // 一時テーブルを準備
+    let sql = include_str!("../sql/catalog/prepare_tmp_label_character.sql");
+    tx.execute_batch(sql)?;
 
-            let needs_increment = update_control_count < total_control_count;
-            if needs_increment {
-                updates_map.insert((id, Some(suffix), cnum), UPDATE_MODE_INCREMENT);
-            } else {
-                updates_map.insert((id, Some(suffix), cnum), UPDATE_MODE_CONTROL);
-            }
+    {
+        // データを挿入
+        let sql = include_str!("../sql/catalog/insert_tmp_label_character.sql");
+        let mut stmt = tx.prepare(sql)?;
+        for file_name in file_names {
+            let info = parse_file_info(file_name)?;
+            stmt.execute(named_params! {
+                ":illust_id": info.illust_id,
+                ":suffix": info.suffix,
+            })?;
         }
     }
-    Ok(updates_map)
-}
 
-pub fn prepare_suffiexes_map(updates_map: UpdateModeMap) -> SuffixesMap {
-    let mut grouped_map: SuffixesMap = HashMap::new();
-    for ((id, suffix_opt, cnum), update_mode) in updates_map {
-        grouped_map
-            .entry((id, cnum, update_mode))
-            .or_default()
-            .push(suffix_opt);
-    }
-
-    let result = grouped_map
-        .into_iter()
-        .map(|(k, v)| (k, v))
-        .collect::<HashMap<_, Vec<_>>>();
-    result
-}
-
-pub fn update_illust_info(
-    tx: &rusqlite::Transaction,
-    suffixes_map: &SuffixesMap,
-    character_name: &str,
-) -> Result<()> {
-    // db_design.mdに基づき、ILLUST_DETAILテーブルを更新する形に修正
-    for ((id, cnum, update_mode), suffixes) in suffixes_map {
-        match *update_mode {
-            UPDATE_MODE_CONTROL => {
-                // cnum指定でILLUST_DETAILを更新
-                tx.execute(
-                    "UPDATE ILLUST_DETAIL SET character = ? WHERE illust_id = ? AND cnum = ?",
-                    params![character_name, id, cnum],
-                )?;
-            }
-            UPDATE_MODE_INCREMENT => {
-                // suffixesが空でないことを確認
-                if !suffixes.is_empty() {
-                    // 次の管理番号
-                    let next_cnum: i32 = tx.query_row(
-                        "SELECT IFNULL(MAX(cnum), 0) + 1 FROM ILLUST_INFO WHERE illust_id = ?",
-                        params![&id],
-                        |row| row.get(0),
-                    )?;
-
-                    // 元の管理番号からauthor_idをSELECTして使用
-                    let author_id: i32 = tx.query_row(
-                        "SELECT author_id FROM ILLUST_DETAIL WHERE illust_id = ? AND cnum = ?",
-                        params![id, cnum],
-                        |row| row.get(0),
-                    )?;
-
-                    // cnumを新規発番し、ILLUST_DETAILにINSERT
-                    tx.execute(
-                        "INSERT INTO ILLUST_DETAIL (illust_id, cnum, author_id, character) VALUES (?, ?, ?, ?)",
-                        params![id, next_cnum, author_id, character_name],
-                    )
-                    ?;
-
-                    // ILLUST_INFOの該当suffixのcnumを新しいものに更新
-                    let mut update_info_sql = String::from(
-                        "UPDATE ILLUST_INFO SET cnum = ? WHERE illust_id = ? AND suffix IN (",
-                    );
-                    update_info_sql.push_str(&vec!["?"; suffixes.len()].join(", "));
-                    update_info_sql.push(')');
-                    let mut update_info_params: Vec<Box<dyn rusqlite::ToSql>> =
-                        vec![Box::new(next_cnum), Box::new(id)];
-                    for suffix in suffixes.iter() {
-                        if let Some(suffix) = suffix {
-                            update_info_params.push(Box::new(suffix));
-                        }
-                    }
-                    tx.execute(
-                        &update_info_sql,
-                        rusqlite::params_from_iter(update_info_params.iter().map(|b| b.as_ref())),
-                    )?;
-
-                    // TAG_INFOも新しいcnumで複製
-                    let insert_tags_sql = "
-                        INSERT INTO TAG_INFO (illust_id, cnum, tag)
-                        SELECT illust_id, ? as cnum, tag
-                        FROM TAG_INFO
-                        WHERE illust_id = ? AND cnum = ?
-                        ";
-                    let mut insert_tags_param_vec: Vec<Box<dyn rusqlite::ToSql>> = vec![];
-                    insert_tags_param_vec.push(Box::new(next_cnum));
-                    insert_tags_param_vec.push(Box::new(id));
-                    insert_tags_param_vec.push(Box::new(cnum));
-                    tx.execute(
-                        insert_tags_sql,
-                        rusqlite::params_from_iter(
-                            insert_tags_param_vec.iter().map(|b| b.as_ref()),
-                        ),
-                    )?;
-                } else {
-                    return Err(anyhow!("Suffixes are missing for the update operation"));
-                }
-            }
-            _ => {
-                return Err(anyhow!("An unknown update mode was encountered"));
-            }
-        }
-    }
-    Ok(())
-}
-
-pub fn update_character_info(
-    tx: &rusqlite::Transaction,
-    character_name: &str,
-    collect_dir: &Option<String>,
-) -> Result<()> {
-    if let Some(ref dir) = collect_dir {
-        tx.execute(
-            "INSERT OR REPLACE INTO CHARACTER_INFO (character, collect_dir) VALUES (?, ?)",
-            params![character_name, dir],
-        )?;
+    // charcter と cnumの更新
+    let sql = if update_linked_files {
+        include_str!("../sql/catalog/update_character_linked.sql").to_string()
     } else {
-        tx.execute(
-            "INSERT INTO CHARACTER_INFO (character) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM CHARACTER_INFO WHERE character = ?)",
-            params![character_name, character_name],
-        )?;
-    }
-    Ok(())
-}
+        include_str!("../sql/catalog/update_character_indivisual.sql").to_string()
+            + include_str!("../sql/merge_cnum.sql")
+    };
+    let mut params: HashMap<&str, &dyn rusqlite::ToSql> = HashMap::new();
+    params.insert(":character", &character_name);
+    execute_sql_script(&tx, &sql, &params)?;
 
-pub fn delete_unused_character_info(
-    tx: &rusqlite::Transaction,
-    old_names: &HashSet<Option<String>>,
-) -> Result<()> {
-    // old_namesの中身がNoneしかないならリターン
-    if old_names.iter().all(|name| name.is_none()) {
-        return Ok(());
+    // CHARACTER_INFOの更新
+    if let Some(character) = character_name {
+        let sql = include_str!("../sql/catalog/update_character_info.sql");
+        let mut params: HashMap<&str, &dyn rusqlite::ToSql> = HashMap::new();
+        params.insert(":character", &character);
+        params.insert(":collect", &collect_dir);
+        execute_sql_script(&tx, sql, &params)?;
     }
-    tx.execute(
-        "
-        DELETE FROM CHARACTER_INFO
-        WHERE character IN (SELECT value FROM json_each(?))
-          AND NOT EXISTS (
-            SELECT 1 FROM ILLUST_DETAIL
-            WHERE ILLUST_DETAIL.character = CHARACTER_INFO.character
-          )
-        ",
-        params![serde_json::to_string(old_names)?],
-    )?;
+    tx.commit()?;
+
     Ok(())
 }
 
@@ -338,7 +159,7 @@ pub fn process_add_remove_tags(
     let tx = conn.transaction()?;
 
     // 一時テーブル作成
-    let init_sql = include_str!("../sql/catalog/init_temp_edit_tags.sql");
+    let init_sql = include_str!("../sql/catalog/prepare_tmp_edit_tags.sql");
     tx.execute_batch(&init_sql)?;
 
     // 全データを tmp_edit_tags に投入
@@ -350,21 +171,27 @@ pub fn process_add_remove_tags(
             |row| row.get(0),
         )?;
 
-        for tag in edit.tags {
+        for tag in &edit.tags {
             tx.execute(
                 "INSERT INTO tmp_edit_tags (illust_id, suffix, cnum, tag) VALUES (?, ?, ?, ?)",
-                params![file_info.illust_id, file_info.suffix, cnum, tag],
+                params![
+                    file_info.illust_id,
+                    file_info.suffix,
+                    cnum,
+                    remove_invalid_chars(tag)
+                ],
             )?;
         }
     }
 
     // 洗い替え
-    let overwrite_sql = if update_linked_files {
-        include_str!("../sql/catalog/overwrite_tags_linked.sql")
+    let sql = if update_linked_files {
+        include_str!("../sql/catalog/overwrite_tags_linked.sql").to_string()
     } else {
-        include_str!("../sql/catalog/overwrite_tags_individual.sql")
+        include_str!("../sql/catalog/overwrite_tags_individual.sql").to_string()
+            + include_str!("../sql/merge_cnum.sql")
     };
-    tx.execute_batch(&overwrite_sql)?;
+    tx.execute_batch(&sql)?;
 
     tx.commit()?;
     Ok(())
@@ -379,7 +206,7 @@ pub fn process_overwrite_tags(
     let tx = conn.transaction()?;
 
     // 一時テーブル作成
-    let init_sql = include_str!("../sql/catalog/init_temp_edit_tags.sql");
+    let init_sql = include_str!("../sql/catalog/prepare_tmp_edit_tags.sql");
     tx.execute_batch(&init_sql)?;
 
     // 全データを tmp_edit_tags に投入
@@ -394,19 +221,87 @@ pub fn process_overwrite_tags(
         for tag in &tags {
             tx.execute(
                 "INSERT INTO tmp_edit_tags (illust_id, suffix, cnum, tag) VALUES (?, ?, ?, ?)",
-                params![file_info.illust_id, file_info.suffix, cnum, tag],
+                params![
+                    file_info.illust_id,
+                    file_info.suffix,
+                    cnum,
+                    remove_invalid_chars(tag)
+                ],
             )?;
         }
     }
 
     // 洗い替え
-    let overwrite_sql = if update_linked_files {
-        include_str!("../sql/catalog/overwrite_tags_linked.sql")
+    let sql = if update_linked_files {
+        include_str!("../sql/catalog/overwrite_tags_linked.sql").to_string()
     } else {
-        include_str!("../sql/catalog/overwrite_tags_individual.sql")
+        include_str!("../sql/catalog/overwrite_tags_individual.sql").to_string()
+            + include_str!("../sql/merge_cnum.sql")
     };
-    tx.execute_batch(&overwrite_sql)?;
+    tx.execute_batch(&sql)?;
 
     tx.commit()?;
     Ok(())
+}
+
+pub fn process_get_associated_info(
+    conn: &Connection,
+    file_names: Vec<String>,
+) -> Result<AssociateInfo> {
+    if file_names.is_empty() {
+        return Ok(AssociateInfo {
+            characters: vec![],
+            save_dirs: vec![],
+        });
+    }
+
+    // ファイル名から (illust_id, suffix) を生成
+    let values_placeholder: Vec<String> = file_names
+        .iter()
+        .map(|f| {
+            let info = parse_file_info(f).unwrap();
+            format!("({}, {})", info.illust_id, info.suffix)
+        })
+        .collect();
+    let values_str = values_placeholder.join(", ");
+
+    // SQL ファイルを読み込んで値を置換
+    let sql_template = include_str!("../sql/catalog/get_associated_info.sql");
+    let sql = sql_template.replace("{{VALUES_PLACEHOLDER}}", &values_str);
+    conn.execute_batch(&sql)?;
+
+    // 集計結果の取得
+    let mut characters = vec![];
+    let mut save_dirs = vec![];
+
+    // character 集計
+    let mut char_stmt = conn.prepare(
+        "SELECT character, COUNT(DISTINCT key) AS count FROM tmp_associated GROUP BY character",
+    )?;
+    for row in char_stmt.query_map([], |row| {
+        Ok(AssociateCharacter {
+            character: row.get(0)?,
+            count: row.get(1)?,
+        })
+    })? {
+        characters.push(row?);
+    }
+
+    // save_dir 集計
+    let mut dir_stmt = conn.prepare(
+        "SELECT save_dir, COUNT(DISTINCT key) AS count FROM tmp_associated GROUP BY save_dir",
+    )?;
+    for row in dir_stmt.query_map([], |row| {
+        Ok(AssociateSaveDir {
+            save_dir: row.get(0)?,
+            count: row.get(1)?,
+        })
+    })? {
+        save_dirs.push(row?);
+    }
+
+    Ok(AssociateInfo {
+        characters,
+        save_dirs,
+    })
 }

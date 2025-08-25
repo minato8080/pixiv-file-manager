@@ -22,10 +22,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { InputDropdown } from "@/src/components/input-dropdown";
 import { useTagSearcher } from "@/src/hooks/use-tag-searcher";
 import { useCommonStore } from "@/src/stores/common-store";
+import { useDropdownStore } from "@/src/stores/dropdown-store";
 import { useDialogLabelStore } from "@/stores/dialog-label-store";
 
 type DialogLabelCharaSubmitParams = {
-  characterName: string;
+  characterName?: string;
   updateLinkedFiles: boolean;
   collectDir?: string;
 };
@@ -40,6 +41,7 @@ export const DialogLabelCharacter = () => {
     setAvailableCharacters,
     closeLabelCharacterDialog,
   } = useDialogLabelStore();
+  const { uniqueTagList } = useDropdownStore();
   const { loading, setLoading } = useCommonStore();
 
   // Character management
@@ -236,11 +238,11 @@ export const DialogLabelCharacter = () => {
     setLoading(true);
     try {
       await confirmName({
-        characterName: characterName,
+        characterName: characterName || undefined,
         updateLinkedFiles: isUpdateLinkedFiles,
         collectDir: isChangeCollectPath ? collectDir : undefined,
       });
-      onClose();
+      closeLabelCharacterDialog();
     } finally {
       setLoading(false);
     }
@@ -255,7 +257,7 @@ export const DialogLabelCharacter = () => {
   return (
     <Dialog
       open={isLabelCharacterDialogOpen}
-      onOpenChange={(open) => (open ? null : closeLabelCharacterDialog())}
+      onOpenChange={(b) => !b && closeLabelCharacterDialog()}
     >
       <DialogContent
         aria-describedby="A dialog to label character."
@@ -273,7 +275,10 @@ export const DialogLabelCharacter = () => {
               </p>
 
               <InputDropdown
-                items={availableCharacters}
+                items={[
+                  ...availableCharacters,
+                  ...uniqueTagList.map((v) => v.tag),
+                ]}
                 placeholder="Enter character name"
                 value={characterName}
                 onChange={setCharacterName}

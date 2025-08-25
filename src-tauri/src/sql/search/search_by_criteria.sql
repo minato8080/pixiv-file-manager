@@ -11,10 +11,18 @@ WITH base AS (
     FROM ILLUST_INFO I
     JOIN ILLUST_DETAIL D ON I.illust_id = D.illust_id AND I.cnum = D.cnum
     JOIN AUTHOR_INFO A ON D.author_id = A.author_id
-    WHERE ( :character IS NULL OR D.character = :character )
-      AND ( :author IS NULL OR D.author_id = :author )
+    WHERE (:character IS NULL OR D.character = :character)
+      AND (:author IS NULL OR D.author_id = :author)
+),
+filter AS (
+    -- 検索条件に合致するレコードのみ抽出
+    SELECT DISTINCT b.illust_id, suffix
+    FROM base b
+    LEFT JOIN TAG_INFO t ON b.illust_id = t.illust_id AND b.cnum = t.cnum
+    WHERE :tag_count = 0 OR t.tag IN (:tags)
 ),
 tagged AS (
+    -- 条件に合致したイラストのみ選択するが、全タグを集計
     SELECT 
         b.illust_id,
         b.suffix,
@@ -25,9 +33,8 @@ tagged AS (
         GROUP_CONCAT(t.tag, ',') AS tags
     FROM base b
     LEFT JOIN TAG_INFO t ON b.illust_id = t.illust_id AND b.cnum = t.cnum
-    WHERE (:tag_count = 0 OR t.tag IN (:tags))
+    JOIN filter f ON b.illust_id = f.illust_id AND b.suffix = f.suffix
     GROUP BY b.illust_id, b.suffix
-    HAVING (:tag_count = 0 OR COUNT(DISTINCT t.tag) = :tag_count)
 )
 SELECT * FROM tagged
 ORDER BY illust_id ASC, suffix ASC

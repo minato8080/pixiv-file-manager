@@ -62,7 +62,7 @@ pub fn process_fetch_illust_detail(
     let tx = conn.transaction()?;
 
     // ワークテーブルを準備
-    let sql = include_str!("../sql/fetch/create_fetch_work.sql");
+    let sql = include_str!("../sql/fetch/prepare_fetch_work.sql");
     tx.execute_batch(sql)?;
 
     // フェッチなしでインサートするファイルを処理
@@ -283,53 +283,30 @@ fn delete_duplicate_files(conn: &Connection) -> Result<()> {
 }
 
 pub fn extract_missing_files(conn: &Connection) -> Result<Vec<FileDetail>> {
-    // author_id = 0 のイラスト情報を取得
-    let mut stmt = conn.prepare("SELECT illust_id, cnum FROM ILLUST_DETAIL WHERE author_id = 0")?;
+    let sql = include_str!("../sql/fetch/extract_missing_files.sql");
+    let mut stmt = conn.prepare(sql)?;
 
-    let failed_records = stmt
-        .query_map([], |row| Ok((row.get::<_, i32>(0)?, row.get::<_, i32>(1)?)))?
-        .filter_map(Result::ok)
-        .collect::<Vec<_>>();
+    let rows = stmt.query_map([], |row| {
+        let illust_id: u32 = row.get(0)?;
+        let suffix: u8 = row.get(1)?;
+        let extension: String = row.get(2)?;
+        let save_dir: String = row.get(3)?;
 
-    if failed_records.is_empty() {
-        return Ok(vec![]);
-    }
+        let file_path = format!("{}/{}.{}", save_dir, suffix, extension);
+        let path = Path::new(&file_path);
+        let (created_time, file_size) = get_file_metadata(path);
 
-    // ILLUST_INFO をもとに FileDetail を復元
-    let mut file_details: Vec<FileDetail> = vec![];
+        Ok(FileDetail {
+            id: illust_id,
+            suffix,
+            extension,
+            save_dir,
+            created_time,
+            file_size,
+        })
+    })?;
 
-    let mut info_stmt = conn.prepare(
-        "SELECT suffix, extension, save_dir 
-         FROM ILLUST_INFO 
-         WHERE illust_id = ?",
-    )?;
-
-    for (illust_id, _cnum) in &failed_records {
-        let rows = info_stmt.query_map([illust_id], |row| {
-            let suffix = row.get::<_, i64>(0)? as u8;
-            let extension = row.get::<_, String>(1)?;
-            let save_dir = row.get::<_, String>(2)?;
-
-            let file_path = format!("{}/{}.{}", save_dir, suffix, extension);
-            let path = Path::new(&file_path);
-            let (created_time, file_size) = get_file_metadata(path);
-
-            Ok(FileDetail {
-                id: *illust_id as u32,
-                suffix,
-                extension,
-                save_dir,
-                created_time,
-                file_size,
-            })
-        })?;
-
-        for detail in rows.filter_map(Result::ok) {
-            file_details.push(detail);
-        }
-    }
-
-    Ok(file_details)
+    Ok(rows.filter_map(Result::ok).collect())
 }
 
 fn delete_missing_tags(conn: &Connection) -> Result<()> {

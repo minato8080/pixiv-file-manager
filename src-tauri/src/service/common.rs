@@ -1,7 +1,8 @@
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, FixedOffset, Utc};
 use regex::Regex;
-use rusqlite::Connection;
+use rusqlite::{params_from_iter, Connection, ToSql, Transaction};
+use std::collections::HashMap;
 use std::path::Path;
 use std::time::Duration;
 
@@ -32,7 +33,7 @@ pub fn format_unix_timestamp(ts: i64) -> String {
 
 pub fn remove_invalid_chars(path: &str) -> String {
     // Windowsでファイル名に使えない文字のリスト
-    let invalid_chars = ['\\', '/', ':', '*', '?', '"', '<', '>', '|'];
+    let invalid_chars = ['\\', '/', ':', '*', '?', '"', '<', '>', '|', ' '];
 
     path.chars()
         .filter(|c| !invalid_chars.contains(c))
@@ -87,5 +88,35 @@ pub fn parse_file_info(file_name: &str) -> Result<FileInfo> {
 pub fn update_cnum(conn: &Connection) -> Result<()> {
     let sql = include_str!("../sql/update_cnum.sql");
     conn.execute_batch(sql)?;
+    Ok(())
+}
+
+pub fn execute_sql_script(
+    tx: &Transaction,
+    sql: &str,
+    params_map: &HashMap<&str, &dyn ToSql>,
+) -> Result<()> {
+    for raw_query in sql.split(';') {
+        let query = raw_query.trim();
+        if query.is_empty() {
+            continue;
+        }
+
+        // クエリ内で使われているパラメータだけ抽出
+        let used_params: Vec<(&str, &dyn ToSql)> = params_map
+            .iter()
+            .filter(|(k, _)| query.contains(*k))
+            .map(|(k, v)| (*k, *v))
+            .collect();
+
+        if used_params.is_empty() {
+            tx.execute(query, [])?;
+        } else {
+            // 動的名前付きパラメータをパラメータ配列に変換
+            let param_values = used_params.iter().map(|(_, v)| *v);
+            tx.execute(query, params_from_iter(param_values))?;
+        }
+    }
+
     Ok(())
 }

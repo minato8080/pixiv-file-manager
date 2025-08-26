@@ -3,18 +3,18 @@ INSERT OR IGNORE INTO ILLUST_INFO (
     illust_id, suffix, extension, save_dir, cnum
 )
 WITH base AS (
-    SELECT f.*
-    FROM insert_files f
-    LEFT JOIN fetch_ids fi ON f.illust_id = fi.illust_id
+    SELECT inf.*
+    FROM tmp_insert_files inf
+    LEFT JOIN tmp_fetch_ids fi ON inf.illust_id = fi.illust_id
     WHERE fi.illust_id IS NULL
 ),
-control_map AS (
+cnum_map AS (
     SELECT
         illust_id,
         COALESCE(
             (SELECT cnum
-             FROM ILLUST_INFO ii
-             WHERE ii.illust_id = b.illust_id
+             FROM ILLUST_INFO I
+             WHERE I.illust_id = b.illust_id
              ORDER BY cnum ASC LIMIT 1),
             0
         ) AS cnum
@@ -29,7 +29,7 @@ inserted AS (
         b.save_dir,
         cm.cnum
     FROM base b
-    JOIN control_map cm ON b.illust_id = cm.illust_id
+    JOIN cnum_map cm ON b.illust_id = cm.illust_id
 )
 SELECT * FROM inserted;
 

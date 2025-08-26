@@ -18,8 +18,8 @@ filter AS (
     -- 検索条件に合致するレコードのみ抽出
     SELECT DISTINCT b.illust_id, suffix
     FROM base b
-    LEFT JOIN TAG_INFO t ON b.illust_id = t.illust_id AND b.cnum = t.cnum
-    WHERE :tag_count = 0 OR t.tag IN (:tags)
+    LEFT JOIN TAG_INFO T ON b.illust_id = T.illust_id AND b.cnum = T.cnum
+    WHERE :tag_count = 0 OR T.tag IN (:tags)
 ),
 tagged AS (
     -- 条件に合致したイラストのみ選択するが、全タグを集計
@@ -30,9 +30,9 @@ tagged AS (
         b.save_dir,
         b.character,
         b.author_name,
-        GROUP_CONCAT(t.tag, ',') AS tags
+        GROUP_CONCAT(T.tag, ',') AS tags
     FROM base b
-    LEFT JOIN TAG_INFO t ON b.illust_id = t.illust_id AND b.cnum = t.cnum
+    LEFT JOIN TAG_INFO T ON b.illust_id = T.illust_id AND b.cnum = T.cnum
     JOIN filter f ON b.illust_id = f.illust_id AND b.suffix = f.suffix
     GROUP BY b.illust_id, b.suffix
 )

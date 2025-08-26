@@ -106,7 +106,7 @@ fn core_fetch_illust_detail(
     let mut failed_file_paths = Vec::new();
 
     // フェッチ回数
-    let total: u64 = conn.query_row("SELECT COUNT(*) FROM fetch_ids;", [], |row| row.get(0))?;
+    let total: u64 = conn.query_row("SELECT COUNT(*) FROM tmp_fetch_ids;", [], |row| row.get(0))?;
 
     let interval = std::env::var("INTERVAL_MILL_SEC")
         .ok()
@@ -115,12 +115,12 @@ fn core_fetch_illust_detail(
     let total_duration_ms = total * interval;
 
     // フェッチ対象を取得
-    let fetch_ids: Vec<u32> = conn
-        .prepare("SELECT illust_id FROM fetch_ids;")?
+    let tmp_fetch_ids: Vec<u32> = conn
+        .prepare("SELECT illust_id FROM tmp_fetch_ids;")?
         .query_map([], |row| row.get(0))?
         .collect::<Result<_, _>>()?;
 
-    for fetch_id in fetch_ids {
+    for fetch_id in tmp_fetch_ids {
         let tx = conn.transaction()?;
         // イラスト情報を登録
         let cnum = insert_illust_info(&tx, fetch_id)?;
@@ -250,7 +250,7 @@ fn insert_illust_info(conn: &Connection, illust_id: u32) -> Result<i64> {
             illust_id, suffix, extension, save_dir, cnum
         )
         SELECT illust_id, suffix, extension, save_dir, ?1
-        FROM insert_files
+        FROM tmp_insert_files
         WHERE illust_id = ?2;",
     )?
     .execute(params![cnum, illust_id])?;
@@ -266,7 +266,7 @@ fn insert_illust_info_no_fetch(conn: &Connection) -> Result<()> {
 }
 
 fn delete_duplicate_files(conn: &Connection) -> Result<()> {
-    let mut stmt = conn.prepare("SELECT file_path FROM delete_files;")?;
+    let mut stmt = conn.prepare("SELECT file_path FROM tmp_delete_files;")?;
     let delete_iter = stmt.query_map([], |row| {
         let file_path: String = row.get(0)?;
         Ok(file_path)

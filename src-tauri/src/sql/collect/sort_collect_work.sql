@@ -1,6 +1,6 @@
 -- ① 一時テーブルを作る（またはCTEを使ってSELECT）
-DROP TABLE IF EXISTS temp.sorted;
-CREATE TEMP TABLE sorted AS
+DROP TABLE IF EXISTS tmp_sorted;
+CREATE TEMP TABLE tmp_sorted AS
 SELECT
     character,
     series,
@@ -13,14 +13,14 @@ WHERE id >= 0;
 -- ② JOINしてUPDATEする
 UPDATE COLLECT_UI_WORK
 SET id = (
-    SELECT new_id FROM sorted
+    SELECT new_id FROM tmp_sorted ts
     WHERE
-        sorted.series = COLLECT_UI_WORK.series AND
-        sorted.character = COLLECT_UI_WORK.character
+        ts.series = COLLECT_UI_WORK.series AND
+        ts.character = COLLECT_UI_WORK.character
 )
 WHERE EXISTS (
-    SELECT 1 FROM sorted
+    SELECT 1 FROM tmp_sorted ts
     WHERE
-        sorted.series = COLLECT_UI_WORK.series AND
-        sorted.character = COLLECT_UI_WORK.character
+        ts.series = COLLECT_UI_WORK.series AND
+        ts.character = COLLECT_UI_WORK.character
 );

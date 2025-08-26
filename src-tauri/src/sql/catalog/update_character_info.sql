@@ -2,7 +2,7 @@
 INSERT INTO CHARACTER_INFO (series, character, collect_dir)
 SELECT DISTINCT COALESCE(D.series, '-') AS series, :character, :collect
 FROM ILLUST_DETAIL D
-JOIN tmp_label_character tmp ON D.illust_id = tmp.illust_id
+JOIN tmp_label_target lt ON D.illust_id = lt.illust_id
 WHERE NOT EXISTS (
     SELECT 1 FROM CHARACTER_INFO C WHERE C.character = :character
 );

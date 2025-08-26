@@ -1,6 +1,6 @@
 -- キャラクターごとのイラスト数を集計
-DROP TABLE IF EXISTS temp.character_illust_counts;
-CREATE TEMP TABLE character_illust_counts AS
+DROP TABLE IF EXISTS tmp_cnt_per_character;
+CREATE TEMP TABLE tmp_cnt_per_character AS
 SELECT
   CF.character,
   CF.collect_type,
@@ -12,12 +12,12 @@ WHERE collect_type = 2
 GROUP BY CF.character;
 
 CREATE INDEX IF NOT EXISTS idx_character_illust_counts
-  ON character_illust_counts(character);
+  ON tmp_cnt_per_character(character);
 
 
 -- シリーズごとのイラスト数を集計
-DROP TABLE IF EXISTS temp.series_illust_counts;
-CREATE TEMP TABLE series_illust_counts AS
+DROP TABLE IF EXISTS tmp_cnt_per_series;
+CREATE TEMP TABLE tmp_cnt_per_series AS
 SELECT
   CF.series,
   CF.collect_type,
@@ -29,21 +29,21 @@ WHERE collect_type = 1
 GROUP BY CF.series;
 
 CREATE INDEX IF NOT EXISTS idx_series_illust
-  ON series_illust_counts(series);
+  ON tmp_cnt_per_series(series);
 
 -- キャラクターの after_count を更新
 UPDATE COLLECT_UI_WORK
 SET after_count = (
-  SELECT cnt FROM character_illust_counts V WHERE V.character = COLLECT_UI_WORK.character
+  SELECT cnt FROM tmp_cnt_per_character cpc WHERE cpc.character = COLLECT_UI_WORK.character
 )
-WHERE character IN (SELECT character FROM character_illust_counts) AND collect_type = 2;
+WHERE character IN (SELECT character FROM tmp_cnt_per_character) AND collect_type = 2;
 
 -- シリーズの after_count を更新
 UPDATE COLLECT_UI_WORK
 SET after_count = (
-  SELECT cnt FROM series_illust_counts V WHERE V.series = COLLECT_UI_WORK.series
+  SELECT cnt FROM tmp_cnt_per_series cps WHERE cps.series = COLLECT_UI_WORK.series
 )
-WHERE series IN (SELECT series FROM series_illust_counts) AND collect_type = 1;
+WHERE series IN (SELECT series FROM tmp_cnt_per_series) AND collect_type = 1;
 
 -- id = -1 の after_count を更新
 UPDATE COLLECT_UI_WORK

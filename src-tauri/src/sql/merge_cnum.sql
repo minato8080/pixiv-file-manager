@@ -12,17 +12,17 @@ GROUP BY illust_id, cnum;
 DROP TABLE IF EXISTS tmp_merge_candidates;
 CREATE TEMP TABLE tmp_merge_candidates AS
 SELECT
-  d.illust_id,
-  d.character,
-  d.series,
+  D.illust_id,
+  D.character,
+  D.series,
   tg.tags_sorted,
-  MIN(d.cnum) AS rep_cnum,              -- 代表 cnum
-  GROUP_CONCAT(DISTINCT d.cnum) AS all_cn
-FROM ILLUST_DETAIL d
+  MIN(D.cnum) AS rep_cnum,              -- 代表 cnum
+  GROUP_CONCAT(DISTINCT D.cnum) AS all_cnums
+FROM ILLUST_DETAIL D
 LEFT JOIN tmp_tag_groups tg
-  ON tg.illust_id = d.illust_id AND tg.cnum = d.cnum
-GROUP BY d.illust_id, d.character, d.series, tg.tags_sorted
-HAVING COUNT(DISTINCT d.cnum) > 1;     -- 複数あるものだけ対象
+  ON tg.illust_id = D.illust_id AND tg.cnum = D.cnum
+GROUP BY D.illust_id, D.character, D.series, tg.tags_sorted
+HAVING COUNT(DISTINCT D.cnum) > 1;     -- 複数あるものだけ対象
 
 -- 3) 代表以外を代表 cnum に寄せる
 -- 3-1) ILLUST_INFO 更新
@@ -31,40 +31,40 @@ SET cnum = (
   SELECT rep_cnum
   FROM tmp_merge_candidates mc
   WHERE mc.illust_id = ILLUST_INFO.illust_id
-    AND mc.all_cn LIKE '%' || ILLUST_INFO.cnum || '%'
+    AND mc.all_cnums LIKE '%' || ILLUST_INFO.cnum || '%'
     AND mc.rep_cnum <> ILLUST_INFO.cnum
 )
 WHERE EXISTS (
   SELECT 1
   FROM tmp_merge_candidates mc
   WHERE mc.illust_id = ILLUST_INFO.illust_id
-    AND mc.all_cn LIKE '%' || ILLUST_INFO.cnum || '%'
+    AND mc.all_cnums LIKE '%' || ILLUST_INFO.cnum || '%'
     AND mc.rep_cnum <> ILLUST_INFO.cnum
 );
 
 -- 3-2) TAG_INFO マージ（代表に集約）
 INSERT OR IGNORE INTO TAG_INFO (illust_id, cnum, tag)
-SELECT t.illust_id, mc.rep_cnum, t.tag
-FROM TAG_INFO t
+SELECT T.illust_id, mc.rep_cnum, T.tag
+FROM TAG_INFO T
 JOIN tmp_merge_candidates mc
-  ON mc.illust_id = t.illust_id
- AND mc.all_cn LIKE '%' || t.cnum || '%'
-WHERE t.cnum <> mc.rep_cnum;
+  ON mc.illust_id = T.illust_id
+ AND mc.all_cnums LIKE '%' || T.cnum || '%'
+WHERE T.cnum <> mc.rep_cnum;
 
 -- 4) 参照されなくなった ILLUST_DETAIL を削除
 DELETE FROM ILLUST_DETAIL
 WHERE NOT EXISTS (
   SELECT 1
-  FROM ILLUST_INFO i
-  WHERE i.illust_id = ILLUST_DETAIL.illust_id
-    AND i.cnum = ILLUST_DETAIL.cnum
+  FROM ILLUST_INFO I
+  WHERE I.illust_id = ILLUST_DETAIL.illust_id
+    AND I.cnum = ILLUST_DETAIL.cnum
 );
 
--- 5) 存在しない TAG_INFO を削除
+-- 5) 参照されなくなった TAG_INFO を削除
 DELETE FROM TAG_INFO
 WHERE NOT EXISTS (
   SELECT 1
-  FROM ILLUST_INFO i
-  WHERE i.illust_id = TAG_INFO.illust_id
-    AND i.cnum = TAG_INFO.cnum
+  FROM ILLUST_INFO I
+  WHERE I.illust_id = TAG_INFO.illust_id
+    AND I.cnum = TAG_INFO.cnum
 );

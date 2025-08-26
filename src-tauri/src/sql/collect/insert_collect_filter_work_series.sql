@@ -1,6 +1,6 @@
 -- 有効シリーズを抽出
-DROP TABLE IF EXISTS temp.valid_series;
-CREATE TEMP TABLE valid_series AS
+DROP TABLE IF EXISTS tmp_valid_series;
+CREATE TEMP TABLE tmp_valid_series AS
 SELECT
     D.illust_id,
     D.cnum,
@@ -17,16 +17,16 @@ WHERE NOT EXISTS (
     FROM COLLECT_UI_WORK C2
     WHERE C2.character = CU.series
 );
-CREATE INDEX idx_valid_series_ic ON valid_series(illust_id, cnum);
+CREATE INDEX idx_valid_series_ic ON tmp_valid_series(illust_id, cnum);
 
 -- 1シリーズだけの illust/cnum を事前抽出
-DROP TABLE IF EXISTS temp.single_series_illusts;
-CREATE TEMP TABLE single_series_illusts AS
+DROP TABLE IF EXISTS tmp_single_series_illusts;
+CREATE TEMP TABLE tmp_single_series_illusts AS
 SELECT illust_id, cnum
-FROM valid_series
+FROM tmp_valid_series
 GROUP BY illust_id, cnum
 HAVING COUNT(DISTINCT series) = 1;
-CREATE INDEX idx_single_series_illusts_ic ON single_series_illusts(illust_id, cnum);
+CREATE INDEX idx_single_series_illusts_ic ON tmp_single_series_illusts(illust_id, cnum);
 
 WITH min_suffix AS (
   SELECT illust_id, cnum, MIN(suffix) AS suffix, save_dir
@@ -43,19 +43,19 @@ INSERT INTO COLLECT_FILTER_WORK (
   collect_type
 )
 SELECT
-  V.illust_id,
-  V.cnum,
-  V.series,
-  V.character,
-  MS.save_dir,
-  V.collect_dir,
+  vs.illust_id,
+  vs.cnum,
+  vs.series,
+  vs.character,
+  ms.save_dir,
+  vs.collect_dir,
   1
-FROM valid_series V
-JOIN single_series_illusts SC
-  ON V.illust_id = SC.illust_id AND V.cnum = SC.cnum
-JOIN min_suffix MS
-  ON MS.illust_id = V.illust_id AND MS.cnum = V.cnum
-GROUP BY V.illust_id, V.cnum;
+FROM tmp_valid_series vs
+JOIN tmp_single_series_illusts ssi
+  ON vs.illust_id = ssi.illust_id AND vs.cnum = ssi.cnum
+JOIN min_suffix ms
+  ON ms.illust_id = vs.illust_id AND ms.cnum = vs.cnum
+GROUP BY vs.illust_id, vs.cnum;
 
 DELETE FROM COLLECT_FILTER_WORK
 WHERE collect_type = 1

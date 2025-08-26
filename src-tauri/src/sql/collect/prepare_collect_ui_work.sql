@@ -11,10 +11,10 @@ character_summary AS (
         C.series,
         C.character,
         CASE
-            WHEN R.root IS NULL THEN NULL
-            WHEN C.series = '-' THEN R.root || '\' || C.character
-            WHEN C.character = '-' THEN R.root || '\' || C.series
-            ELSE R.root || '\' || C.series || '\' || C.character
+            WHEN rv.root IS NULL THEN NULL
+            WHEN C.series = '-' THEN rv.root || '\' || C.character
+            WHEN C.character = '-' THEN rv.root || '\' || C.series
+            ELSE rv.root || '\' || C.series || '\' || C.character
         END AS new_path,
         CASE
             WHEN C.character = '-' THEN 1
@@ -22,16 +22,16 @@ character_summary AS (
         END AS collect_type,
         COUNT(I.illust_id) AS count
     FROM CHARACTER_INFO C
-    CROSS JOIN root_value R
+    CROSS JOIN root_value rv
     LEFT JOIN ILLUST_DETAIL D ON C.character = D.character
     LEFT JOIN ILLUST_INFO I 
         ON I.illust_id = D.illust_id
         AND I.save_dir = (
             CASE
-                WHEN R.root IS NULL THEN NULL
-                WHEN C.series = '-' THEN R.root || '\' || C.character
-                WHEN C.character = '-' THEN R.root || '\' || C.series
-                ELSE R.root || '\' || C.series || '\' || C.character
+                WHEN rv.root IS NULL THEN NULL
+                WHEN C.series = '-' THEN rv.root || '\' || C.character
+                WHEN C.character = '-' THEN rv.root || '\' || C.series
+                ELSE rv.root || '\' || C.series || '\' || C.character
             END
         )
     GROUP BY C.series, C.character
@@ -58,9 +58,9 @@ WITH root_value AS (
 series_paths AS (
   SELECT
     CI.series,
-    (R.root || '\' || CI.series) AS save_path
+    (rv.root || '\' || CI.series) AS save_path
   FROM CHARACTER_INFO CI
-  JOIN root_value R
+  JOIN root_value rv
   WHERE CI.character = '-'
 ),
 series_counts AS (

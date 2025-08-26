@@ -226,7 +226,7 @@ pub fn process_sync_db(root: String, conn: &mut Connection) -> Result<Vec<FileSu
         tx.execute_batch(sql)?;
 
         // 5️⃣ 重複ファイルをゴミ箱に
-        let mut stmt = tx.prepare("SELECT path FROM TEMP_TO_TRASH")?;
+        let mut stmt = tx.prepare("SELECT path FROM tmp_to_trash")?;
         for path in stmt.query_map([], |row| row.get::<_, String>(0))? {
             let path = PathBuf::from(path?);
             if path.exists() {
@@ -235,7 +235,7 @@ pub fn process_sync_db(root: String, conn: &mut Connection) -> Result<Vec<FileSu
         }
 
         // 6️⃣ 結果を返却
-        let mut stmt = tx.prepare("SELECT illust_id, suffix, path FROM MISSING_FILES")?;
+        let mut stmt = tx.prepare("SELECT illust_id, suffix, path FROM tmp_missing_files")?;
         missing_files = stmt
             .query_map([], |row| {
                 Ok(FileSummary {

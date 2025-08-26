@@ -1,6 +1,6 @@
 -- (A) 消失したファイル
-DROP TABLE IF EXISTS MISSING_FILES;
-CREATE TEMP TABLE MISSING_FILES AS
+DROP TABLE IF EXISTS tmp_missing_files;
+CREATE TEMP TABLE tmp_missing_files AS
 SELECT I.illust_id, I.suffix, I.save_dir,
        I.save_dir || '/' || I.illust_id || '_p' || I.suffix || '.' || I.extension AS path
 FROM ILLUST_INFO I
@@ -9,8 +9,8 @@ LEFT JOIN SYNC_DB_WORK SW
 WHERE SW.rowid IS NULL;
 
 -- (B) 移動したファイル
-DROP TABLE IF EXISTS MOVED_FILES;
-CREATE TEMP TABLE MOVED_FILES AS
+DROP TABLE IF EXISTS tmp_moved_files;
+CREATE TEMP TABLE tmp_moved_files AS
 SELECT I.illust_id, I.suffix, SW.save_dir AS actual_save_dir,
        I.save_dir || '/' || I.illust_id || '_p' || I.suffix || '.' || I.extension AS old_path,
        SW.save_dir || '/' || I.illust_id || '_p' || I.suffix || '.' || I.extension AS new_path
@@ -22,16 +22,16 @@ WHERE IFNULL(I.save_dir,'') <> IFNULL(SW.save_dir,'');
 -- ILLUST_INFO の更新は移動ケースのみ
 UPDATE ILLUST_INFO
 SET save_dir = (
-    SELECT M.actual_save_dir
-    FROM MOVED_FILES M
-    WHERE M.illust_id = ILLUST_INFO.illust_id
-      AND M.suffix    = ILLUST_INFO.suffix
+    SELECT mf.actual_save_dir
+    FROM tmp_moved_files mf
+    WHERE mf.illust_id = ILLUST_INFO.illust_id
+      AND mf.suffix    = ILLUST_INFO.suffix
 )
 WHERE EXISTS (
     SELECT 1
-    FROM MOVED_FILES M
-    WHERE M.illust_id = ILLUST_INFO.illust_id
-      AND M.suffix    = ILLUST_INFO.suffix
+    FROM tmp_moved_files mf
+    WHERE mf.illust_id = ILLUST_INFO.illust_id
+      AND mf.suffix    = ILLUST_INFO.suffix
 );
 
 -- 5) in_db を更新
@@ -47,16 +47,16 @@ WHERE EXISTS (
 
 
 -- 6) 重複ファイルをゴミ箱へ
-DROP TABLE IF EXISTS TEMP_TO_TRASH;
-CREATE TEMP TABLE TEMP_TO_TRASH AS
+DROP TABLE IF EXISTS tmp_to_trash;
+CREATE TEMP TABLE tmp_to_trash AS
 WITH ranked AS (
     SELECT *,
            ROW_NUMBER() OVER (
                PARTITION BY illust_id, suffix 
                ORDER BY in_db DESC
-           ) AS rn
+           ) AS row_num
     FROM SYNC_DB_WORK
 )
 SELECT path
 FROM ranked
-WHERE rn > 1;
+WHERE row_num > 1;

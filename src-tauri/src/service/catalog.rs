@@ -111,12 +111,12 @@ pub fn process_label_character_name(
     let tx = conn.transaction()?;
 
     // 一時テーブルを準備
-    let sql = include_str!("../sql/catalog/prepare_tmp_label_character.sql");
+    let sql = include_str!("../sql/catalog/prepare_tmp_label_target.sql");
     tx.execute_batch(sql)?;
 
     {
         // データを挿入
-        let sql = include_str!("../sql/catalog/insert_tmp_label_character.sql");
+        let sql = include_str!("../sql/catalog/insert_tmp_label_target.sql");
         let mut stmt = tx.prepare(sql)?;
         for file_name in file_names {
             let info = parse_file_info(file_name)?;
@@ -276,7 +276,7 @@ pub fn process_get_associated_info(
 
     // character 集計
     let mut char_stmt = conn.prepare(
-        "SELECT character, COUNT(DISTINCT key) AS count FROM tmp_associated GROUP BY character",
+        "SELECT character, COUNT(DISTINCT key) AS count FROM tmp_associated_files GROUP BY character",
     )?;
     for row in char_stmt.query_map([], |row| {
         Ok(AssociateCharacter {
@@ -289,7 +289,7 @@ pub fn process_get_associated_info(
 
     // save_dir 集計
     let mut dir_stmt = conn.prepare(
-        "SELECT save_dir, COUNT(DISTINCT key) AS count FROM tmp_associated GROUP BY save_dir",
+        "SELECT save_dir, COUNT(DISTINCT key) AS count FROM tmp_associated_files GROUP BY save_dir",
     )?;
     for row in dir_stmt.query_map([], |row| {
         Ok(AssociateSaveDir {

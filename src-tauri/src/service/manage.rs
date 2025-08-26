@@ -59,7 +59,7 @@ pub fn apply_tag_fix_rules(conn: &rusqlite::Connection) -> Result<ExecuteResult>
 
     // カウンター取得
     let (replaced, deleted, added) = conn.query_row(
-        "SELECT replaced, deleted, added FROM tag_fix_counts LIMIT 1",
+        "SELECT replaced, deleted, added FROM tmp_tag_fix_counts LIMIT 1",
         [],
         |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
     )?;

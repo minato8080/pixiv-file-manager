@@ -91,15 +91,6 @@ CREATE TABLE IF NOT EXISTS AUTHOR_INFO (
 INSERT OR IGNORE INTO AUTHOR_INFO (author_id, author_name, author_account) VALUES (0, 'Missing', 'Missing');
 
 
-CREATE TABLE IF NOT EXISTS SEARCH_HISTORY (
-    tags TEXT NOT NULL,
-    character TEXT,
-    author_id INTEGER,
-    timestamp TEXT NOT NULL,
-    result_count INTEGER NOT NULL
-);
-
-
 CREATE TABLE IF NOT EXISTS TAG_FIX_RULES (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     src_tag TEXT NOT NULL,

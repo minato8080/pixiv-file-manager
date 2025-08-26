@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::models::search::{AuthorInfo, SearchHistory, SearchResult};
+use crate::models::search::SearchResult;
 use anyhow::Result;
 use rusqlite::{params, params_from_iter, Connection, Row, ToSql};
 
@@ -34,8 +34,6 @@ pub fn process_search_by_criteria(
             Ok(format_search_result(row)?)
         })?
         .collect::<Result<Vec<_>, _>>()?;
-
-    save_search_history(tags, character, author, results.len() as u32, &conn)?;
 
     Ok(results)
 }
@@ -81,69 +79,4 @@ fn format_search_result(row: &Row) -> rusqlite::Result<SearchResult> {
         update_time,
         tags,
     })
-}
-
-fn save_search_history(
-    tags: Vec<String>,
-    character: Option<String>,
-    author_id: Option<u32>,
-    result_count: u32,
-    conn: &Connection,
-) -> Result<()> {
-    let tags_json = serde_json::to_string(&tags)?;
-    let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-    conn.execute(
-        "INSERT INTO SEARCH_HISTORY (tags, character, author_id, timestamp, result_count) VALUES (?, ?, ?, ?, ?)",
-        params![tags_json, character, author_id, timestamp, result_count],
-    )
-    ?;
-
-    // 履歴は10件まで保存
-    conn.execute(
-        "DELETE FROM SEARCH_HISTORY WHERE ROWID NOT IN (
-            SELECT ROWID FROM SEARCH_HISTORY ORDER BY timestamp DESC LIMIT 10
-            )",
-        [],
-    )?;
-
-    Ok(())
-}
-
-pub fn process_get_search_history(conn: &Connection) -> Result<Vec<SearchHistory>> {
-    let sql = include_str!("../sql/search/get_search_history.sql");
-    let mut stmt = conn.prepare(sql)?;
-
-    let history = stmt
-        .query_map([], |row| {
-            let tags_json: String = row.get(0)?;
-            let character: Option<String> = row.get(1)?;
-            let author_id: Option<u32> = row.get(2)?;
-            let author_name: Option<String> = row.get(3)?;
-            let author_account: Option<String> = row.get(4)?;
-            let timestamp: String = row.get(5)?;
-            let result_count: u32 = row.get(6)?;
-
-            let tags: Vec<String> = serde_json::from_str(&tags_json)
-                .map_err(|e| rusqlite::Error::UserFunctionError(Box::new(e)))?;
-
-            let author = match (author_id, author_name, author_account) {
-                (Some(id), Some(name), Some(account)) => Some(AuthorInfo {
-                    author_id: id,
-                    author_name: name,
-                    author_account: account,
-                    count: None,
-                }),
-                (_, _, _) => None,
-            };
-            Ok(SearchHistory {
-                tags,
-                character,
-                author,
-                timestamp,
-                result_count,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
-
-    Ok(history)
 }

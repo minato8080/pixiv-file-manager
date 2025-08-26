@@ -39,14 +39,6 @@
   - `author_account`: TEXT NOT NULL - 作者のアカウント
   - **PRIMARY KEY**: (`author_id`)
 
-- **SEARCH_HISTORY**
-
-  - `tags`: TEXT NOT NULL - 検索タグ
-  - `character`: TEXT - 検索キャラクター
-  - `author_id`: INTEGER - 作者 ID
-  - `timestamp`: TEXT NOT NULL - タイムスタンプ
-  - `result_count`: INTEGER NOT NULL - 結果数
-
 - **TAG_FIX_RULES**
 
   - `id`: INTEGER AUTOINCREMENT - ルールの一意 ID

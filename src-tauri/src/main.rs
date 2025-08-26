@@ -24,8 +24,7 @@ use commands::manage::{
     get_using_fix_rule_tags, update_tag_fix_rule,
 };
 use commands::search::{
-    get_search_history, get_unique_authors, get_unique_characters, get_unique_tags,
-    search_by_criteria, search_by_id,
+    get_unique_authors, get_unique_characters, get_unique_tags, search_by_criteria, search_by_id,
 };
 use commands::settings::{get_environment_variables, save_environment_variables};
 use models::common::AppState;
@@ -103,7 +102,6 @@ fn main() {
             execute_tag_fixes,
             get_using_fix_rule_tags,
             // serch
-            get_search_history,
             get_unique_authors,
             get_unique_characters,
             get_unique_tags,

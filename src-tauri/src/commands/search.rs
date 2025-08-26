@@ -1,11 +1,9 @@
 use crate::{
     models::{
         common::AppState,
-        search::{AuthorInfo, CharacterInfo, SearchHistory, SearchResult, TagInfo},
+        search::{AuthorInfo, CharacterInfo, SearchResult, TagInfo},
     },
-    service::search::{
-        process_get_search_history, process_search_by_criteria, process_search_by_id,
-    },
+    service::search::{process_search_by_criteria, process_search_by_id},
 };
 use rusqlite::Result;
 use tauri::{command, State};
@@ -101,12 +99,4 @@ pub fn search_by_id(id: i64, state: State<AppState>) -> Result<Vec<SearchResult>
     let results = process_search_by_id(id, &conn).map_err(|e| e.to_string())?;
 
     Ok(results)
-}
-
-#[command]
-pub fn get_search_history(state: State<AppState>) -> Result<Vec<SearchHistory>, String> {
-    let conn = state.db.lock().unwrap();
-    let history = process_get_search_history(&conn).map_err(|e| e.to_string())?;
-
-    Ok(history)
 }

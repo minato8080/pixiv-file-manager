@@ -1,19 +1,22 @@
 import { ChevronDown, History } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { SearchHistory } from "@/bindings/SearchHistory";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SearchHistory, useHistoryStore } from "@/src/stores/history-store";
 import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
-import { useDropdownStore } from "@/stores/dropdown-store";
 
 export const DropdownHistory = () => {
-  const { history } = useDropdownStore();
+  const { searchHistory } = useHistoryStore();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const { setSelectedTags, setSelectedCharacter, setSelectedAuthor } =
-    useTagSearcherStore();
+  const {
+    setSelectedTags,
+    setSelectedCharacter,
+    setSelectedAuthor,
+    setSearchId,
+  } = useTagSearcherStore();
 
   // Handle click outside for dropdowns
   useEffect(() => {
@@ -42,6 +45,7 @@ export const DropdownHistory = () => {
         : null
     );
     setSelectedAuthor(history.author);
+    if (history.id) setSearchId(history.id);
   };
 
   return (
@@ -59,8 +63,8 @@ export const DropdownHistory = () => {
 
       {isOpen && (
         <div className="absolute z-50 mt-1 w-80 max-h-64 overflow-auto bg-white dark:bg-gray-800 rounded-md shadow-lg border">
-          {history.length > 0 ? (
-            history.map((item) => (
+          {searchHistory.length > 0 ? (
+            searchHistory.map((item) => (
               <button
                 key={item.timestamp}
                 className="w-full flex flex-col items-start p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer"
@@ -97,10 +101,19 @@ export const DropdownHistory = () => {
                       {item.author?.author_name}
                     </Badge>
                   )}
+                  {item.id && (
+                    <Badge
+                      key={item.id}
+                      variant="outline"
+                      className="text-xs bg-green-50 text-green-500 border-green-200 dark:bg-green-900/30 dark:text-green-200 dark:border-green-800"
+                    >
+                      {item.id}
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex justify-between items-center text-xs text-gray-500 w-full">
                   <span className="font-medium text-blue-600 dark:text-blue-400">
-                    {item.result_count} results
+                    {item.count} results
                   </span>
                   <span>{item.timestamp}</span>
                 </div>

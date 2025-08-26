@@ -1,8 +1,9 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 
+import { SearchHistory, useHistoryStore } from "../stores/history-store";
+
 import { AuthorInfo } from "@/bindings/AuthorInfo";
 import { CharacterInfo } from "@/bindings/CharacterInfo";
-import { SearchHistory } from "@/bindings/SearchHistory";
 import { SearchResult } from "@/bindings/SearchResult";
 import { TagInfo } from "@/bindings/TagInfo";
 import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
@@ -23,9 +24,8 @@ export const useTagSearcher = () => {
     setTagDropdownItems,
     setCharacterDropdownItems,
     setAuthorDropdownItems,
-    setHistory,
-    addHistory,
   } = useDropdownStore();
+  const { addSearchHistory } = useHistoryStore();
 
   // Handlers to fetch tags, characters, authors, and search history from the database
   const fetchTags = async () => {
@@ -53,15 +53,6 @@ export const useTagSearcher = () => {
       setAuthorDropdownItems(authors);
     } catch (error) {
       console.error("Error fetching authors:", error);
-    }
-  };
-
-  const fetchSearchHistory = async () => {
-    try {
-      const history = await invoke<SearchHistory[]>("get_search_history");
-      setHistory(history);
-    } catch (error) {
-      console.error("Error fetching search history:", error);
     }
   };
 
@@ -102,14 +93,25 @@ export const useTagSearcher = () => {
 
         // Save search history to DB
         if (results.length > 0) {
-          const newHistoryItem: SearchHistory = {
-            tags: selectedTags.map((tags) => tags.tag),
-            timestamp: new Date().toLocaleString(),
-            result_count: results.length,
-            character: selectedCharacter?.character ?? "",
-            author: selectedAuthor,
-          };
-          addHistory(newHistoryItem);
+          const newHistoryItem: SearchHistory =
+            searchId === ""
+              ? {
+                  id: null,
+                  tags: selectedTags.map((tags) => tags.tag),
+                  character: selectedCharacter?.character ?? null,
+                  author: selectedAuthor,
+                  timestamp: new Date().toLocaleString(),
+                  count: results.length,
+                }
+              : {
+                  id: searchId,
+                  tags: [],
+                  character: null,
+                  author: null,
+                  timestamp: new Date().toLocaleString(),
+                  count: results.length,
+                };
+          addSearchHistory(newHistoryItem);
         }
         return results;
       } catch (error) {
@@ -128,7 +130,6 @@ export const useTagSearcher = () => {
     fetchTags,
     fetchAuthors,
     fetchCharacters,
-    fetchSearchHistory,
     handleSearch,
     quickReload,
   };

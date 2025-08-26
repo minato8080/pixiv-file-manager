@@ -19,15 +19,13 @@ export default function TagSearcher() {
   const { searchResults, currentViewMode, setCurrentViewMode } =
     useTagSearcherStore();
 
-  const { fetchTags, fetchCharacters, fetchAuthors, fetchSearchHistory } =
-    useTagSearcher();
+  const { fetchTags, fetchCharacters, fetchAuthors } = useTagSearcher();
 
   // Call handlers to fetch data using useEffect
   useEffect(() => {
     void fetchTags();
     void fetchCharacters();
     void fetchAuthors();
-    void fetchSearchHistory();
     const unlisten = listen<null>("update_db", () => {
       void fetchTags();
       void fetchCharacters();

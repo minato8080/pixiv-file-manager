@@ -16,16 +16,6 @@ pub struct SearchResult {
 
 #[derive(Debug, Serialize, Deserialize, Clone, TS)]
 #[ts(export)]
-pub struct SearchHistory {
-    pub tags: Vec<String>,
-    pub character: Option<String>,
-    pub author: Option<AuthorInfo>,
-    pub timestamp: String,
-    pub result_count: u32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, TS)]
-#[ts(export)]
 pub struct TagInfo {
     pub tag: String,
     pub count: u32,

@@ -1,8 +1,8 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use chrono::{DateTime, FixedOffset, Utc};
 use regex::Regex;
-use rusqlite::{params_from_iter, Connection, ToSql, Transaction};
-use std::collections::HashMap;
+use rusqlite::{Connection, ToSql};
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::time::Duration;
 
@@ -90,32 +90,46 @@ pub fn update_cnum(conn: &Connection) -> Result<()> {
     conn.execute_batch(sql)?;
     Ok(())
 }
-
-pub fn execute_sql_script(
-    tx: &Transaction,
+pub fn execute_sqls(
+    conn: &Connection,
     sql: &str,
     params_map: &HashMap<&str, &dyn ToSql>,
 ) -> Result<()> {
+    let mut unused: HashSet<&str> = params_map.keys().cloned().collect();
+
     for raw_query in sql.split(';') {
         let query = raw_query.trim();
         if query.is_empty() {
             continue;
         }
 
-        // クエリ内で使われているパラメータだけ抽出
+        // 使われているキーだけ抽出
         let used_params: Vec<(&str, &dyn ToSql)> = params_map
             .iter()
-            .filter(|(k, _)| query.contains(*k))
+            .filter(|(k, _)| {
+                // 完全一致で判定
+                let re = Regex::new(&format!(r"{}", regex::escape(k))).unwrap();
+                re.is_match(query)
+            })
             .map(|(k, v)| (*k, *v))
             .collect();
 
-        if used_params.is_empty() {
-            tx.execute(query, [])?;
-        } else {
-            // 動的名前付きパラメータをパラメータ配列に変換
-            let param_values = used_params.iter().map(|(_, v)| *v);
-            tx.execute(query, params_from_iter(param_values))?;
+        // 使用済みキーを unused から除去
+        for (k, _) in &used_params {
+            unused.remove(k);
         }
+
+        if used_params.is_empty() {
+            conn.execute(query, [])?;
+        } else {
+            conn.execute(query, &used_params[..])?;
+        }
+    }
+
+    // 未使用パラメータがあればエラー
+    if !unused.is_empty() {
+        let keys: Vec<&str> = unused.into_iter().collect();
+        bail!("Unused parameters: {:?}", keys);
     }
 
     Ok(())

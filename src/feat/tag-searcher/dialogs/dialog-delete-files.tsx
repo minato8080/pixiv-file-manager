@@ -20,10 +20,9 @@ export const DialogDeleteFiles = () => {
     closeDeleteFilesDialog,
   } = useDialogDeleteStore();
   const { loading, setLoading } = useCommonStore();
-  const { selectedFiles, searchResults, setSearchResults, setSelectedFiles } =
-    useTagSearcherStore();
-
-  const { fetchTags, fetchCharacters, fetchAuthors } = useTagSearcher();
+  const { setSelectedFiles } = useTagSearcherStore();
+  const { fetchTags, fetchCharacters, fetchAuthors, quickReload } =
+    useTagSearcher();
 
   const handleDelete = async () => {
     setLoading(true);
@@ -34,9 +33,7 @@ export const DialogDeleteFiles = () => {
       });
 
       // Remove deleted items from search results
-      setSearchResults(
-        searchResults.filter((result) => !selectedFiles.includes(result))
-      );
+      await quickReload();
       setSelectedFiles([]);
       void fetchTags();
       void fetchCharacters();
@@ -44,6 +41,7 @@ export const DialogDeleteFiles = () => {
     } catch (error) {
       console.error("Error deleting files:", error);
     } finally {
+      setLoading(false);
       closeDeleteFilesDialog();
     }
   };

@@ -131,8 +131,8 @@ export const DialogMoveFiles = () => {
 
   // Confirm move operation
   const handleSubmit = async () => {
-    setLoading(true);
     if (!targetFolder) return;
+    setLoading(true);
 
     const fileNames = selectedFiles.map((p) => p.file_name);
 
@@ -147,7 +147,7 @@ export const DialogMoveFiles = () => {
       console.error("Error moving files:", error);
       return;
     } finally {
-      // close Move Files dialog
+      setLoading(false);
       closeMoveFilesDialog();
     }
 

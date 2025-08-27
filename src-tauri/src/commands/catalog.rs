@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use rusqlite::params;
 use tauri::{command, State};
 use trash::delete;
@@ -12,7 +14,7 @@ use crate::{
             process_add_remove_tags, process_get_associated_info, process_label_character_name,
             process_move_files, process_overwrite_tags,
         },
-        common::parse_file_info,
+        common::{execute_sqls, parse_file_info},
     },
 };
 
@@ -86,8 +88,6 @@ pub fn delete_files(state: State<AppState>, file_names: Vec<String>) -> Result<(
     let mut conn = state.db.lock().unwrap();
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
-    let delete_sql = include_str!("../sql/catalog/delete_file_registration.sql");
-
     for file_name in file_names {
         let file_info = parse_file_info(file_name.as_str()).map_err(|e| e.to_string())?;
 
@@ -105,13 +105,12 @@ pub fn delete_files(state: State<AppState>, file_names: Vec<String>) -> Result<(
         delete(source_path).map_err(|e| e.to_string())?;
 
         // 3. ILLUST_INFO の削除と TAG_INFO と ILLUST_DETAIL の後処理
-        tx.execute_batch(
-            &delete_sql
-                .replace(":illust_id", &file_info.illust_id.to_string())
-                .replace(":suffix", &file_info.suffix.to_string())
-                .replace(":cnum", &cnum.to_string()),
-        )
-        .map_err(|e| e.to_string())?;
+        let delete_sql = include_str!("../sql/catalog/delete_file_registration.sql");
+        let mut params: HashMap<&str, &dyn rusqlite::ToSql> = HashMap::new();
+        params.insert(":illust_id", &file_info.illust_id);
+        params.insert(":suffix", &file_info.suffix);
+        params.insert(":cnum", &cnum);
+        execute_sqls(&tx, delete_sql, &params).map_err(|e| e.to_string())?;
     }
 
     tx.commit().map_err(|e| e.to_string())?;

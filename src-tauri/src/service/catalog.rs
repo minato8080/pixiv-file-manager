@@ -8,7 +8,7 @@ use std::{
 
 use crate::{
     models::catalog::{AssociateCharacter, AssociateInfo, AssociateSaveDir, EditTag},
-    service::common::{execute_sql_script, parse_file_info, remove_invalid_chars},
+    service::common::{execute_sqls, parse_file_info, remove_invalid_chars},
 };
 
 pub fn process_move_files(
@@ -136,7 +136,7 @@ pub fn process_label_character_name(
     };
     let mut params: HashMap<&str, &dyn rusqlite::ToSql> = HashMap::new();
     params.insert(":character", &character_name);
-    execute_sql_script(&tx, &sql, &params)?;
+    execute_sqls(&tx, &sql, &params)?;
 
     // CHARACTER_INFOの更新
     if let Some(character) = character_name {
@@ -144,7 +144,7 @@ pub fn process_label_character_name(
         let mut params: HashMap<&str, &dyn rusqlite::ToSql> = HashMap::new();
         params.insert(":character", &character);
         params.insert(":collect", &collect_dir);
-        execute_sql_script(&tx, sql, &params)?;
+        execute_sqls(&tx, sql, &params)?;
     }
     tx.commit()?;
 

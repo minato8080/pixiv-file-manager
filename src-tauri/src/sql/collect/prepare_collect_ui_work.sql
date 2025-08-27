@@ -8,16 +8,17 @@ WITH root_value AS (
 character_summary AS (
     SELECT 
         ROW_NUMBER() OVER (ORDER BY C.series, C.character) AS row_num,
+        C.entity_key,
         C.series,
         C.character,
         CASE
             WHEN rv.root IS NULL THEN NULL
-            WHEN C.series = '-' THEN rv.root || '\' || C.character
-            WHEN C.character = '-' THEN rv.root || '\' || C.series
+            WHEN C.series IS NULL THEN rv.root || '\' || C.character
+            WHEN C.character IS NULL THEN rv.root || '\' || C.series
             ELSE rv.root || '\' || C.series || '\' || C.character
         END AS new_path,
         CASE
-            WHEN C.character = '-' THEN 1
+            WHEN C.character IS NULL THEN 1
             ELSE 2
         END AS collect_type,
         COUNT(I.illust_id) AS count
@@ -29,8 +30,8 @@ character_summary AS (
         AND I.save_dir = (
             CASE
                 WHEN rv.root IS NULL THEN NULL
-                WHEN C.series = '-' THEN rv.root || '\' || C.character
-                WHEN C.character = '-' THEN rv.root || '\' || C.series
+                WHEN C.series IS NULL THEN rv.root || '\' || C.character
+                WHEN C.character IS NULL THEN rv.root || '\' || C.series
                 ELSE rv.root || '\' || C.series || '\' || C.character
             END
         )
@@ -38,16 +39,15 @@ character_summary AS (
     ORDER BY C.series, C.character
 )
 INSERT OR IGNORE INTO COLLECT_UI_WORK (
-    id, series, character, collect_dir, before_count, after_count, unsave, collect_type
+    id, entity_key, series, character, collect_dir, before_count, collect_type
 )
 SELECT
     row_num,
+    entity_key,
     series,
     character,
     new_path,
     count,
-    0,
-    0,
     collect_type
 FROM character_summary;
 
@@ -57,38 +57,37 @@ WITH root_value AS (
 ),
 series_paths AS (
   SELECT
-    CI.series,
-    (rv.root || '\' || CI.series) AS save_path
-  FROM CHARACTER_INFO CI
+    C.series,
+    (rv.root || '\' || C.series) AS save_path
+  FROM CHARACTER_INFO C
   JOIN root_value rv
-  WHERE CI.character = '-'
+  WHERE C.character IS NULL
 ),
 series_counts AS (
   SELECT
-    SP.series,
+    sp.series,
     COUNT(DISTINCT I.illust_id || '-' || I.suffix) AS count
-  FROM series_paths SP
-  JOIN ILLUST_INFO I ON I.save_dir = SP.save_path
-  GROUP BY SP.series
+  FROM series_paths sp
+  JOIN ILLUST_INFO I ON I.save_dir = sp.save_path
+  GROUP BY sp.series
 )
 UPDATE COLLECT_UI_WORK
 SET before_count = (
-  SELECT count FROM series_counts SC WHERE SC.series = COLLECT_UI_WORK.series
+  SELECT count FROM series_counts sc WHERE sc.series = COLLECT_UI_WORK.series
 )
-WHERE character = '-' AND series IN (SELECT series FROM series_counts);
+WHERE character IS NULL AND series IN (SELECT series FROM series_counts);
 
 -- 未割り当て件数の集計と挿入
 INSERT OR IGNORE INTO COLLECT_UI_WORK (
-    id, series, character, collect_dir, before_count, after_count, unsave, collect_type
+    id, entity_key, series, character, collect_dir, before_count, collect_type
 )
 SELECT
     -1,
     '-',
-    '-',
+    NULL,
+    NULL,
     NULL,
     (I.total_illust_count - COALESCE(T.total_after_count, 0)),
-    0,
-    0,
     0
 FROM (
     SELECT SUM(after_count) AS total_after_count

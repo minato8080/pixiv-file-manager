@@ -4,6 +4,7 @@ CREATE TEMP TABLE tmp_valid_series AS
 SELECT
     D.illust_id,
     D.cnum,
+    CU.entity_key,
     CU.series,
     CU.character,
     CU.collect_dir
@@ -16,7 +17,7 @@ WHERE NOT EXISTS (
     SELECT 1
     FROM COLLECT_UI_WORK C2
     WHERE C2.character = CU.series
-);
+) AND collect_type <> 3;
 CREATE INDEX idx_valid_series_ic ON tmp_valid_series(illust_id, cnum);
 
 -- 1シリーズだけの illust/cnum を事前抽出
@@ -36,6 +37,7 @@ WITH min_suffix AS (
 INSERT INTO COLLECT_FILTER_WORK (
   illust_id,
   cnum,
+  entity_key,
   series,
   character,
   save_dir,
@@ -45,6 +47,7 @@ INSERT INTO COLLECT_FILTER_WORK (
 SELECT
   vs.illust_id,
   vs.cnum,
+  vs.entity_key,
   vs.series,
   vs.character,
   ms.save_dir,

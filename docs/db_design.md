@@ -27,10 +27,11 @@
 
 - **CHARACTER_INFO**
 
-  - `series`: TEXT NOT NULL - シリーズ名
-  - `character`: TEXT NOT NULL - キャラクター名
+  - `entity_key`: TEXT NOT NULL - シリーズまたはキャラクター
+  - `series`: TEXT - シリーズ名
+  - `character`: TEXT - キャラクター名
   - `collect_dir`: TEXT - コレクションディレクトリ
-  - **PRIMARY KEY**: (`character`, `series`)
+  - **PRIMARY KEY**: (`entity_key`)
 
 - **AUTHOR_INFO**
 
@@ -68,21 +69,24 @@
 - **COLLECT_UI_WORK**
 
   - `id`: INTEGER NOT NULL API 用の連番
-  - `series`: TEXT NOT NULL - シリーズ名
-  - `character`: TEXT NOT NULL- キャラクター名
+  - `entity_key`: TEXT NOT NULL - シリーズまたはキャラクター
+  - `series`: TEXT - シリーズ名
+  - `character`: TEXT - キャラクター名
   - `collect_dir`: TEXT - コレクションディレクトリ
   - `before_count`: INTEGER
   - `after_count`: INTEGER
   - `unsave`: BOOLEAN
-  - **PRIMARY KEY**: (`character`, `series`)
+  - `collect_type`: INTEGER NOT NULL - 0: 未整理, 1: キャラクター, 2: シリーズ, 3: 削除
+  - **PRIMARY KEY**: (`entity_key`)
 
 - **COLLECT_FILTER_WORK**
 
   - `illust_id`: INTEGER NOT NULL - イラストの識別子
   - `cnum`: INTEGER NOT NULL - タグ用の管理番号
-  - `collect_type`: INTEGER NOT NULL - 0: キャラクター, 1: シリーズ
-  - `series`: TEXT NOT NULL - シリーズ名
-  - `character`: TEXT NOT NULL - イラストのキャラクター名
+  - `collect_type`: INTEGER NOT NULL - 1: キャラクター, 2: シリーズ
+  - `entity_key`: TEXT NOT NULL - シリーズまたはキャラクター
+  - `series`: TEXT - シリーズ名
+  - `character`: TEXT - キャラクター名
   - `save_dir`: TEXT - イラストが保存されているディレクトリのパス
   - `collect_dir`: TEXT - コレクションディレクトリ
   - **PRIMARY KEY**: (`illust_id`, `cnum`, `collect_type`)

@@ -22,7 +22,8 @@ const VirtualizedSelect = VirtualizedSelectGenerics<TagInfo>;
 const SERIES = "series";
 const CHARACTER = "character";
 type TagType = typeof SERIES | typeof CHARACTER;
-const isHyphen = (...values: string[]) => values.every((v) => v === "-");
+const isNull = (...values: (string | null)[]) =>
+  values.every((v) => v === null);
 
 interface EditingState {
   id: number;
@@ -40,17 +41,17 @@ export const ResultArea = () => {
 
   // Separate uncategorized items (both series and character are "-")
   const uncategorized = collectSummary.find((item) =>
-    isHyphen(item.series, item.character)
+    isNull(item.series, item.character)
   );
 
   // Group remaining items by series, treating "-" as null
   const categorizedItems = collectSummary.filter(
-    (item) => !isHyphen(item.series, item.character)
+    (item) => !isNull(item.series, item.character)
   );
 
   const groupedBySeries = categorizedItems.reduce((acc, item) => {
     const series =
-      isHyphen(item.series) || !item.series ? "Uncategorized" : item.series;
+      isNull(item.series) || !item.series ? "Uncategorized" : item.series;
     if (!acc[series]) {
       acc[series] = [];
     }
@@ -85,8 +86,8 @@ export const ResultArea = () => {
 
     const assignment: TagAssignment = {
       id: updatedItem.id,
-      series: updatedItem.series,
-      character: updatedItem.character,
+      series: updatedItem.series || null,
+      character: updatedItem.character || null,
     };
 
     setLoading(true);
@@ -106,8 +107,8 @@ export const ResultArea = () => {
   ) => {
     const assignment: TagAssignment = {
       id: null,
-      series: series,
-      character: characterName || "-",
+      series: series || null,
+      character: characterName || null,
     };
 
     setLoading(true);
@@ -125,7 +126,7 @@ export const ResultArea = () => {
   const renderEditableField = (item: CollectSummary, field: TagType) => {
     const isEditing =
       editingState?.id === item.id && editingState?.field === field;
-    const externalValue = item[field];
+    const externalValue = item[field] ?? "";
 
     const options =
       filteredTagList.length > 0 ? filteredTagList : availableTagList;
@@ -150,7 +151,7 @@ export const ResultArea = () => {
       const refresh = async () => {
         const relatedValue =
           collectSummary[item.id][field === CHARACTER ? SERIES : CHARACTER];
-        if (relatedValue && !isHyphen(relatedValue)) {
+        if (relatedValue && !isNull(relatedValue)) {
           const list: TagInfo[] = await invoke("get_related_tags", {
             tag: relatedValue,
           });

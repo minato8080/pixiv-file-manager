@@ -42,11 +42,8 @@ pub fn assign_tag(
     state: State<AppState>,
 ) -> Result<Vec<CollectSummary>, String> {
     // バリデーションチェック
-    if assignment.series.trim().is_empty() || assignment.character.trim().is_empty() {
+    if assignment.series.is_none() && assignment.character.is_none() {
         return Err("シリーズまたはキャラクターが未指定です".to_string());
-    }
-    if assignment.series == "-" && assignment.character == "-" {
-        return Err("シリーズおよびキャラクターが未指定です".to_string());
     }
 
     // 本処理
@@ -71,31 +68,30 @@ pub fn assign_tag(
     let collect_dir = root.map(|r| {
         let mut parts = vec![r];
 
-        if assignment.series != "-" {
-            parts.push(assignment.series.clone());
+        if let Some(series) = assignment.series.clone() {
+            parts.push(series);
         }
 
-        if assignment.character != "-" {
-            parts.push(assignment.character.clone());
+        if let Some(character) = assignment.character.clone() {
+            parts.push(character);
         }
 
         parts.join("\\")
     });
 
-    let collect_type = if assignment.character == "-" { 1 } else { 2 };
-
-    // キャラクターは重複禁止のため洗い替え
-    tx.execute(
-        "DELETE FROM COLLECT_UI_WORK WHERE character = ?1 AND character <> '-'",
-        params![assignment.character],
-    )
-    .map_err(|e| e.to_string())?;
+    let entity_key = assignment
+        .character
+        .clone()
+        .or(assignment.series.clone())
+        .expect("Invalid assignment: expected exactly one of 'character' or 'series'");
+    let collect_type = if assignment.character.is_none() { 1 } else { 2 };
 
     tx.execute(
         "INSERT OR REPLACE INTO COLLECT_UI_WORK (
-                id, series, character, collect_dir, before_count, after_count, unsave, collect_type
-            ) VALUES (0, ?1, ?2, ?3, 0, 0, true, ?4)",
+                id, entity_key, series, character, collect_dir, unsave, collect_type
+            ) VALUES (0, ?1, ?2, ?3, ?4, 1, ?5)",
         params![
+            entity_key,
             assignment.series,
             assignment.character,
             collect_dir,
@@ -120,40 +116,36 @@ pub fn assign_tag(
 pub fn delete_collect(
     assignment: TagAssignment,
     state: State<AppState>,
-    window: tauri::Window,
 ) -> Result<Vec<CollectSummary>, String> {
+    // バリデーションチェック
+    if assignment.id.is_none() && assignment.series.is_none() && assignment.character.is_none() {
+        return Err("IDまたはシリーズまたはキャラクターが未指定です".to_string());
+    }
+
+    // 本処理
     let mut conn = state.db.lock().unwrap();
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
-    // COLLECT_UI_WORK から削除
-    tx.execute(
-        "DELETE FROM COLLECT_UI_WORK WHERE series = ?1 AND character = ?2",
-        params![assignment.series, assignment.character],
-    )
-    .map_err(|e| e.to_string())?;
+    let sql_template = "UPDATE COLLECT_UI_WORK SET collect_type = 3, unsave = 1, after_count = 0";
 
-    // CHARACTER_INFO から削除
-    tx.execute(
-        "DELETE FROM CHARACTER_INFO WHERE series = ?1 AND character = ?2",
-        params![assignment.series, assignment.character],
-    )
-    .map_err(|e| e.to_string())?;
+    if let Some(id) = assignment.id {
+        // id指定時
+        let sql = sql_template.to_owned() + " WHERE id = ?1";
+        tx.execute(&sql, [id]).map_err(|e| e.to_string())?;
+    } else {
+        // entity指定時
+        let entity_key = assignment
+            .character
+            .clone()
+            .or(assignment.series.clone())
+            .expect("Invalid assignment: expected exactly one of 'character' or 'series'");
 
-    // ILLUST_DETAIL から削除
-    tx.execute(
-        "UPDATE ILLUST_DETAIL SET character = NULL WHERE character = ?1",
-        params![assignment.character],
-    )
-    .map_err(|e| e.to_string())?;
-
-    // ソートし直す
-    sort_collect_work(&tx).map_err(|e| e.to_string())?;
+        let sql = sql_template.to_owned() + " WHERE entity_key = ?1";
+        tx.execute(&sql, [entity_key]).map_err(|e| e.to_string())?;
+    }
 
     // after_countを計算
     reflesh_collect_work(&tx).map_err(|e| e.to_string())?;
-
-    // DB変更を通知
-    window.emit("update_db", ()).unwrap();
 
     // コミット
     tx.commit().map_err(|e| e.to_string())?;

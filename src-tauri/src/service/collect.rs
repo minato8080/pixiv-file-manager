@@ -1,6 +1,5 @@
 use anyhow::{Context, Result};
 use regex::Regex;
-use rusqlite::named_params;
 use rusqlite::params;
 use rusqlite::Connection;
 use std::collections::HashMap;
@@ -10,8 +9,7 @@ use std::path::PathBuf;
 use walkdir::WalkDir;
 
 use crate::models::collect::{FileSummary, TempFile};
-use crate::service::common::execute_sqls;
-use crate::service::common::update_cnum;
+use crate::service::common::{execute_sqls, update_cnum};
 use crate::{constants, models::collect::CollectSummary};
 
 pub fn prepare_collect_ui_work(conn: &Connection) -> Result<()> {
@@ -55,6 +53,7 @@ pub fn get_collect_summary(conn: &Connection) -> Result<Vec<CollectSummary>> {
                 after_count,
                 unsave
             FROM COLLECT_UI_WORK
+            WHERE collect_type <> 3
             ORDER BY id ASC
             ;",
     )?;
@@ -80,8 +79,9 @@ pub fn get_collect_summary(conn: &Connection) -> Result<Vec<CollectSummary>> {
 
 pub fn collect_character_info(conn: &Connection) -> Result<()> {
     let sql = include_str!("../sql/collect/collect_character_info.sql");
-    conn.prepare(sql)?
-        .execute(named_params! {":collect_root":constants::COLLECT_ROOT})?;
+    let mut params: HashMap<&str, &dyn rusqlite::ToSql> = HashMap::new();
+    params.insert(":collect_root", &constants::COLLECT_ROOT);
+    execute_sqls(conn, sql, &params)?;
     Ok(())
 }
 

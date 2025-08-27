@@ -97,8 +97,8 @@ export default function FileOrganizer() {
     try {
       const assignment: TagAssignment = {
         id: null,
-        series: selectedSeriesTag || "-",
-        character: selectedCharacterTag || "-",
+        series: selectedSeriesTag || null,
+        character: selectedCharacterTag || null,
       };
       const summary: CollectSummary[] = await invoke("assign_tag", {
         assignment,

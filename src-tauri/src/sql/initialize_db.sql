@@ -46,24 +46,26 @@ CREATE INDEX IF NOT EXISTS idx_tag_info_illust_control ON TAG_INFO(illust_id, cn
 
 
 CREATE TABLE IF NOT EXISTS CHARACTER_INFO (
-    series TEXT NOT NULL,
-    character TEXT NOT NULL,
+    entity_key TEXT NOT NULL,
+    series TEXT,
+    character TEXT,
     collect_dir TEXT,
-    PRIMARY KEY (character, series)
+    PRIMARY KEY (entity_key)
 );
-CREATE INDEX IF NOT EXISTS idx_character_info_series_character ON CHARACTER_INFO(series, character);
+CREATE INDEX IF NOT EXISTS idx_character_info_entity_key ON CHARACTER_INFO(entity_key);
 
 
 CREATE TABLE IF NOT EXISTS COLLECT_UI_WORK (
     id INTEGER NOT NULL,
-    series TEXT NOT NULL,
-    character TEXT NOT NULL,
+    entity_key TEXT NOT NULL,
+    series TEXT,
+    character TEXT,
     collect_dir TEXT,
-    before_count INTEGER,
-    after_count INTEGER,
-    unsave BOOLEAN,
+    before_count INTEGER DEFAULT 0,
+    after_count INTEGER DEFAULT 0,
+    unsave BOOLEAN DEFAULT 0,
     collect_type INTEGER NOT NULL,
-    PRIMARY KEY (series, character)
+    PRIMARY KEY (entity_key)
 );
 CREATE INDEX IF NOT EXISTS idx_collect_ui_work_character ON COLLECT_UI_WORK(character);
 CREATE INDEX IF NOT EXISTS idx_collect_ui_work_series ON COLLECT_UI_WORK(series);
@@ -72,8 +74,9 @@ CREATE INDEX IF NOT EXISTS idx_collect_ui_work_series ON COLLECT_UI_WORK(series)
 CREATE TABLE IF NOT EXISTS COLLECT_FILTER_WORK (
     illust_id INTEGER NOT NULL,
     cnum INTEGER NOT NULL,
-    series TEXT NOT NULL,
-    character TEXT NOT NULL,
+    entity_key TEXT NOT NULL,
+    series TEXT,
+    character TEXT,
     save_dir TEXT,
     collect_dir TEXT,
     collect_type INTEGER NOT NULL,

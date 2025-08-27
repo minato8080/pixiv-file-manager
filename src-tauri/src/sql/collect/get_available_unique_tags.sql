@@ -3,9 +3,7 @@ FROM TAG_INFO T
 JOIN ILLUST_INFO I
   ON T.illust_id = I.illust_id AND T.cnum = I.cnum
 WHERE T.tag NOT IN (
-  SELECT character FROM CHARACTER_INFO
-  UNION
-  SELECT series FROM CHARACTER_INFO
+  SELECT entity_key FROM CHARACTER_INFO
 )
 GROUP BY T.tag
 ORDER BY count DESC, T.tag ASC;

@@ -5,16 +5,16 @@ use ts_rs::TS;
 #[ts(export)]
 pub struct TagAssignment {
     pub id: Option<i32>,
-    pub series: String,
-    pub character: String,
+    pub series: Option<String>,
+    pub character: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, TS)]
 #[ts(export)]
 pub struct CollectSummary {
     pub id: i32,
-    pub series: String,
-    pub character: String,
+    pub series: Option<String>,
+    pub character: Option<String>,
     pub before_count: i32,
     pub after_count: i32,
     pub new_path: Option<String>,

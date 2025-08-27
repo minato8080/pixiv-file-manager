@@ -1,17 +1,27 @@
+WITH filtered_illusts AS (
+    SELECT illust_id, cnum
+    FROM TAG_INFO
+    WHERE tag = ?1
+),
+candidate_tags AS (
+    SELECT T.tag, T.illust_id, T.cnum
+    FROM TAG_INFO T
+    JOIN filtered_illusts fi
+      ON T.illust_id = fi.illust_id AND T.cnum = fi.cnum
+    WHERE T.tag != ?1
+),
+filtered_tags AS (
+    SELECT ct.tag, ct.illust_id, ct.cnum
+    FROM candidate_tags ct
+    LEFT JOIN CHARACTER_INFO c
+      ON ct.tag = c.character OR ct.tag = c.series
+    LEFT JOIN COLLECT_UI_WORK cu
+      ON ct.tag = cu.entity_key AND cu.collect_type = 3
+    WHERE c.character IS NULL OR cu.collect_type = 3
+)
 SELECT 
-    T2.tag,
-    COUNT(DISTINCT I.illust_id || '-' || I.suffix) AS count
-FROM TAG_INFO T1
-JOIN TAG_INFO T2
-    ON T1.illust_id = T2.illust_id
-    AND T1.cnum = T2.cnum
-JOIN ILLUST_INFO I
-    ON T2.illust_id = I.illust_id 
-    AND T2.cnum = I.cnum
-LEFT JOIN CHARACTER_INFO CI
-    ON T2.tag = CI.character OR T2.tag = CI.series
-WHERE T1.tag = ?1
-    AND T2.tag != ?1
-    AND CI.character IS NULL
-GROUP BY T2.tag
-ORDER BY count DESC, T2.tag COLLATE NOCASE;
+    tag,
+    COUNT(DISTINCT illust_id || '-' || cnum) AS count
+FROM filtered_tags
+GROUP BY tag
+ORDER BY count DESC, tag COLLATE NOCASE;

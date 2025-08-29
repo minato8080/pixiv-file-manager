@@ -109,7 +109,7 @@ export const DialogEditTag = () => {
       onOpenChange={(b) => !b && closeEditTagsDialog()}
     >
       <DialogContent
-        aria-describedby="A dialog to edit tags."
+        aria-describedby={undefined}
         className="sm:max-w-2xl max-h-[80vh] overflow-hidden flex flex-col bg-white"
       >
         <DialogHeader>

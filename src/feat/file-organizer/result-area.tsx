@@ -133,7 +133,7 @@ export const ResultArea = () => {
 
     if (isEditing) {
       return (
-        <div className="w-50">
+        <div className="w-50 -mt-5 -ml-2.5">
           <VirtualizedSelect
             value={externalValue}
             valueKey="tag"
@@ -164,14 +164,14 @@ export const ResultArea = () => {
     };
 
     return (
-      <span
-        className={`cursor-pointer hover:bg-gray-100 px-1 rounded text-xs whitespace-nowrap ${
+      <button
+        className={`block w-full cursor-pointer hover:bg-gray-100 px-1 rounded text-xs whitespace-nowrap text-start ${
           item.is_new ? "bg-blue-200" : ""
         }`}
         onClick={handleClick}
       >
-        {externalValue}
-      </span>
+        {externalValue || "-"}
+      </button>
     );
   };
 
@@ -181,12 +181,12 @@ export const ResultArea = () => {
     return (
       <div
         key={item.id}
-        className="grid grid-cols-16 gap-2 items-center py-1 px-4 hover:bg-gray-50 rounded text-sm"
+        className="grid grid-cols-21 gap-2 items-center py-1 px-4 hover:bg-gray-50 rounded text-sm"
       >
-        <div className="col-span-3">{renderEditableField(item, SERIES)}</div>
-        <div className="col-span-3">{renderEditableField(item, CHARACTER)}</div>
-        <div className="col-span-1 text-right text-xs">{item.before_count}</div>
-        <div className="col-span-1 text-right text-xs">
+        <div className="col-span-4">{renderEditableField(item, SERIES)}</div>
+        <div className="col-span-4">{renderEditableField(item, CHARACTER)}</div>
+        <div className="col-span-2 text-right text-xs">{item.before_count}</div>
+        <div className="col-span-2 text-right text-xs">
           <span
             className={`px-1 rounded ${
               hasDifference ? "bg-green-200 text-green-800 font-medium" : ""
@@ -195,10 +195,10 @@ export const ResultArea = () => {
             {item.after_count}
           </span>
         </div>
-        <div className="col-span-7 text-xs text-gray-800 font-mono truncate">
+        <div className="col-span-8   text-xs text-gray-800 font-mono truncate">
           {item.new_path}
         </div>
-        <div className="col-span-1 flex justify-center">
+        <div className="col-span-1 flex justify-end">
           {item.id !== -1 && (
             <Button
               onClick={() => void removeAssignment(item)}
@@ -218,13 +218,13 @@ export const ResultArea = () => {
     <div className="flex-1 border rounded overflow-hidden flex flex-col">
       {/* Fixed Header */}
       <div className="bg-gray-100 border-b px-4 py-2 sticky top-0 z-20">
-        <div className="grid grid-cols-16 gap-2 text-xs font-medium text-gray-700">
-          <div className="col-span-3">Series</div>
-          <div className="col-span-3">Character</div>
-          <div className="col-span-1 text-right">Before</div>
-          <div className="col-span-1 text-right">After</div>
+        <div className="grid grid-cols-21 gap-2 text-xs font-medium text-gray-700">
+          <div className="col-span-4">Series</div>
+          <div className="col-span-4">Character</div>
+          <div className="col-span-2 text-right">Before</div>
+          <div className="col-span-2 text-right">After</div>
           <div className="col-span-7 px-6">New Path</div>
-          <div className="col-span-1 text-center">Operation</div>
+          <div className="col-span-2 text-center">Operation</div>
         </div>
       </div>
 
@@ -233,13 +233,12 @@ export const ResultArea = () => {
         {/* Uncategorized Items (Special Display) */}
         {uncategorized && (
           <div className="border-b bg-gray-50">
-            <div className="px-4 py-2 grid grid-cols-16 gap-2 text-xs font-medium text-gray-600 bg-gray-100">
-              <div className="col-span-3">Uncategorized</div>
-              <div className="col-span-3"></div>
-              <div className="col-span-1 text-right text-xs">
+            <div className="px-4 py-2 grid grid-cols-21 gap-2 text-xs font-medium text-gray-600 bg-gray-100">
+              <div className="col-span-8">Uncategorized</div>
+              <div className="col-span-2 text-right text-xs">
                 {uncategorized.before_count}
               </div>
-              <div className="col-span-1 text-right text-xs">
+              <div className="col-span-2 text-right text-xs">
                 <span
                   className={`px-1 rounded ${
                     uncategorized.before_count !== uncategorized.after_count
@@ -275,16 +274,15 @@ export const ResultArea = () => {
             return (
               <AccordionItem key={series} value={series} className="border-b">
                 <AccordionTrigger className="px-4 py-2 hover:bg-gray-50 items-center [&>svg]:hidden">
-                  <div className="grid grid-cols-16 gap-2 w-full text-xs font-medium">
-                    <div className="col-span-3 text-left">
+                  <div className="grid grid-cols-21 gap-2 w-full text-xs font-medium">
+                    <div className="col-span-8 text-left">
                       <span className="font-medium">{series}</span>
                       <span className="text-gray-500 ml-2">
                         ({items.length})
                       </span>
                     </div>
-                    <div className="col-span-3"></div>
-                    <div className="col-span-1 text-right">{totalBefore}</div>
-                    <div className="col-span-1 text-right">
+                    <div className="col-span-2 text-right">{totalBefore}</div>
+                    <div className="col-span-2 text-right">
                       <span
                         className={`px-1 rounded ${
                           hasDifference
@@ -295,8 +293,8 @@ export const ResultArea = () => {
                         {totalAfter}
                       </span>
                     </div>
-                    <div className="col-span-7"></div>
-                    <div className="col-span-1 flex justify-end">
+                    <div className="col-span-8"></div>
+                    <div className="col-span-1 flex justify-center pl-4">
                       <ChevronDownIcon className="h-4 w-4" />
                     </div>
                   </div>

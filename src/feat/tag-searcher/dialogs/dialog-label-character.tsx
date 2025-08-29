@@ -260,7 +260,7 @@ export const DialogLabelCharacter = () => {
       onOpenChange={(b) => !b && closeLabelCharacterDialog()}
     >
       <DialogContent
-        aria-describedby="A dialog to label character."
+        aria-describedby={undefined}
         className="sm:max-w-md bg-white dark:bg-gray-900"
       >
         <DialogHeader>

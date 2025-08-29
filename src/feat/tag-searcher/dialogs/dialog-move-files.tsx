@@ -161,7 +161,7 @@ export const DialogMoveFiles = () => {
       onOpenChange={(b) => !b && closeMoveFilesDialog()}
     >
       <DialogContent
-        aria-describedby="A dialog to move files."
+        aria-describedby={undefined}
         className="sm:max-w-md bg-white dark:bg-gray-900"
       >
         <DialogHeader>

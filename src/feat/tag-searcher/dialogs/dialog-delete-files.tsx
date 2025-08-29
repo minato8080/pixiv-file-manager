@@ -52,7 +52,7 @@ export const DialogDeleteFiles = () => {
       onOpenChange={(b) => !b && closeDeleteFilesDialog}
     >
       <DialogContent
-        aria-describedby="A dialog to delete files."
+        aria-describedby={undefined}
         className="sm:max-w-md bg-white dark:bg-gray-900"
       >
         <DialogHeader>

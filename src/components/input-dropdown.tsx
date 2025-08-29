@@ -127,6 +127,7 @@ export function InputDropdown<T>({
 
   // 項目選択ハンドラ
   const handleSelect = (item: T) => {
+    inputRef.current?.focus();
     const itemValue =
       typeof item === "string"
         ? item
@@ -140,7 +141,6 @@ export function InputDropdown<T>({
     setIsOpen(false);
     onChange?.(itemValue);
     onSelect?.(item);
-    inputRef.current?.focus();
   };
 
   // IME関連ハンドラ
@@ -182,11 +182,14 @@ export function InputDropdown<T>({
   const renderDropdown = () => {
     if (!isOpen || isComposing) return null;
 
+    const anchorRect = containerRef.current?.getBoundingClientRect();
+    const labelWidth = anchorRect ? anchorRect.width - 80 : undefined;
+
     return (
       <div
         ref={dropdownRef}
         className={cn(
-          "absolute z-100 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm max-h-60 overflow-auto scroll-transparent ",
+          "absolute z-100 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm max-h-60 overflow-auto ",
           dropdownClassName
         )}
       >
@@ -209,10 +212,15 @@ export function InputDropdown<T>({
                     ? renderItem(item, selected === item)
                     : inferObjKey(item, "count", (obj, key) => (
                         <div className="flex justify-between items-start gap-2 text-xs">
-                          <span className="flex-1">{label}</span>
+                          <span
+                            style={{ width: labelWidth }}
+                            className="flex-1"
+                          >
+                            {label}
+                          </span>
                           <Badge
                             className={
-                              "h-4 flex-shrink-0 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                              "h-4 flex-shrink-0 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 mr-2"
                             }
                           >
                             {getNumber(obj, key)}

@@ -12,7 +12,7 @@ WITH base AS (
     JOIN ILLUST_DETAIL D ON I.illust_id = D.illust_id AND I.cnum = D.cnum
     JOIN AUTHOR_INFO A ON D.author_id = A.author_id
     WHERE (:character IS NULL OR D.character = :character)
-      AND (:author IS NULL OR D.author_id = :author)
+      AND (:author_id IS NULL OR D.author_id = :author_id)
 ),
 filter AS (
     -- 検索条件に合致するレコードのみ抽出

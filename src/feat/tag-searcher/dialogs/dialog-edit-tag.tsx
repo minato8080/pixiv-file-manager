@@ -18,8 +18,8 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { useTagSearcher } from "@/src/hooks/use-tag-searcher";
 import { useCommonStore } from "@/src/stores/common-store";
+import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 import { useDialogEditStore } from "@/stores/dialog-edit-store";
 import { useDropdownStore } from "@/stores/dropdown-store";
 
@@ -40,7 +40,7 @@ export const DialogEditTag = () => {
   } = useDialogEditStore();
   const { loading, setLoading } = useCommonStore();
   const { uniqueTagList } = useDropdownStore();
-  const { fetchTags, quickReload } = useTagSearcher();
+  const { fetchTags, quickReload } = useTagSearcherStore();
 
   // Extract all unique tags from selected files
   useEffect(() => {

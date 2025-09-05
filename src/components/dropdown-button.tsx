@@ -121,7 +121,7 @@ export function DropdownButton<T>({
           </div>
           <div className="max-h-64 overflow-auto">
             {filteredTags.length > 0 ? (
-              filteredTags.map((item) => {
+              filteredTags.map((item, index) => {
                 const value =
                   inferObjKey(item, valueKey, (obj, key) =>
                     getString(obj, key)
@@ -132,7 +132,7 @@ export function DropdownButton<T>({
                   ) ?? value;
                 return (
                   <button
-                    key={value}
+                    key={value + index}
                     className={
                       "w-full px-3 py-2 text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 flex justify-between items-start" +
                       buttonClassName

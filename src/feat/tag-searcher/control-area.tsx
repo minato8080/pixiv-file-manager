@@ -1,4 +1,5 @@
 import { Search, Trash2, CheckSquare, Square } from "lucide-react";
+import { useEffect } from "react";
 
 import { DropdownAuthor } from "./dropdowns/dropdown-author";
 import { DropdownCharacter } from "./dropdowns/dropdown-character";
@@ -8,7 +9,6 @@ import { DropdownViewMode } from "./dropdowns/dropdown-view-mode";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useTagSearcher } from "@/src/hooks/use-tag-searcher";
 import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 
 export const ControlArea = () => {
@@ -25,8 +25,9 @@ export const ControlArea = () => {
     setSearchResults,
     searchId,
     setSearchId,
+    filterDropdowns,
   } = useTagSearcherStore();
-  const { handleSearch } = useTagSearcher();
+  const { handleSearch } = useTagSearcherStore();
 
   // Clear all search conditions
   const clearSearchConditions = () => {
@@ -36,6 +37,11 @@ export const ControlArea = () => {
     setSearchResults([]);
     setSearchId("");
   };
+
+  useEffect(
+    () => void filterDropdowns(),
+    [selectedTags, selectedCharacter, selectedAuthor, filterDropdowns]
+  );
 
   return (
     <div className="flex flex-wrap items-center gap-2 mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md">

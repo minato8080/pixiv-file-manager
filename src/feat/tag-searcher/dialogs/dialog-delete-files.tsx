@@ -8,7 +8,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useTagSearcher } from "@/src/hooks/use-tag-searcher";
 import { useCommonStore } from "@/src/stores/common-store";
 import { useDialogDeleteStore } from "@/src/stores/dialog-delete-store";
 import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
@@ -22,7 +21,7 @@ export const DialogDeleteFiles = () => {
   const { loading, setLoading } = useCommonStore();
   const { setSelectedFiles } = useTagSearcherStore();
   const { fetchTags, fetchCharacters, fetchAuthors, quickReload } =
-    useTagSearcher();
+    useTagSearcherStore();
 
   const handleDelete = async () => {
     setLoading(true);

@@ -52,9 +52,9 @@ export const OperationArea = () => {
   // Handle label character name operation
   const handleLabel = (initialName?: string) => {
     if (selectedFiles.length === 0) return;
-    const { characterDropdownItems } = useDropdownStore.getState();
+    const { uniqueCharacterList } = useDropdownStore.getState();
     const combinedSet = new Set([
-      ...(characterDropdownItems.map((iter) => iter.character) || []),
+      ...(uniqueCharacterList.map((iter) => iter.character) || []),
       ...selectedFiles.flatMap((iter) => iter.tags?.split(",") ?? []),
     ]);
 

@@ -12,14 +12,13 @@ import { TagsSearcherResultArea } from "./result-area";
 import { TagArea } from "./tag-area";
 
 import { VIEW_MODE_KEYS } from "@/src/constants";
-import { useTagSearcher } from "@/src/hooks/use-tag-searcher";
 import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 
 export default function TagSearcher() {
   const { searchResults, currentViewMode, setCurrentViewMode } =
     useTagSearcherStore();
 
-  const { fetchTags, fetchCharacters, fetchAuthors } = useTagSearcher();
+  const { fetchTags, fetchCharacters, fetchAuthors } = useTagSearcherStore();
 
   // Call handlers to fetch data using useEffect
   useEffect(() => {

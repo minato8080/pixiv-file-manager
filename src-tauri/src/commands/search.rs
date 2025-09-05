@@ -3,7 +3,7 @@ use crate::{
         common::AppState,
         search::{AuthorInfo, CharacterInfo, SearchResult, TagInfo},
     },
-    service::search::{process_search_by_criteria, process_search_by_id},
+    service::search::{process_filter_dropdowns, process_search_by_criteria, process_search_by_id},
 };
 use rusqlite::Result;
 use tauri::{command, State};
@@ -83,12 +83,12 @@ pub fn get_unique_authors(state: State<AppState>) -> Result<Vec<AuthorInfo>, Str
 pub fn search_by_criteria(
     tags: Vec<String>,
     character: Option<String>,
-    author: Option<u32>,
+    author_id: Option<u32>,
     state: State<AppState>,
 ) -> Result<Vec<SearchResult>, String> {
     let conn = state.db.lock().unwrap();
     let results =
-        process_search_by_criteria(tags, character, author, &conn).map_err(|e| e.to_string())?;
+        process_search_by_criteria(tags, character, author_id, &conn).map_err(|e| e.to_string())?;
 
     Ok(results)
 }
@@ -97,6 +97,20 @@ pub fn search_by_criteria(
 pub fn search_by_id(id: i64, state: State<AppState>) -> Result<Vec<SearchResult>, String> {
     let conn = state.db.lock().unwrap();
     let results = process_search_by_id(id, &conn).map_err(|e| e.to_string())?;
+
+    Ok(results)
+}
+
+#[command]
+pub fn filter_dropdowns(
+    tags: Vec<String>,
+    character: Option<String>,
+    author_id: Option<u32>,
+    state: State<AppState>,
+) -> Result<(Vec<TagInfo>, Vec<CharacterInfo>, Vec<AuthorInfo>), String> {
+    let conn = state.db.lock().unwrap();
+    let results =
+        process_filter_dropdowns(tags, character, author_id, &conn).map_err(|e| e.to_string())?;
 
     Ok(results)
 }

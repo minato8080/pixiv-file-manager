@@ -16,8 +16,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { useTagSearcher } from "@/src/hooks/use-tag-searcher";
 import { useCommonStore } from "@/src/stores/common-store";
+import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 import { useDialogMoveStore } from "@/stores/dialog-move-store";
 
 export const DialogMoveFiles = () => {
@@ -38,7 +38,7 @@ export const DialogMoveFiles = () => {
     null
   );
 
-  const { quickReload } = useTagSearcher();
+  const { quickReload } = useTagSearcherStore();
 
   // 紐づけ更新の情報を取得
   const fetchAssociations = async (searchResult: SearchResult[]) => {

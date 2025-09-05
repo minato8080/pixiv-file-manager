@@ -23,7 +23,8 @@ work_with_path AS (
         END AS collect_dir
     FROM COLLECT_UI_WORK CU
     CROSS JOIN root_value rv
-    WHERE CU.character IS NOT NULL OR CU.series IS NOT NULL AND collect_type <> 3
+    WHERE collect_type = 1
+    OR collect_type = 2
 )
 INSERT OR REPLACE INTO CHARACTER_INFO (entity_key, character, series, collect_dir)
 SELECT

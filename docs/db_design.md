@@ -76,18 +76,16 @@
   - `before_count`: INTEGER
   - `after_count`: INTEGER
   - `unsave`: BOOLEAN
-  - `collect_type`: INTEGER NOT NULL - 0: 未整理, 1: キャラクター, 2: シリーズ, 3: 削除
+  - `collect_type`: INTEGER NOT NULL - 0: 未整理, 1: シリーズ, 2: キャラクター, 3: 削除
   - **PRIMARY KEY**: (`entity_key`)
 
 - **COLLECT_FILTER_WORK**
 
   - `illust_id`: INTEGER NOT NULL - イラストの識別子
   - `cnum`: INTEGER NOT NULL - タグ用の管理番号
-  - `collect_type`: INTEGER NOT NULL - 1: キャラクター, 2: シリーズ
-  - `entity_key`: TEXT NOT NULL - シリーズまたはキャラクター
+  - `collect_type`: INTEGER NOT NULL - 1: シリーズ, 2: キャラクター, 4: 移動
   - `series`: TEXT - シリーズ名
   - `character`: TEXT - キャラクター名
-  - `save_dir`: TEXT - イラストが保存されているディレクトリのパス
   - `collect_dir`: TEXT - コレクションディレクトリ
   - **PRIMARY KEY**: (`illust_id`, `cnum`, `collect_type`)
 

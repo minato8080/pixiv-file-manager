@@ -5,8 +5,8 @@ use crate::constants;
 use crate::models::collect::FileSummary;
 use crate::models::search::TagInfo;
 use crate::service::collect::{
-    collect_character_info, collect_illust_detail, collect_illust_info, get_collect_summary,
-    move_illust_files, prepare_collect_ui_work, process_sync_db, reflesh_collect_work,
+    collect_character_info, collect_illust_detail, get_collect_summary, move_illust_files,
+    prepare_collect_ui_work, process_sync_db, reflesh_collect_work,
 };
 use crate::{
     models::{
@@ -185,8 +185,6 @@ pub fn perform_collect(
     collect_character_info(&tx).map_err(|e| e.to_string())?;
 
     collect_illust_detail(&tx).map_err(|e| e.to_string())?;
-
-    collect_illust_info(&tx).map_err(|e| e.to_string())?;
 
     move_illust_files(&tx).map_err(|e| e.to_string())?;
 

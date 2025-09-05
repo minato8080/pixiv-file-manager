@@ -59,7 +59,7 @@ SET after_count = (
     IFNULL((
       SELECT SUM(after_count)
       FROM COLLECT_UI_WORK
-      WHERE id > 0
+      WHERE collect_type > 0
     ), 0)
   FROM COLLECT_UI_WORK
 )

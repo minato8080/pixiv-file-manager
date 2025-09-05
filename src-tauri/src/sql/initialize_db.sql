@@ -74,12 +74,10 @@ CREATE INDEX IF NOT EXISTS idx_collect_ui_work_series ON COLLECT_UI_WORK(series)
 CREATE TABLE IF NOT EXISTS COLLECT_FILTER_WORK (
     illust_id INTEGER NOT NULL,
     cnum INTEGER NOT NULL,
-    entity_key TEXT NOT NULL,
+    collect_type INTEGER NOT NULL,
     series TEXT,
     character TEXT,
-    save_dir TEXT,
     collect_dir TEXT,
-    collect_type INTEGER NOT NULL,
     PRIMARY KEY (illust_id, cnum, collect_type)
 );
 CREATE INDEX IF NOT EXISTS idx_cfw_ic_type ON COLLECT_FILTER_WORK (illust_id, cnum, collect_type);

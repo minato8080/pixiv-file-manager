@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use regex::Regex;
+use rusqlite::named_params;
 use rusqlite::params;
 use rusqlite::Connection;
 use std::collections::HashMap;
@@ -24,13 +25,26 @@ pub fn reflesh_collect_work(conn: &Connection) -> Result<()> {
     conn.execute("DELETE FROM COLLECT_FILTER_WORK;", [])?;
 
     let sql1 = include_str!("../sql/collect/insert_collect_filter_work_character.sql");
-    conn.execute_batch(sql1)?;
+    conn.execute(
+        sql1,
+        named_params! {
+        ":uncategorized_dir":&constants::UNCATEGORIZED_DIR,
+        ":collect_root":&constants::COLLECT_ROOT},
+    )?;
 
     let sql2 = include_str!("../sql/collect/insert_collect_filter_work_series.sql");
-    conn.execute_batch(sql2)?;
+    conn.execute(
+        sql2,
+        named_params! {
+        ":uncategorized_dir":&constants::UNCATEGORIZED_DIR,
+        ":collect_root":&constants::COLLECT_ROOT},
+    )?;
 
-    let sql3 = include_str!("../sql/collect/update_after_count.sql");
+    let sql3 = include_str!("../sql/collect/delete_collect_filter_work.sql");
     conn.execute_batch(sql3)?;
+
+    let sql4 = include_str!("../sql/collect/update_after_count.sql");
+    conn.execute_batch(sql4)?;
 
     Ok(())
 }
@@ -92,20 +106,15 @@ pub fn collect_illust_detail(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-/// ILLUST_INFO.save_dir に {root}/{series}/{character} を設定
-pub fn collect_illust_info(conn: &Connection) -> Result<()> {
-    let sql = include_str!("../sql/collect/collect_illust_info.sql");
-    conn.execute_batch(sql)?;
-    Ok(())
-}
-
 pub fn move_illust_files(conn: &Connection) -> Result<()> {
+    let mut success_files = vec![];
+
     let mut stmt = conn.prepare(
         "SELECT
-            F.illust_id,
+            I.illust_id,
             I.suffix,
             I.extension,
-            F.save_dir,
+            I.save_dir,
             F.collect_dir
             FROM COLLECT_FILTER_WORK F
             JOIN ILLUST_INFO I
@@ -124,7 +133,8 @@ pub fn move_illust_files(conn: &Connection) -> Result<()> {
     })?;
 
     for row in rows {
-        let (illust_id, suffix, extension, src_dir, dest_dir) = row?;
+        let row = row?;
+        let (illust_id, suffix, extension, src_dir, dest_dir) = row.clone();
 
         let filename = format!("{}_p{}.{}", illust_id, suffix, extension);
         let src_dir_path = Path::new(&src_dir);
@@ -139,40 +149,29 @@ pub fn move_illust_files(conn: &Connection) -> Result<()> {
         }
         if src_path != dest_path {
             match fs::rename(&src_path, &dest_path) {
-                Ok(_) => {}
+                Ok(_) => {
+                    success_files.push((illust_id, suffix, dest_dir));
+                }
                 Err(e) => {
                     eprintln!(
                         "ファイル移動失敗: {:?} → {:?} | エラー: {}",
                         src_path, dest_path, e
                     );
-
-                    // 失敗時はパスを復元
-                    update_save_dir(conn, illust_id, suffix, extension, dest_dir_path)?;
                 }
             }
         }
     }
 
-    Ok(())
-}
-
-fn update_save_dir(
-    conn: &Connection,
-    illust_id: i64,
-    suffix: i32,
-    extension: String,
-    path: &Path,
-) -> Result<()> {
-    let save_dir = path.to_str().map(|s| s.to_string());
-
-    conn.execute(
-        r#"
-        UPDATE ILLUST_INFO
-        SET save_dir = ?1
-        WHERE illust_id = ?2 AND suffix = ?3 AND extension = ?4
-        "#,
-        rusqlite::params![save_dir, illust_id, suffix, extension],
+    let mut stmt = conn.prepare(
+        "UPDATE ILLUST_INFO
+         SET save_dir = ?
+         WHERE illust_id = ?
+           AND suffix = ?;",
     )?;
+
+    for (illust_id, suffix, dest_dir) in success_files {
+        stmt.execute(params![dest_dir, illust_id, suffix])?;
+    }
 
     Ok(())
 }

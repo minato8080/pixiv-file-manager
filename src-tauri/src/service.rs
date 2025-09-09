@@ -4,3 +4,4 @@ pub mod common;
 pub mod fetch;
 pub mod manage;
 pub mod search;
+pub mod setting;

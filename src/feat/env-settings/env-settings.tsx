@@ -10,8 +10,6 @@ import { Label } from "@/components/ui/label";
 
 export default function EnvSettings() {
   const [config, setConfig] = useState<EnvConfig>({
-    PIXIV_ID: "",
-    PIXIV_PW: "",
     REFRESH_TOKEN: "",
     INTERVAL_MILL_SEC: "1000",
     DB_NAME: "pixiv_def",
@@ -20,7 +18,6 @@ export default function EnvSettings() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [showToken, setShowToken] = useState(false);
 
   useEffect(() => {
@@ -72,6 +69,15 @@ export default function EnvSettings() {
     }
   };
 
+  const handleLogin = async () => {
+    try {
+      const token = await invoke<string>("pixiv_authorization");
+      setConfig((prev) => ({ ...prev, REFRESH_TOKEN: token }));
+    } catch (error) {
+      console.error("Failed to login:", error);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="h-full bg-gray-50 p-4 flex items-center justify-center">
@@ -95,46 +101,15 @@ export default function EnvSettings() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-3">
-            <div>
-              <Label htmlFor="pixiv-id" className="text-sm font-medium">
-                PIXIV ID
-              </Label>
-              <Input
-                id="pixiv-id"
-                value={config.PIXIV_ID}
-                onChange={(e) => handleChange("PIXIV_ID", e.target.value)}
-                className="mt-1"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="pixiv-pw" className="text-sm font-medium">
-                PIXIV Password
-              </Label>
-              <div className="relative mt-1">
-                <Input
-                  id="pixiv-pw"
-                  type={showPassword ? "text" : "password"}
-                  value={config.PIXIV_PW}
-                  onChange={(e) => handleChange("PIXIV_PW", e.target.value)}
-                  className="pr-10"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-            </div>
-
+            <Button
+              type="button"
+              className="w-full bg-blue-600 text-white hover:bg-blue-800"
+              variant="default"
+              size="sm"
+              onClick={() => void handleLogin()}
+            >
+              Pixiv Login & Get Refresh Token
+            </Button>
             <div>
               <Label htmlFor="refresh-token" className="text-sm font-medium">
                 Refresh Token
@@ -197,7 +172,7 @@ export default function EnvSettings() {
           <div className="space-y-2 mt-6">
             <Button
               onClick={() => void saveConfig()}
-              className="w-full bg-gray-600 text-gray-200"
+              className="w-full bg-gray-600 text-gray-200 hover:bg-gray-400"
               variant="default"
               disabled={isSaving}
             >
@@ -211,7 +186,7 @@ export default function EnvSettings() {
 
             <Button
               onClick={() => void copyToClipboard()}
-              className="w-full bg-transparent"
+              className="w-full bg-transparent hover:bg-gray-300"
               variant="outline"
             >
               <Copy className="w-4 h-4 mr-2" />

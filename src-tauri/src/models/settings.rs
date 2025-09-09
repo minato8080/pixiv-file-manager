@@ -5,8 +5,6 @@ use ts_rs::TS;
 #[ts(export)]
 #[serde(rename_all = "UPPERCASE")]
 pub struct EnvConfig {
-    pixiv_id: String,
-    pixiv_pw: String,
     refresh_token: String,
     interval_mill_sec: String,
     db_name: String,

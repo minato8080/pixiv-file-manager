@@ -1,9 +1,11 @@
-use serde::{de::DeserializeOwned, Serialize};
-use serde_json::Value;
-use std::{collections::HashMap, fs, path::PathBuf};
-use tauri::{command, Manager};
+use std::collections::HashMap;
+use std::fs;
+use tauri::command;
 
 use crate::models::settings::EnvConfig;
+use crate::service::setting::{
+    from_map, get_config_path, process_pixiv_authorization, to_env_string,
+};
 
 #[command]
 pub fn get_environment_variables(app: tauri::AppHandle) -> Result<Option<EnvConfig>, String> {
@@ -31,28 +33,10 @@ pub fn save_environment_variables(
     Ok(true)
 }
 
-fn get_config_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    app.path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())
-        .map(|p| p.join(".env"))
-}
-
-fn from_map<T: DeserializeOwned>(map: HashMap<String, String>) -> Result<T, String> {
-    serde_json::from_value(serde_json::to_value(map).map_err(|e| e.to_string())?)
-        .map_err(|e| e.to_string())
-}
-
-fn to_env_string<T: Serialize>(cfg: &T) -> String {
-    match serde_json::to_value(cfg) {
-        Ok(Value::Object(map)) => map
-            .into_iter()
-            .map(|(k, v)| {
-                let val_str = v.as_str().map_or_else(|| v.to_string(), |s| s.to_string());
-                format!("{}={}", k.to_uppercase(), val_str)
-            })
-            .collect::<Vec<_>>()
-            .join("\n"),
-        _ => String::new(),
-    }
+#[command]
+pub async fn pixiv_authorization(app: tauri::AppHandle) -> Result<String, String> {
+    let refresh_token = process_pixiv_authorization(app)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(refresh_token)
 }

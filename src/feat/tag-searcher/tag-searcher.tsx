@@ -18,7 +18,8 @@ export default function TagSearcher() {
   const { searchResults, currentViewMode, setCurrentViewMode } =
     useTagSearcherStore();
 
-  const { fetchTags, fetchCharacters, fetchAuthors } = useTagSearcherStore();
+  const { fetchTags, fetchCharacters, fetchAuthors, quickReload } =
+    useTagSearcherStore();
 
   // Call handlers to fetch data using useEffect
   useEffect(() => {
@@ -29,6 +30,7 @@ export default function TagSearcher() {
       void fetchTags();
       void fetchCharacters();
       void fetchAuthors();
+      void quickReload();
     });
     return () => {
       void unlisten.then((f) => f());

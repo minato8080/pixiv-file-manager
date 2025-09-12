@@ -10,7 +10,6 @@ pub fn process_search_by_criteria(
     author_id: Option<u32>,
     conn: &Connection,
 ) -> Result<Vec<SearchResult>> {
-    println!("author_id:{:?}", author_id);
     let tag_placeholders: String = (0..tags.len())
         .map(|_| "?".to_string())
         .collect::<Vec<_>>()

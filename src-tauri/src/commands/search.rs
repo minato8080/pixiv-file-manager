@@ -3,7 +3,10 @@ use crate::{
         common::AppState,
         search::{AuthorInfo, CharacterInfo, SearchResult, TagInfo},
     },
-    service::search::{process_filter_dropdowns, process_search_by_criteria, process_search_by_id},
+    service::{
+        common::log_error,
+        search::{process_filter_dropdowns, process_search_by_criteria, process_search_by_id},
+    },
 };
 use rusqlite::Result;
 use tauri::{command, State};
@@ -13,7 +16,7 @@ pub fn get_unique_tags(state: State<AppState>) -> Result<Vec<TagInfo>, String> {
     let conn = state.db.lock().unwrap();
 
     let sql = include_str!("../sql/search/get_unique_tags.sql");
-    let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(sql).map_err(|e| log_error(e.to_string()))?;
 
     let iter = stmt
         .query_map([], |row| {
@@ -22,7 +25,7 @@ pub fn get_unique_tags(state: State<AppState>) -> Result<Vec<TagInfo>, String> {
                 count: row.get(1)?,
             })
         })
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| log_error(e.to_string()))?;
 
     let tags = iter.into_iter().filter_map(|tag| tag.ok()).collect();
 
@@ -34,7 +37,7 @@ pub fn get_unique_characters(state: State<AppState>) -> Result<Vec<CharacterInfo
     let conn = state.db.lock().unwrap();
 
     let sql = include_str!("../sql/search/get_unique_characters.sql");
-    let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(sql).map_err(|e| log_error(e.to_string()))?;
 
     let iter = stmt
         .query_map([], |row| {
@@ -42,7 +45,7 @@ pub fn get_unique_characters(state: State<AppState>) -> Result<Vec<CharacterInfo
             let count: Option<u32> = row.get(1)?;
             Ok(CharacterInfo { character, count })
         })
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| log_error(e.to_string()))?;
 
     let characters = iter
         .into_iter()
@@ -57,7 +60,7 @@ pub fn get_unique_authors(state: State<AppState>) -> Result<Vec<AuthorInfo>, Str
     let conn = state.db.lock().unwrap();
 
     let sql = include_str!("../sql/search/get_unique_authors.sql");
-    let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(sql).map_err(|e| log_error(e.to_string()))?;
 
     let iter = stmt
         .query_map([], |row| {
@@ -72,7 +75,7 @@ pub fn get_unique_authors(state: State<AppState>) -> Result<Vec<AuthorInfo>, Str
                 count,
             })
         })
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| log_error(e.to_string()))?;
 
     let authors = iter.into_iter().filter_map(|author| author.ok()).collect();
 
@@ -88,7 +91,7 @@ pub fn search_by_criteria(
 ) -> Result<Vec<SearchResult>, String> {
     let conn = state.db.lock().unwrap();
     let results =
-        process_search_by_criteria(tags, character, author_id, &conn).map_err(|e| e.to_string())?;
+        process_search_by_criteria(tags, character, author_id, &conn).map_err(|e| log_error(e.to_string()))?;
 
     Ok(results)
 }
@@ -96,7 +99,7 @@ pub fn search_by_criteria(
 #[command]
 pub fn search_by_id(id: i64, state: State<AppState>) -> Result<Vec<SearchResult>, String> {
     let conn = state.db.lock().unwrap();
-    let results = process_search_by_id(id, &conn).map_err(|e| e.to_string())?;
+    let results = process_search_by_id(id, &conn).map_err(|e| log_error(e.to_string()))?;
 
     Ok(results)
 }
@@ -110,7 +113,7 @@ pub fn filter_dropdowns(
 ) -> Result<(Vec<TagInfo>, Vec<CharacterInfo>, Vec<AuthorInfo>), String> {
     let conn = state.db.lock().unwrap();
     let results =
-        process_filter_dropdowns(tags, character, author_id, &conn).map_err(|e| e.to_string())?;
+        process_filter_dropdowns(tags, character, author_id, &conn).map_err(|e| log_error(e.to_string()))?;
 
     Ok(results)
 }

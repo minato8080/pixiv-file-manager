@@ -134,3 +134,9 @@ pub fn execute_sqls(
 
     Ok(())
 }
+
+pub fn log_error(message: String) -> String {
+    log::error!("{}", message);
+    eprintln!("{}", message);
+    message
+}

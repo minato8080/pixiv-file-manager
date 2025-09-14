@@ -7,6 +7,7 @@ use crate::models::common::AppState;
 use crate::models::fetch::{FileCounts, FileDetail, ProcessStats};
 
 use crate::models::fetch::FolderCount;
+use crate::service::common::log_error;
 use crate::service::fetch::{
     extract_dir_detail, extract_missing_files, prepare_illust_fetch_work,
     process_fetch_illust_detail,
@@ -58,7 +59,7 @@ pub fn count_files_in_dir(
         .collect();
 
     // ワークテーブルに保存
-    prepare_illust_fetch_work(&mut conn, &file_details).map_err(|e| e.to_string())?;
+    prepare_illust_fetch_work(&mut conn, &file_details).map_err(|e| log_error(e.to_string()))?;
 
     let unique_count: u32 = conn
         .query_row(
@@ -66,7 +67,7 @@ pub fn count_files_in_dir(
             [],
             |row| row.get(0),
         )
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| log_error(e.to_string()))?;
 
     let interval = std::env::var("INTERVAL_MILL_SEC")
         .ok()
@@ -101,7 +102,7 @@ pub fn capture_illust_detail(
     // 取得実行
     let result: ProcessStats =
         process_fetch_illust_detail(&mut conn, &app_pixiv_api, window.clone())
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| log_error(e.to_string()))?;
 
     // DB変更を通知
     window.emit("update_db", ()).unwrap();
@@ -122,15 +123,15 @@ pub fn recapture_illust_detail(
     let mut conn = state.db.lock().unwrap();
 
     // 失敗ファイルを抽出
-    let file_details = extract_missing_files(&conn).map_err(|e| e.to_string())?;
+    let file_details = extract_missing_files(&conn).map_err(|e| log_error(e.to_string()))?;
 
     // ワークテーブルに保存
-    prepare_illust_fetch_work(&mut conn, &file_details).map_err(|e| e.to_string())?;
+    prepare_illust_fetch_work(&mut conn, &file_details).map_err(|e| log_error(e.to_string()))?;
 
     // 再取得実行
     let result: ProcessStats =
         process_fetch_illust_detail(&mut conn, &app_pixiv_api, window.clone())
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| log_error(e.to_string()))?;
 
     // DB変更を通知
     window.emit("update_db", ()).unwrap();

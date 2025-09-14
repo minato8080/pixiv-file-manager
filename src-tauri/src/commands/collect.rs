@@ -8,6 +8,7 @@ use crate::service::collect::{
     collect_character_info, collect_illust_detail, get_collect_summary, move_illust_files,
     prepare_collect_ui_work, process_sync_db, reflesh_collect_work,
 };
+use crate::service::common::log_error;
 use crate::{
     models::{
         collect::{CollectSummary, TagAssignment},
@@ -20,7 +21,7 @@ use crate::{
 pub fn get_related_tags(tag: &str, state: State<AppState>) -> Result<Vec<TagInfo>, String> {
     let conn = state.db.lock().unwrap();
     let sql = include_str!("../sql/collect/get_related_tags.sql");
-    let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(sql).map_err(|e| log_error(e.to_string()))?;
 
     let tags = stmt
         .query_map([tag], |row| {
@@ -31,7 +32,7 @@ pub fn get_related_tags(tag: &str, state: State<AppState>) -> Result<Vec<TagInfo
         })
         .map_err(|e| e.to_string())?
         .collect::<Result<Vec<TagInfo>, _>>()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| log_error(e.to_string()))?;
 
     Ok(tags)
 }
@@ -48,12 +49,12 @@ pub fn assign_tag(
 
     // 本処理
     let mut conn = state.db.lock().unwrap();
-    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| log_error(e.to_string()))?;
 
     // id指定時は洗い替え
     if let Some(id) = assignment.id {
         tx.execute("DELETE FROM COLLECT_UI_WORK WHERE id = ?1", [id])
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| log_error(e.to_string()))?;
     }
 
     // root を取得（なければ None）
@@ -98,16 +99,16 @@ pub fn assign_tag(
             collect_type
         ],
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| log_error(e.to_string()))?;
 
     // ソートし直す
-    sort_collect_work(&tx).map_err(|e| e.to_string())?;
+    sort_collect_work(&tx).map_err(|e| log_error(e.to_string()))?;
 
     // after_countを計算
-    reflesh_collect_work(&tx).map_err(|e| e.to_string())?;
+    reflesh_collect_work(&tx).map_err(|e| log_error(e.to_string()))?;
 
     // コミット
-    tx.commit().map_err(|e| e.to_string())?;
+    tx.commit().map_err(|e| log_error(e.to_string()))?;
 
     get_collect_summary(&conn).map_err(|e| e.to_string())
 }
@@ -124,14 +125,15 @@ pub fn delete_collect(
 
     // 本処理
     let mut conn = state.db.lock().unwrap();
-    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| log_error(e.to_string()))?;
 
     let sql_template = "UPDATE COLLECT_UI_WORK SET collect_type = 3, unsave = 1, after_count = 0";
 
     if let Some(id) = assignment.id {
         // id指定時
         let sql = sql_template.to_owned() + " WHERE id = ?1";
-        tx.execute(&sql, [id]).map_err(|e| e.to_string())?;
+        tx.execute(&sql, [id])
+            .map_err(|e| log_error(e.to_string()))?;
     } else {
         // entity指定時
         let entity_key = assignment
@@ -141,14 +143,15 @@ pub fn delete_collect(
             .expect("Invalid assignment: expected exactly one of 'character' or 'series'");
 
         let sql = sql_template.to_owned() + " WHERE entity_key = ?1";
-        tx.execute(&sql, [entity_key]).map_err(|e| e.to_string())?;
+        tx.execute(&sql, [entity_key])
+            .map_err(|e| log_error(e.to_string()))?;
     }
 
     // after_countを計算
-    reflesh_collect_work(&tx).map_err(|e| e.to_string())?;
+    reflesh_collect_work(&tx).map_err(|e| log_error(e.to_string()))?;
 
     // コミット
-    tx.commit().map_err(|e| e.to_string())?;
+    tx.commit().map_err(|e| log_error(e.to_string()))?;
 
     get_collect_summary(&conn).map_err(|e| e.to_string())
 }
@@ -156,15 +159,15 @@ pub fn delete_collect(
 #[command]
 pub fn load_assignments(state: State<AppState>) -> Result<Vec<CollectSummary>, String> {
     let mut conn = state.db.lock().unwrap();
-    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| log_error(e.to_string()))?;
 
     // COLLECT_UI_WORKを準備
-    prepare_collect_ui_work(&tx).map_err(|e| e.to_string())?;
+    prepare_collect_ui_work(&tx).map_err(|e| log_error(e.to_string()))?;
 
     // after_countを計算
-    reflesh_collect_work(&tx).map_err(|e| e.to_string())?;
+    reflesh_collect_work(&tx).map_err(|e| log_error(e.to_string()))?;
 
-    tx.commit().map_err(|e| e.to_string())?;
+    tx.commit().map_err(|e| log_error(e.to_string()))?;
 
     // 結果を返却
     get_collect_summary(&conn).map_err(|e| e.to_string())
@@ -176,29 +179,29 @@ pub fn perform_collect(
     window: tauri::Window,
 ) -> Result<Vec<CollectSummary>, String> {
     let mut conn = state.db.lock().unwrap();
-    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| log_error(e.to_string()))?;
 
     // COLLECT_UI_WORKから、unsave = false のレコードをすべて削除する
     tx.execute("DELETE FROM COLLECT_UI_WORK WHERE unsave = false", [])
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| log_error(e.to_string()))?;
 
-    collect_character_info(&tx).map_err(|e| e.to_string())?;
+    collect_character_info(&tx).map_err(|e| log_error(e.to_string()))?;
 
-    collect_illust_detail(&tx).map_err(|e| e.to_string())?;
+    collect_illust_detail(&tx).map_err(|e| log_error(e.to_string()))?;
 
-    move_illust_files(&tx).map_err(|e| e.to_string())?;
+    move_illust_files(&tx).map_err(|e| log_error(e.to_string()))?;
 
-    tx.commit().map_err(|e| e.to_string())?;
+    tx.commit().map_err(|e| log_error(e.to_string()))?;
 
-    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| log_error(e.to_string()))?;
 
     // COLLECT_UI_WORKを準備
-    prepare_collect_ui_work(&tx).map_err(|e| e.to_string())?;
+    prepare_collect_ui_work(&tx).map_err(|e| log_error(e.to_string()))?;
 
     // after_countを計算
-    reflesh_collect_work(&tx).map_err(|e| e.to_string())?;
+    reflesh_collect_work(&tx).map_err(|e| log_error(e.to_string()))?;
 
-    tx.commit().map_err(|e| e.to_string())?;
+    tx.commit().map_err(|e| log_error(e.to_string()))?;
 
     // DB変更を通知
     window.emit("update_db", ()).unwrap();
@@ -231,11 +234,11 @@ pub fn get_root(state: State<AppState>) -> Result<Option<String>, String> {
     let conn = state.db.lock().unwrap();
     let mut stmt = conn
         .prepare("SELECT value FROM COMMON_MST WHERE key = ?")
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| log_error(e.to_string()))?;
     let root_path: Option<String> = stmt
         .query_row([constants::COLLECT_ROOT], |row| row.get(0))
         .optional()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| log_error(e.to_string()))?;
     Ok(root_path)
 }
 
@@ -244,7 +247,7 @@ pub fn get_available_unique_tags(state: State<AppState>) -> Result<Vec<TagInfo>,
     let conn = state.db.lock().unwrap();
 
     let sql = include_str!("../sql/collect/get_available_unique_tags.sql");
-    let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(sql).map_err(|e| log_error(e.to_string()))?;
 
     let iter = stmt
         .query_map([], |row| {
@@ -253,7 +256,7 @@ pub fn get_available_unique_tags(state: State<AppState>) -> Result<Vec<TagInfo>,
                 count: row.get(1)?,
             })
         })
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| log_error(e.to_string()))?;
 
     let tags = iter.into_iter().filter_map(|tag| tag.ok()).collect();
 
@@ -263,7 +266,7 @@ pub fn get_available_unique_tags(state: State<AppState>) -> Result<Vec<TagInfo>,
 #[command]
 pub fn sync_db(root: String, state: State<AppState>) -> Result<Vec<FileSummary>, String> {
     let mut conn = state.db.lock().unwrap();
-    let res = process_sync_db(root, &mut conn).map_err(|e| e.to_string())?;
+    let res = process_sync_db(root, &mut conn).map_err(|e| log_error(e.to_string()))?;
 
     Ok(res)
 }
@@ -274,7 +277,7 @@ pub fn delete_missing_illusts(
     state: State<AppState>,
 ) -> Result<(), String> {
     let mut conn = state.db.lock().unwrap();
-    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| log_error(e.to_string()))?;
 
     // 1. ILLUST_INFO から削除
     for item in &items {
@@ -282,7 +285,7 @@ pub fn delete_missing_illusts(
             "DELETE FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
             params![item.illust_id, item.suffix],
         )
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| log_error(e.to_string()))?;
     }
 
     // 2. 孤立した ILLUST_DETAIL を削除
@@ -294,8 +297,8 @@ pub fn delete_missing_illusts(
         );",
         (),
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| log_error(e.to_string()))?;
 
-    tx.commit().map_err(|e| e.to_string())?;
+    tx.commit().map_err(|e| log_error(e.to_string()))?;
     Ok(())
 }

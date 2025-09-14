@@ -8,7 +8,7 @@ use crate::{
         search::TagInfo,
     },
     service::{
-        common::format_unix_timestamp,
+        common::{format_unix_timestamp, log_error},
         manage::{apply_tag_fix_rules, validate_and_insert_tag_fix_rule},
     },
 };
@@ -22,7 +22,7 @@ pub fn get_tag_fix_rules(state: State<AppState>) -> Result<Vec<TagFixRule>, Stri
              FROM TAG_FIX_RULES
              ORDER BY created_at DESC",
         )
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| log_error(e.to_string()))?;
     let rules = stmt
         .query_map([], |row| {
             Ok(TagFixRule {
@@ -35,7 +35,7 @@ pub fn get_tag_fix_rules(state: State<AppState>) -> Result<Vec<TagFixRule>, Stri
         })
         .map_err(|e| e.to_string())?
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| log_error(e.to_string()))?;
     Ok(rules)
 }
 
@@ -67,7 +67,7 @@ pub fn update_tag_fix_rule(
          WHERE id = ?4",
         params![src_tag, dst_tag, action_type as i64, id],
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| log_error(e.to_string()))?;
     Ok(())
 }
 
@@ -75,7 +75,7 @@ pub fn update_tag_fix_rule(
 pub fn delete_tag_fix_rule(id: i64, state: State<AppState>) -> Result<(), String> {
     let conn = state.db.lock().unwrap();
     conn.execute("DELETE FROM TAG_FIX_RULES WHERE id = ?1", params![id])
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| log_error(e.to_string()))?;
     Ok(())
 }
 
@@ -85,9 +85,9 @@ pub fn execute_tag_fixes(
     window: tauri::Window,
 ) -> Result<ExecuteResult, String> {
     let mut conn = state.db.lock().unwrap();
-    let tx = conn.transaction().map_err(|e| e.to_string())?;
-    let result = apply_tag_fix_rules(&tx).map_err(|e| e.to_string())?;
-    tx.commit().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| log_error(e.to_string()))?;
+    let result = apply_tag_fix_rules(&tx).map_err(|e| log_error(e.to_string()))?;
+    tx.commit().map_err(|e| log_error(e.to_string()))?;
     // DB変更を通知
     window.emit("update_db", ()).unwrap();
 
@@ -99,7 +99,7 @@ pub fn get_using_fix_rule_tags(state: State<AppState>) -> Result<Vec<TagInfo>, S
     let conn = state.db.lock().unwrap();
 
     let sql = include_str!("../sql/manage/get_using_fix_rule_tags.sql");
-    let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(sql).map_err(|e| log_error(e.to_string()))?;
 
     let iter = stmt
         .query_map([], |row| {
@@ -108,7 +108,7 @@ pub fn get_using_fix_rule_tags(state: State<AppState>) -> Result<Vec<TagInfo>, S
                 count: row.get(1)?,
             })
         })
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| log_error(e.to_string()))?;
 
     let tags = iter.into_iter().filter_map(|tag| tag.ok()).collect();
 

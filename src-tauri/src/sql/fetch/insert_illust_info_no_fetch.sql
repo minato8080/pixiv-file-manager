@@ -1,7 +1,5 @@
--- ILLUST_INFO に挿入
-INSERT OR IGNORE INTO ILLUST_INFO (
-    illust_id, suffix, extension, save_dir, cnum
-)
+-- 一時テーブル inserted を作る
+CREATE TEMP TABLE tmp_inserted AS
 WITH base AS (
     SELECT inf.*
     FROM tmp_insert_files inf
@@ -20,23 +18,23 @@ cnum_map AS (
         ) AS cnum
     FROM base b
     GROUP BY illust_id
-),
-inserted AS (
-    SELECT
-        b.illust_id,
-        b.suffix,
-        b.extension,
-        b.save_dir,
-        cm.cnum
-    FROM base b
-    JOIN cnum_map cm ON b.illust_id = cm.illust_id
 )
-SELECT * FROM inserted;
+SELECT
+    b.illust_id,
+    b.suffix,
+    b.extension,
+    b.save_dir,
+    cm.cnum
+FROM base b
+JOIN cnum_map cm ON b.illust_id = cm.illust_id;
 
--- TAG_INFO に "Missing" を追加
+-- ILLUST_INFO に挿入
+INSERT OR IGNORE INTO ILLUST_INFO (
+    illust_id, suffix, extension, save_dir, cnum
+)
+SELECT * FROM tmp_inserted;
+
+-- TAG_INFO に "Missing" を挿入
 INSERT OR IGNORE INTO TAG_INFO (illust_id, cnum, tag)
 SELECT illust_id, cnum, 'Missing'
-FROM ILLUST_INFO
-WHERE (illust_id, cnum) IN (
-    SELECT illust_id, cnum FROM inserted
-);
+FROM tmp_inserted;

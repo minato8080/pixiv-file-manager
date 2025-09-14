@@ -7,6 +7,7 @@ pub struct ProcessStats {
     pub total_ids: u32,
     pub successed_ids: u32,
     pub failed_ids: u32,
+    pub duplicated_files: u32,
     pub process_time: String,
     pub failed_file_paths: Vec<String>,
 }

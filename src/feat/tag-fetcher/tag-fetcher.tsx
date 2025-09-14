@@ -304,6 +304,14 @@ export default function TagFetcher() {
                 Failed
               </div>
             </div>
+            <div className="p-2 rounded-md bg-gradient-to-br from-red-50 to-rose-100 dark:from-red-900/30 dark:to-rose-900/30 border border-red-200 dark:border-red-700">
+              <div className="text-xl font-bold text-red-700 dark:text-red-300">
+                {stats.duplicated_files}
+              </div>
+              <div className="text-xs text-red-600 dark:text-red-400">
+                Duplicated
+              </div>
+            </div>
             <div className="p-2 rounded-md bg-gradient-to-br from-indigo-50 to-blue-100 dark:from-indigo-900/30 dark:to-blue-900/30 border border-indigo-200 dark:border-indigo-700">
               <div className="text-xl font-bold text-indigo-700 dark:text-indigo-300">
                 {stats.process_time}

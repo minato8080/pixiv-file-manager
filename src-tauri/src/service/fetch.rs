@@ -76,7 +76,8 @@ pub fn process_fetch_illust_detail(
     let tx = conn.transaction()?;
 
     // 重複ファイルを検知して削除
-    delete_duplicate_files(&tx)?;
+    let cnt = delete_duplicate_files(&tx)?;
+    stats.duplicated_files = cnt;
 
     // 詳細を取得できたらMissingタグを削除
     delete_missing_tags(&tx)?;
@@ -200,6 +201,7 @@ fn core_fetch_illust_detail(
         total_ids: success_count + fail_count,
         successed_ids: success_count,
         failed_ids: fail_count,
+        duplicated_files: 0,
         process_time: format_duration(duration.as_millis() as u64),
         failed_file_paths,
     })
@@ -265,7 +267,7 @@ fn insert_illust_info_no_fetch(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-fn delete_duplicate_files(conn: &Connection) -> Result<()> {
+fn delete_duplicate_files(conn: &Connection) -> Result<u32> {
     let mut stmt = conn.prepare("SELECT file_path FROM tmp_delete_files;")?;
     let delete_iter = stmt.query_map([], |row| {
         let file_path: String = row.get(0)?;
@@ -279,7 +281,10 @@ fn delete_duplicate_files(conn: &Connection) -> Result<()> {
         delete(target)?;
     }
 
-    Ok(())
+    let cnt: u32 = conn.query_row("SELECT COUNT(*) FROM tmp_delete_files;", [], |row| {
+        row.get(0)
+    })?;
+    Ok(cnt)
 }
 
 pub fn extract_missing_files(conn: &Connection) -> Result<Vec<FileDetail>> {

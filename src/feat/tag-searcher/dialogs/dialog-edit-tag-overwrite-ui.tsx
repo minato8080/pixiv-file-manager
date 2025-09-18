@@ -150,7 +150,7 @@ export const OverwriteModeUI = () => {
             </SelectTrigger>
             <SelectContent className="bg-white">
               {selectedFiles.map((file) => (
-                <SelectItem key={file.id} value={file.file_name}>
+                <SelectItem key={file.illust_id} value={file.file_name}>
                   {file.file_name}
                 </SelectItem>
               ))}

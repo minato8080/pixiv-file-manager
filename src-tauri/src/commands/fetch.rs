@@ -1,3 +1,4 @@
+use futures::future::join_all;
 use std::path::Path;
 use std::vec::Vec;
 use tauri::{command, Emitter, State};
@@ -14,11 +15,11 @@ use crate::service::fetch::{
 };
 
 #[command]
-pub fn count_files_in_dir(
+pub async fn count_files_in_dir(
     state: State<'_, AppState>,
     folders: Vec<String>,
 ) -> Result<FileCounts, String> {
-    let mut conn = state.db.lock().unwrap();
+    let mut pool = &state.pool;
 
     // フォルダ数
     let folder_counts: Vec<FolderCount> = folders
@@ -53,21 +54,20 @@ pub fn count_files_in_dir(
         .sum();
 
     // ファイル詳細に変換
-    let file_details: Vec<FileDetail> = folders
-        .iter()
-        .flat_map(|folder| extract_dir_detail(folder))
-        .collect();
+    let tasks = folders.iter().map(|folder| extract_dir_detail(folder));
+    let results: Vec<Vec<FileDetail>> = join_all(tasks).await;
+    let file_details: Vec<FileDetail> = results.into_iter().flatten().collect();
 
     // ワークテーブルに保存
-    prepare_illust_fetch_work(&mut conn, &file_details).map_err(|e| log_error(e.to_string()))?;
+    prepare_illust_fetch_work(&mut pool, &file_details)
+        .await
+        .map_err(log_error)?;
 
-    let unique_count: u32 = conn
-        .query_row(
-            "SELECT COUNT(DISTINCT illust_id) FROM ILLUST_FETCH_WORK;",
-            [],
-            |row| row.get(0),
-        )
-        .map_err(|e| log_error(e.to_string()))?;
+    let unique_count: u32 =
+        sqlx::query_scalar("SELECT COUNT(DISTINCT illust_id) FROM ILLUST_FETCH_WORK;")
+            .fetch_one(pool)
+            .await
+            .map_err(log_error)?;
 
     let interval = std::env::var("INTERVAL_MILL_SEC")
         .ok()
@@ -88,21 +88,23 @@ pub fn count_files_in_dir(
 }
 
 #[command]
-pub fn capture_illust_detail(
+pub async fn capture_illust_detail(
     state: State<'_, AppState>,
     window: tauri::Window,
 ) -> Result<ProcessStats, String> {
-    let app_pixiv_api = match &state.app_pixiv_api {
-        Some(api) => api.clone(),
-        None => return Err("API is unavailable.".to_string()),
-    };
+    let pixiv_client = state
+        .pixiv_client_provider
+        .get_client()
+        .await
+        .map_err(log_error)?;
 
-    let mut conn = state.db.lock().unwrap();
+    let mut pool = &state.pool;
 
     // 取得実行
     let result: ProcessStats =
-        process_fetch_illust_detail(&mut conn, &app_pixiv_api, window.clone())
-            .map_err(|e| log_error(e.to_string()))?;
+        process_fetch_illust_detail(&mut pool, &pixiv_client, window.clone())
+            .await
+            .map_err(log_error)?;
 
     // DB変更を通知
     window.emit("update_db", ()).unwrap();
@@ -111,30 +113,43 @@ pub fn capture_illust_detail(
 }
 
 #[command]
-pub fn recapture_illust_detail(
+pub async fn recapture_illust_detail(
     state: State<'_, AppState>,
     window: tauri::Window,
 ) -> Result<ProcessStats, String> {
-    let app_pixiv_api = match &state.app_pixiv_api {
-        Some(api) => api.clone(),
-        None => return Err("API is unavailable.".to_string()),
-    };
+    let pixiv_client = state
+        .pixiv_client_provider
+        .get_client()
+        .await
+        .map_err(log_error)?;
 
-    let mut conn = state.db.lock().unwrap();
+    let mut pool = &state.pool;
 
     // 失敗ファイルを抽出
-    let file_details = extract_missing_files(&conn).map_err(|e| log_error(e.to_string()))?;
+    let file_details = extract_missing_files(pool).await.map_err(log_error)?;
 
     // ワークテーブルに保存
-    prepare_illust_fetch_work(&mut conn, &file_details).map_err(|e| log_error(e.to_string()))?;
+    prepare_illust_fetch_work(&mut pool, &file_details)
+        .await
+        .map_err(log_error)?;
 
     // 再取得実行
     let result: ProcessStats =
-        process_fetch_illust_detail(&mut conn, &app_pixiv_api, window.clone())
-            .map_err(|e| log_error(e.to_string()))?;
+        process_fetch_illust_detail(&mut pool, &pixiv_client, window.clone())
+            .await
+            .map_err(log_error)?;
 
     // DB変更を通知
     window.emit("update_db", ()).unwrap();
 
     Ok(result)
+}
+
+#[command]
+pub async fn init_pixiv_client(state: State<'_, AppState>) -> Result<(), String> {
+    state
+        .pixiv_client_provider
+        .refresh_client()
+        .await
+        .map_err(log_error)
 }

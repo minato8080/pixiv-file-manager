@@ -10,31 +10,20 @@ mod models;
 mod service;
 
 use anyhow::{anyhow, Result};
-use api::pixiv::create_api;
 use models::common::AppState;
-use rusqlite::Connection;
+use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::Arc;
 use tauri::Manager;
 
-use commands::{catalog::*, collect::*, fetch::*, manage::*, search::*, settings::*};
-use service::common::log_error;
+use crate::api::pixiv::RealPixivClientProvider;
+use crate::commands::{catalog::*, collect::*, fetch::*, manage::*, search::*, settings::*};
+use crate::service::common::{execute_queries, log_error};
 
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .setup(|app: &mut tauri::App| {
-            load_env(app);
-
-            init_logger(app);
-
-            if let Err(e) = init_app_state(app) {
-                log_error(format!("Failed to init app state: {}", e));
-                std::process::exit(1);
-            }
-
-            Ok(())
-        })
+        .setup(setup)
         .invoke_handler(tauri::generate_handler![
             // catalog
             delete_files,
@@ -58,6 +47,7 @@ fn main() {
             capture_illust_detail,
             count_files_in_dir,
             recapture_illust_detail,
+            init_pixiv_client,
             // manage
             get_tag_fix_rules,
             add_tag_fix_rule,
@@ -81,16 +71,31 @@ fn main() {
         .expect("error while running tauri application");
 }
 
+fn setup<'a>(app: &'a mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    load_env(app);
+
+    init_logger(app);
+
+    let handle = app.handle().clone();
+
+    if let Err(e) = tauri::async_runtime::block_on(init_app_state(handle)) {
+        log_error(anyhow!("Failed to init app state: {}", e));
+        std::process::exit(1);
+    };
+
+    Ok(())
+}
+
 fn load_env(app: &tauri::App) {
     match app.path().app_data_dir() {
         Ok(app_data_dir) => {
             let env_path = app_data_dir.join(".env");
             if dotenv::from_path(&env_path).is_err() {
-                log_error(format!("No .env file found at {:?}", env_path));
+                log_error(anyhow!("No .env file found at {:?}", env_path));
             }
         }
         Err(e) => {
-            log_error(format!("Failed to get app_data_dir: {}", e));
+            log_error(anyhow!("Failed to get app_data_dir: {}", e));
         }
     }
 }
@@ -119,33 +124,33 @@ fn init_logger(app: &tauri::App) {
         .unwrap();
 }
 
-fn init_app_state(app: &tauri::App) -> Result<()> {
+async fn init_app_state(app: tauri::AppHandle) -> Result<()> {
     let db_path = app.path().app_data_dir().unwrap().join(format!(
         "{}.db",
         std::env::var("DB_NAME").unwrap_or_else(|_| "pixiv_def".to_string())
     ));
 
-    let mut conn = Connection::open(db_path)
-        .map_err(|e| anyhow!("Failed to open database connection: {}", e))?;
+    let pool = SqlitePoolOptions::new()
+        .max_connections(5)
+        .connect(&db_path.to_string_lossy().to_string())
+        .await?;
 
-    init_db(&mut conn).map_err(|e| anyhow!("Failed to initialize DB: {}", e))?;
-
-    let app_pixiv_api = create_api()
-        .map_err(|e| log_error(format!("Failed to create API: {}", e)))
-        .ok();
+    init_db(&pool)
+        .await
+        .map_err(|e| anyhow!("Failed to initialize DB: {}", e))?;
 
     app.manage(AppState {
-        db: Mutex::new(conn),
-        app_pixiv_api,
+        pool,
+        pixiv_client_provider: Arc::new(RealPixivClientProvider::new()),
     });
 
     Ok(())
 }
 
-fn init_db(conn: &mut Connection) -> Result<()> {
-    let tx = conn.transaction()?;
+async fn init_db(pool: &SqlitePool) -> Result<()> {
+    let mut tx = pool.begin().await?;
     let sql = include_str!("./sql/initialize_db.sql");
-    tx.execute_batch(sql)?;
-    tx.commit()?;
+    execute_queries(&mut tx, sql).await?;
+    tx.commit().await?;
     Ok(())
 }

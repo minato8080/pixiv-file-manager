@@ -28,6 +28,8 @@ tagged AS (
         b.suffix,
         b.extension,
         b.save_dir,
+        b.illust_id || '_p' || b.suffix || '.' || b.extension AS file_name,
+        b.save_dir || '\'  || b.illust_id || '_p' || b.suffix || '.' || b.extension AS thumbnail_url,
         b.character,
         b.author_name,
         GROUP_CONCAT(T.tag, ',') AS tags

@@ -9,7 +9,7 @@ use crate::service::setting::{
 };
 
 #[command]
-pub fn get_environment_variables(app: tauri::AppHandle) -> Result<Option<EnvConfig>, String> {
+pub async fn get_environment_variables(app: tauri::AppHandle) -> Result<Option<EnvConfig>, String> {
     let config_path = get_config_path(&app)?;
 
     dotenvy::from_path_iter(&config_path)
@@ -22,7 +22,7 @@ pub fn get_environment_variables(app: tauri::AppHandle) -> Result<Option<EnvConf
 }
 
 #[command]
-pub fn save_environment_variables(
+pub async fn save_environment_variables(
     config: EnvConfig,
     app: tauri::AppHandle,
 ) -> Result<bool, String> {
@@ -36,8 +36,6 @@ pub fn save_environment_variables(
 
 #[command]
 pub async fn pixiv_authorization(app: tauri::AppHandle) -> Result<String, String> {
-    let refresh_token = process_pixiv_authorization(app)
-        .await
-        .map_err(|e| log_error(e.to_string()))?;
+    let refresh_token = process_pixiv_authorization(app).await.map_err(log_error)?;
     Ok(refresh_token)
 }

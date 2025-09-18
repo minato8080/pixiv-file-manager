@@ -15,7 +15,6 @@ import { ResultArea } from "./result-area";
 import { SyncResultsDialog } from "./sync-results-dialog";
 
 import type { CollectSummary } from "@/bindings/CollectSummary";
-import type { GeneralResponse } from "@/bindings/GeneralResponse";
 import type { TagAssignment } from "@/bindings/TagAssignment";
 import type { TagInfo } from "@/bindings/TagInfo";
 import { Button } from "@/components/ui/button";
@@ -130,13 +129,11 @@ export default function FileOrganizer() {
 
     setLoading(true);
     try {
-      const result: GeneralResponse = await invoke("set_root", {
+      await invoke("set_root", {
         root: rootPath,
       });
-      if (result.success) {
-        setIsChangeRoot(false);
-        void loadSummary();
-      }
+      setIsChangeRoot(false);
+      void loadSummary();
     } finally {
       setLoading(false);
     }

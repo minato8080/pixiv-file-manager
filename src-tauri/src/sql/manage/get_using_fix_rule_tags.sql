@@ -1,6 +1,6 @@
 SELECT
   all_rule.tag,
-  IFNULL(tag_usage.count, 0) AS usage_count
+  IFNULL(tag_usage.count, 0) AS count
 FROM (
     SELECT src_tag AS tag FROM TAG_FIX_RULES
     UNION
@@ -17,4 +17,4 @@ LEFT JOIN (
     GROUP BY T.tag
 ) tag_usage
   ON all_rule.tag = tag_usage.tag
-ORDER BY usage_count DESC, all_rule.tag ASC;
+ORDER BY count DESC, all_rule.tag ASC;

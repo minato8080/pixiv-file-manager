@@ -1,183 +1,170 @@
 use anyhow::{Context, Result};
 use regex::Regex;
-use rusqlite::named_params;
-use rusqlite::params;
-use rusqlite::Connection;
-use std::collections::HashMap;
+use sqlx::Acquire;
+use sqlx::SqliteConnection;
+use sqlx::SqlitePool;
 use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 use walkdir::WalkDir;
 
-use crate::models::collect::{FileSummary, TempFile};
-use crate::service::common::{execute_sqls, update_cnum};
-use crate::{constants, models::collect::CollectSummary};
+use crate::constants;
+use crate::execute_queries;
+use crate::models::collect::*;
+use crate::named_params;
+use crate::service::common::{execute_named_queries, update_cnum};
 
-pub fn prepare_collect_ui_work(conn: &Connection) -> Result<()> {
+pub async fn prepare_collect_ui_work(conn: &mut SqliteConnection) -> Result<()> {
     let sql = include_str!("../sql/collect/prepare_collect_ui_work.sql");
-    let mut params: HashMap<&str, &dyn rusqlite::ToSql> = HashMap::new();
-    params.insert(":collect_root", &constants::COLLECT_ROOT);
-    execute_sqls(conn, &sql, &params)?;
+
+    execute_named_queries(
+        &mut *conn,
+        &sql,
+        &named_params!({
+            ":collect_root"=>constants::COLLECT_ROOT
+        }),
+    )
+    .await?;
     Ok(())
 }
 
-pub fn reflesh_collect_work(conn: &Connection) -> Result<()> {
-    conn.execute("DELETE FROM COLLECT_FILTER_WORK;", [])?;
+pub async fn reflesh_collect_work(conn: &mut SqliteConnection) -> Result<()> {
+    sqlx::query("DELETE FROM COLLECT_FILTER_WORK;")
+        .execute(&mut *conn)
+        .await?;
 
     let sql1 = include_str!("../sql/collect/insert_collect_filter_work_character.sql");
-    conn.execute(
+    execute_named_queries(
+        &mut *conn,
         sql1,
-        named_params! {
-        ":uncategorized_dir":&constants::UNCATEGORIZED_DIR,
-        ":collect_root":&constants::COLLECT_ROOT},
-    )?;
+        &named_params!({
+            ":uncategorized_dir"=>constants::UNCATEGORIZED_DIR,
+            ":collect_root"=>constants::COLLECT_ROOT
+        }),
+    )
+    .await?;
 
     let sql2 = include_str!("../sql/collect/insert_collect_filter_work_series.sql");
-    conn.execute(
+    execute_named_queries(
+        &mut *conn,
         sql2,
-        named_params! {
-        ":uncategorized_dir":&constants::UNCATEGORIZED_DIR,
-        ":collect_root":&constants::COLLECT_ROOT},
-    )?;
+        &named_params!({
+            ":uncategorized_dir"=>constants::UNCATEGORIZED_DIR,
+            ":collect_root"=>constants::COLLECT_ROOT
+        }),
+    )
+    .await?;
 
     let sql3 = include_str!("../sql/collect/delete_collect_filter_work.sql");
-    conn.execute_batch(sql3)?;
+    execute_queries(&mut *conn, sql3).await?;
 
     let sql4 = include_str!("../sql/collect/update_after_count.sql");
-    conn.execute_batch(sql4)?;
+    execute_queries(&mut *conn, sql4).await?;
 
     Ok(())
 }
 
-pub fn sort_collect_work(conn: &Connection) -> Result<()> {
+pub async fn sort_collect_work(conn: &mut SqliteConnection) -> Result<()> {
     let sql = include_str!("../sql/collect/sort_collect_work.sql");
-    conn.execute_batch(sql)?;
+
+    execute_queries(&mut *conn, sql).await?;
+
     Ok(())
 }
 
-pub fn get_collect_summary(conn: &Connection) -> Result<Vec<CollectSummary>> {
-    // COLLECT_UI_WORKの結果を取得して返す
-    let mut stmt = conn.prepare(
-        "SELECT
-                id,
-                series,
-                character,
-                collect_dir,
-                before_count,
-                after_count,
-                unsave
-            FROM COLLECT_UI_WORK
-            WHERE collect_type <> 3
-            ORDER BY id ASC
-            ;",
-    )?;
-    let collect_work_iter = stmt.query_map([], |row| {
-        Ok(CollectSummary {
-            id: row.get(0)?,
-            series: row.get(1)?,
-            character: row.get(2)?,
-            new_path: row.get::<_, Option<String>>(3)?,
-            before_count: row.get(4)?,
-            after_count: row.get(5)?,
-            is_new: row.get(6)?,
-        })
-    })?;
+pub async fn get_collect_summary(pool: &SqlitePool) -> Result<Vec<CollectSummary>> {
+    let sql = include_str!("../sql/collect/get_collect_summary.sql");
 
-    let mut results = Vec::new();
-    for collect_work in collect_work_iter {
-        results.push(collect_work?);
-    }
+    let results = sqlx::query_as::<_, CollectSummary>(sql)
+        .fetch_all(pool)
+        .await?;
 
     Ok(results)
 }
 
-pub fn collect_character_info(conn: &Connection) -> Result<()> {
+pub async fn collect_character_info(conn: &mut SqliteConnection) -> Result<()> {
     let sql = include_str!("../sql/collect/collect_character_info.sql");
-    let mut params: HashMap<&str, &dyn rusqlite::ToSql> = HashMap::new();
-    params.insert(":collect_root", &constants::COLLECT_ROOT);
-    execute_sqls(conn, sql, &params)?;
+
+    execute_named_queries(
+        &mut *conn,
+        sql,
+        &named_params!({
+            ":collect_root"=>constants::COLLECT_ROOT
+        }),
+    )
+    .await?;
     Ok(())
 }
 
-pub fn collect_illust_detail(conn: &Connection) -> Result<()> {
+pub async fn collect_illust_detail(conn: &mut SqliteConnection) -> Result<()> {
     let sql = include_str!("../sql/collect/collect_illust_detail.sql");
-    conn.execute_batch(sql)?;
+
+    execute_queries(&mut *conn, sql).await?;
 
     Ok(())
 }
 
-pub fn move_illust_files(conn: &Connection) -> Result<()> {
+pub async fn move_illust_files(conn: &mut SqliteConnection) -> Result<()> {
     let mut success_files = vec![];
 
-    let mut stmt = conn.prepare(
-        "SELECT
-            I.illust_id,
-            I.suffix,
-            I.extension,
-            I.save_dir,
-            F.collect_dir
-            FROM COLLECT_FILTER_WORK F
-            JOIN ILLUST_INFO I
-            ON F.illust_id = I.illust_id
-            AND F.cnum = I.cnum",
-    )?;
+    let sql = include_str!("../sql/collect/move_illust_files.sql");
 
-    let rows = stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, i64>(0)?,    // illust_id
-            row.get::<_, i32>(1)?,    // suffix
-            row.get::<_, String>(2)?, // extension
-            row.get::<_, String>(3)?, // src_dir
-            row.get::<_, String>(4)?, // dest_dir
-        ))
-    })?;
+    let rows: Vec<MoveIllustFiles> = sqlx::query_as(sql).fetch_all(&mut *conn).await?;
 
     for row in rows {
-        let row = row?;
-        let (illust_id, suffix, extension, src_dir, dest_dir) = row.clone();
+        let MoveIllustFiles {
+            illust_id,
+            suffix,
+            extension,
+            src_dir,
+            dest_dir,
+        } = row;
 
         let filename = format!("{}_p{}.{}", illust_id, suffix, extension);
-        let src_dir_path = Path::new(&src_dir);
-        let src_path = src_dir_path.join(&filename);
-        let dest_dir_path = Path::new(&dest_dir);
-        let dest_path = dest_dir_path.join(&filename);
+
+        let src_path: PathBuf = Path::new(&src_dir).join(&filename);
+        let dest_path: PathBuf = Path::new(&dest_dir).join(&filename);
 
         // ディレクトリが存在しなければ作成
-        if !dest_dir_path.exists() {
-            fs::create_dir_all(&dest_dir_path)
-                .with_context(|| format!("ディレクトリ作成失敗: {:?}", dest_dir_path))?;
+        if let Err(e) = fs::create_dir_all(&dest_path.parent().unwrap())
+            .with_context(|| format!("ディレクトリ作成失敗: {:?}", dest_path.parent().unwrap()))
+        {
+            eprintln!("{}", e);
+            continue;
         }
+
         if src_path != dest_path {
             match fs::rename(&src_path, &dest_path) {
-                Ok(_) => {
-                    success_files.push((illust_id, suffix, dest_dir));
-                }
-                Err(e) => {
-                    eprintln!(
-                        "ファイル移動失敗: {:?} → {:?} | エラー: {}",
-                        src_path, dest_path, e
-                    );
-                }
+                Ok(_) => success_files.push((illust_id, suffix, dest_dir.clone())),
+                Err(e) => eprintln!(
+                    "ファイル移動失敗: {:?} → {:?} | エラー: {}",
+                    src_path, dest_path, e
+                ),
             }
         }
     }
 
-    let mut stmt = conn.prepare(
-        "UPDATE ILLUST_INFO
+    let sql = "UPDATE ILLUST_INFO
          SET save_dir = ?
          WHERE illust_id = ?
-           AND suffix = ?;",
-    )?;
+           AND suffix = ?;";
 
     for (illust_id, suffix, dest_dir) in success_files {
-        stmt.execute(params![dest_dir, illust_id, suffix])?;
+        sqlx::query(sql)
+            .bind(dest_dir)
+            .bind(illust_id)
+            .bind(suffix)
+            .execute(&mut *conn)
+            .await?;
     }
 
     Ok(())
 }
 
-pub fn process_sync_db(root: String, conn: &mut Connection) -> Result<Vec<FileSummary>> {
-    let tx = conn.transaction()?;
+pub async fn process_sync_db(root: String, pool: &SqlitePool) -> Result<Vec<FileSummary>> {
+    let mut tx = pool.begin().await?;
+    let conn = tx.acquire().await?;
+
     let missing_files;
 
     {
@@ -209,51 +196,52 @@ pub fn process_sync_db(root: String, conn: &mut Connection) -> Result<Vec<FileSu
         }
 
         // 3️⃣ SYNC_DB_WORK に一括 INSERT
-        tx.execute("DELETE FROM SYNC_DB_WORK", ())?;
-        let mut stmt = tx.prepare(
-            "INSERT INTO SYNC_DB_WORK (illust_id, suffix, extension, save_dir, path)
-         VALUES (?, ?, ?, ?, ?)",
-        )?;
+        sqlx::query("DELETE FROM SYNC_DB_WORK")
+            .execute(&mut *conn)
+            .await?;
+
+        let sql = "INSERT INTO SYNC_DB_WORK (illust_id, suffix, extension, save_dir, path)
+         VALUES (?, ?, ?, ?, ?)";
+
         for file in paths_to_insert {
-            stmt.execute(params![
-                file.illust_id,
-                file.suffix,
-                file.extension,
-                file.save_dir,
-                file.path,
-            ])?;
+            sqlx::query(sql)
+                .bind(file.illust_id)
+                .bind(file.suffix)
+                .bind(file.extension)
+                .bind(file.save_dir)
+                .bind(file.path)
+                .execute(&mut *conn)
+                .await?;
         }
 
         // 4️⃣ メイン処理(SQL)
         let sql = include_str!("../sql/collect/process_sync_db.sql");
-        tx.execute_batch(sql)?;
+        execute_queries(&mut *conn, sql).await?;
 
         // 5️⃣ 重複ファイルをゴミ箱に
-        let mut stmt = tx.prepare("SELECT path FROM tmp_to_trash")?;
-        for path in stmt.query_map([], |row| row.get::<_, String>(0))? {
-            let path = PathBuf::from(path?);
+        let rows: Vec<String> = sqlx::query_scalar("SELECT path FROM tmp_to_trash")
+            .fetch_all(&mut *tx)
+            .await?;
+
+        for p in rows {
+            let path = PathBuf::from(p);
             if path.exists() {
-                trash::delete(path)?;
+                trash::delete(&path)?;
             }
         }
 
         // 6️⃣ 結果を返却
-        let mut stmt = tx.prepare("SELECT illust_id, suffix, path FROM tmp_missing_files")?;
-        missing_files = stmt
-            .query_map([], |row| {
-                Ok(FileSummary {
-                    illust_id: row.get(0)?,
-                    suffix: row.get(1)?,
-                    path: row.get(2)?,
-                })
-            })?
-            .collect::<Result<Vec<FileSummary>, _>>()?;
+        let sql = "SELECT illust_id, suffix, path FROM tmp_missing_files";
+
+        missing_files = sqlx::query_as::<_, FileSummary>(sql)
+            .fetch_all(&mut *tx)
+            .await?;
 
         // 管理番号を更新
-        update_cnum(&tx)?;
+        update_cnum(&mut *tx).await?;
     }
 
-    tx.commit()?;
+    tx.commit().await?;
 
     Ok(missing_files)
 }

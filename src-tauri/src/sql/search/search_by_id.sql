@@ -3,6 +3,8 @@ SELECT
     I.suffix,
     I.extension,
     I.save_dir,
+    I.illust_id || '_p' || I.suffix || '.' || I.extension AS file_name,
+    I.save_dir || '\'  || I.illust_id || '_p' || I.suffix || '.' || I.extension AS thumbnail_url,
     D.character,
     A.author_name,
     GROUP_CONCAT(T.tag, ',') AS tags

@@ -1,12 +1,12 @@
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Result};
 use chrono::{DateTime, FixedOffset, Utc};
 use regex::Regex;
-use rusqlite::{Connection, ToSql};
-use std::collections::{HashMap, HashSet};
-use std::path::Path;
+use sqlx::{QueryBuilder, Sqlite, SqliteConnection};
+use std::fmt::Display;
 use std::time::Duration;
+use std::{collections::HashMap, path::Path};
 
-use crate::models::common::FileInfo;
+use crate::models::common::{BindValue, BindValueWrapper, FileInfo};
 
 pub fn format_duration(ms: u64) -> String {
     let duration = Duration::from_millis(ms);
@@ -68,11 +68,11 @@ pub fn parse_file_info(file_name: &str) -> Result<FileInfo> {
         .ok_or_else(|| anyhow!("ファイル名の形式が不正です: {}", file_name))?;
 
     let illust_id = caps[1]
-        .parse::<u32>()
+        .parse::<i32>()
         .map_err(|_| anyhow!("illust_id のパースに失敗: {}", &caps[1]))?;
 
     let suffix = caps[2]
-        .parse::<u8>()
+        .parse::<i16>()
         .map_err(|_| anyhow!("suffix のパースに失敗: {}", &caps[2]))?;
 
     let extension = caps[3].to_string();
@@ -85,58 +85,133 @@ pub fn parse_file_info(file_name: &str) -> Result<FileInfo> {
     })
 }
 
-pub fn update_cnum(conn: &Connection) -> Result<()> {
+pub async fn update_cnum(conn: &mut SqliteConnection) -> Result<()> {
     let sql = include_str!("../sql/update_cnum.sql");
-    conn.execute_batch(sql)?;
+
+    execute_queries(&mut *conn, sql).await?;
+
     Ok(())
 }
-pub fn execute_sqls(
-    conn: &Connection,
+
+pub fn log_error<T: Display>(error: T) -> String {
+    let s = error.to_string();
+    log::error!("{}", s);
+    eprintln!("{}", s);
+    s
+}
+
+pub async fn execute_queries(conn: &mut SqliteConnection, sql: &str) -> Result<()> {
+    let queries: Vec<&str> = sql
+        .split(';')
+        .map(|q| q.trim())
+        .filter(|q| !q.is_empty())
+        .collect();
+
+    for q in queries {
+        sqlx::query(q).execute(&mut *conn).await?;
+    }
+
+    Ok(())
+}
+
+pub fn to_bind_value<T>(val: T) -> BindValue
+where
+    T: Into<BindValueWrapper>,
+{
+    val.into().into_inner()
+}
+
+#[macro_export]
+macro_rules! named_params {
+    ({ $($name:expr => $val:expr),* $(,)? }) => {{
+        let mut map = std::collections::HashMap::new();
+        $(
+            map.insert($name, crate::service::common::to_bind_value($val));
+        )*
+        map
+    }};
+}
+
+pub fn build_named_query<'a>(
     sql: &str,
-    params_map: &HashMap<&str, &dyn ToSql>,
-) -> Result<()> {
-    let mut unused: HashSet<&str> = params_map.keys().cloned().collect();
+    params: &'a HashMap<&str, BindValue>,
+) -> Result<QueryBuilder<'a, Sqlite>> {
+    let re = Regex::new(r":([A-Za-z0-9_]+)").unwrap();
+    let mut builder: QueryBuilder<Sqlite> = QueryBuilder::new("");
 
-    for raw_query in sql.split(';') {
-        let query = raw_query.trim();
-        if query.is_empty() {
-            continue;
-        }
+    // まず、SQL文字列を分割して、プレースホルダを処理します
+    let mut last_index = 0;
+    for mat in re.find_iter(sql) {
+        // マッチする前の文字列をそのまま追加
+        builder.push(&sql[last_index..mat.start()]);
 
-        // 使われているキーだけ抽出
-        let used_params: Vec<(&str, &dyn ToSql)> = params_map
-            .iter()
-            .filter(|(k, _)| {
-                // 完全一致で判定
-                let re = Regex::new(&format!(r"{}", regex::escape(k))).unwrap();
-                re.is_match(query)
-            })
-            .map(|(k, v)| (*k, *v))
-            .collect();
+        // パラメータ名を取得
+        let key = &sql[mat.start()..mat.end()];
+        let value = params.get(key).ok_or_else(|| {
+            let sql_prefix = &sql[..std::cmp::min(sql.len(), 40)];
+            sqlx::Error::Io(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!(
+                    "Parameter not found: '{}'. SQL starts with: '{}...'",
+                    key, sql_prefix
+                ),
+            ))
+        })?;
 
-        // 使用済みキーを unused から除去
-        for (k, _) in &used_params {
-            unused.remove(k);
-        }
+        // パラメータの型に応じて値をバインド
+        match value {
+            BindValue::Text(s) => {
+                builder.push_bind(s);
+            }
+            BindValue::Int(i) => {
+                builder.push_bind(i);
+            }
+            BindValue::OptText(s) => {
+                builder.push_bind(s);
+            }
+            BindValue::OptInt(i) => {
+                builder.push_bind(i);
+            }
+            BindValue::VecText(vec_s) => {
+                let mut separated = builder.separated(", ");
+                for v in vec_s {
+                    separated.push_bind(v);
+                }
+            }
+            BindValue::VecInt(vec_i) => {
+                let mut separated = builder.separated(", ");
+                for v in vec_i {
+                    separated.push_bind(v);
+                }
+            }
+        };
 
-        if used_params.is_empty() {
-            conn.execute(query, [])?;
-        } else {
-            conn.execute(query, &used_params[..])?;
-        }
+        // 次の検索開始位置を更新
+        last_index = mat.end();
     }
+    // 最後に残った文字列を追加
+    builder.push(&sql[last_index..]);
 
-    // 未使用パラメータがあればエラー
-    if !unused.is_empty() {
-        let keys: Vec<&str> = unused.into_iter().collect();
-        bail!("Unused parameters: {:?}", keys);
+    Ok(builder)
+}
+
+pub async fn execute_named_queries(
+    conn: &mut SqliteConnection,
+    sqls: &str,
+    params: &HashMap<&str, BindValue>,
+) -> Result<()> {
+    let queries: Vec<&str> = sqls
+        .split(';')
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    for raw_sql in queries {
+        build_named_query(raw_sql, params)?
+            .build()
+            .execute(&mut *conn)
+            .await?;
     }
 
     Ok(())
-}
-
-pub fn log_error(message: String) -> String {
-    log::error!("{}", message);
-    eprintln!("{}", message);
-    message
 }

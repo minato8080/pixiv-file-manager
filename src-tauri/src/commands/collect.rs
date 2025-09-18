@@ -1,4 +1,3 @@
-use rusqlite::{params, OptionalExtension};
 use tauri::{command, Emitter, State};
 
 use crate::constants;
@@ -12,35 +11,33 @@ use crate::service::common::log_error;
 use crate::{
     models::{
         collect::{CollectSummary, TagAssignment},
-        common::{AppState, GeneralResponse},
+        common::AppState,
     },
     service::collect::sort_collect_work,
 };
 
 #[command]
-pub fn get_related_tags(tag: &str, state: State<AppState>) -> Result<Vec<TagInfo>, String> {
-    let conn = state.db.lock().unwrap();
-    let sql = include_str!("../sql/collect/get_related_tags.sql");
-    let mut stmt = conn.prepare(sql).map_err(|e| log_error(e.to_string()))?;
+pub async fn get_related_tags(
+    tag: &str,
+    state: State<'_, AppState>,
+) -> Result<Vec<TagInfo>, String> {
+    let pool = &state.pool;
 
-    let tags = stmt
-        .query_map([tag], |row| {
-            Ok(TagInfo {
-                tag: row.get(0)?,
-                count: row.get(1)?,
-            })
-        })
-        .map_err(|e| e.to_string())?
-        .collect::<Result<Vec<TagInfo>, _>>()
-        .map_err(|e| log_error(e.to_string()))?;
+    let sql = include_str!("../sql/collect/get_related_tags.sql");
+
+    let tags: Vec<TagInfo> = sqlx::query_as(sql)
+        .bind(tag)
+        .fetch_all(pool)
+        .await
+        .map_err(log_error)?;
 
     Ok(tags)
 }
 
 #[command]
-pub fn assign_tag(
+pub async fn assign_tag(
     assignment: TagAssignment,
-    state: State<AppState>,
+    state: State<'_, AppState>,
 ) -> Result<Vec<CollectSummary>, String> {
     // バリデーションチェック
     if assignment.series.is_none() && assignment.character.is_none() {
@@ -48,23 +45,24 @@ pub fn assign_tag(
     }
 
     // 本処理
-    let mut conn = state.db.lock().unwrap();
-    let tx = conn.transaction().map_err(|e| log_error(e.to_string()))?;
+    let pool = &state.pool;
+    let mut tx = pool.begin().await.map_err(log_error)?;
 
     // id指定時は洗い替え
     if let Some(id) = assignment.id {
-        tx.execute("DELETE FROM COLLECT_UI_WORK WHERE id = ?1", [id])
-            .map_err(|e| log_error(e.to_string()))?;
+        sqlx::query("DELETE FROM COLLECT_UI_WORK WHERE id = ?1")
+            .bind(id)
+            .execute(&mut *tx)
+            .await
+            .map_err(log_error)?;
     }
 
     // root を取得（なければ None）
-    let root: Option<String> = tx
-        .query_row(
-            "SELECT value FROM COMMON_MST WHERE key = ?",
-            [constants::COLLECT_ROOT],
-            |row| row.get(0),
-        )
-        .ok(); // 存在しないときは None
+    let root: Option<String> = sqlx::query_scalar("SELECT value FROM COMMON_MST WHERE key = ?")
+        .bind(constants::COLLECT_ROOT)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(log_error)?;
 
     let collect_dir = root.map(|r| {
         let mut parts = vec![r];
@@ -87,53 +85,55 @@ pub fn assign_tag(
         .expect("Invalid assignment: expected exactly one of 'character' or 'series'");
     let collect_type = if assignment.character.is_none() { 1 } else { 2 };
 
-    tx.execute(
+    sqlx::query(
         "INSERT OR REPLACE INTO COLLECT_UI_WORK (
                 id, entity_key, series, character, collect_dir, unsave, collect_type
             ) VALUES (0, ?1, ?2, ?3, ?4, 1, ?5)",
-        params![
-            entity_key,
-            assignment.series,
-            assignment.character,
-            collect_dir,
-            collect_type
-        ],
     )
-    .map_err(|e| log_error(e.to_string()))?;
+    .bind(entity_key)
+    .bind(assignment.series)
+    .bind(assignment.character)
+    .bind(collect_dir)
+    .bind(collect_type)
+    .execute(&mut *tx)
+    .await
+    .map_err(log_error)?;
 
     // ソートし直す
-    sort_collect_work(&tx).map_err(|e| log_error(e.to_string()))?;
+    sort_collect_work(&mut *tx).await.map_err(log_error)?;
 
     // after_countを計算
-    reflesh_collect_work(&tx).map_err(|e| log_error(e.to_string()))?;
+    reflesh_collect_work(&mut *tx).await.map_err(log_error)?;
 
     // コミット
-    tx.commit().map_err(|e| log_error(e.to_string()))?;
+    tx.commit().await.map_err(log_error)?;
 
-    get_collect_summary(&conn).map_err(|e| e.to_string())
+    get_collect_summary(pool).await.map_err(|e| e.to_string())
 }
 
 #[command]
-pub fn delete_collect(
+pub async fn delete_collect(
     assignment: TagAssignment,
-    state: State<AppState>,
+    state: State<'_, AppState>,
 ) -> Result<Vec<CollectSummary>, String> {
     // バリデーションチェック
     if assignment.id.is_none() && assignment.series.is_none() && assignment.character.is_none() {
         return Err("IDまたはシリーズまたはキャラクターが未指定です".to_string());
     }
 
-    // 本処理
-    let mut conn = state.db.lock().unwrap();
-    let tx = conn.transaction().map_err(|e| log_error(e.to_string()))?;
+    let pool = &state.pool;
+    let mut tx = pool.begin().await.map_err(log_error)?;
 
     let sql_template = "UPDATE COLLECT_UI_WORK SET collect_type = 3, unsave = 1, after_count = 0";
 
     if let Some(id) = assignment.id {
         // id指定時
         let sql = sql_template.to_owned() + " WHERE id = ?1";
-        tx.execute(&sql, [id])
-            .map_err(|e| log_error(e.to_string()))?;
+        sqlx::query(&sql)
+            .bind(id)
+            .execute(&mut *tx)
+            .await
+            .map_err(log_error)?;
     } else {
         // entity指定時
         let entity_key = assignment
@@ -143,162 +143,157 @@ pub fn delete_collect(
             .expect("Invalid assignment: expected exactly one of 'character' or 'series'");
 
         let sql = sql_template.to_owned() + " WHERE entity_key = ?1";
-        tx.execute(&sql, [entity_key])
-            .map_err(|e| log_error(e.to_string()))?;
+        sqlx::query(&sql)
+            .bind(entity_key)
+            .execute(&mut *tx)
+            .await
+            .map_err(log_error)?;
     }
 
     // after_countを計算
-    reflesh_collect_work(&tx).map_err(|e| log_error(e.to_string()))?;
+    reflesh_collect_work(&mut *tx).await.map_err(log_error)?;
 
     // コミット
-    tx.commit().map_err(|e| log_error(e.to_string()))?;
+    tx.commit().await.map_err(log_error)?;
 
-    get_collect_summary(&conn).map_err(|e| e.to_string())
+    get_collect_summary(pool).await.map_err(|e| e.to_string())
 }
 
 #[command]
-pub fn load_assignments(state: State<AppState>) -> Result<Vec<CollectSummary>, String> {
-    let mut conn = state.db.lock().unwrap();
-    let tx = conn.transaction().map_err(|e| log_error(e.to_string()))?;
+pub async fn load_assignments(state: State<'_, AppState>) -> Result<Vec<CollectSummary>, String> {
+    let pool = &state.pool;
+    let mut tx = pool.begin().await.map_err(log_error)?;
 
     // COLLECT_UI_WORKを準備
-    prepare_collect_ui_work(&tx).map_err(|e| log_error(e.to_string()))?;
+    prepare_collect_ui_work(&mut *tx).await.map_err(log_error)?;
 
     // after_countを計算
-    reflesh_collect_work(&tx).map_err(|e| log_error(e.to_string()))?;
+    reflesh_collect_work(&mut *tx).await.map_err(log_error)?;
 
-    tx.commit().map_err(|e| log_error(e.to_string()))?;
+    tx.commit().await.map_err(log_error)?;
 
     // 結果を返却
-    get_collect_summary(&conn).map_err(|e| e.to_string())
+    get_collect_summary(pool).await.map_err(|e| e.to_string())
 }
 
 #[command]
-pub fn perform_collect(
-    state: State<AppState>,
+pub async fn perform_collect(
+    state: State<'_, AppState>,
     window: tauri::Window,
 ) -> Result<Vec<CollectSummary>, String> {
-    let mut conn = state.db.lock().unwrap();
-    let tx = conn.transaction().map_err(|e| log_error(e.to_string()))?;
+    let pool = &state.pool;
+    let mut tx = pool.begin().await.map_err(log_error)?;
 
     // COLLECT_UI_WORKから、unsave = false のレコードをすべて削除する
-    tx.execute("DELETE FROM COLLECT_UI_WORK WHERE unsave = false", [])
-        .map_err(|e| log_error(e.to_string()))?;
+    sqlx::query("DELETE FROM COLLECT_UI_WORK WHERE unsave = false")
+        .execute(&mut *tx)
+        .await
+        .map_err(log_error)?;
 
-    collect_character_info(&tx).map_err(|e| log_error(e.to_string()))?;
+    collect_character_info(&mut *tx).await.map_err(log_error)?;
 
-    collect_illust_detail(&tx).map_err(|e| log_error(e.to_string()))?;
+    collect_illust_detail(&mut *tx).await.map_err(log_error)?;
 
-    move_illust_files(&tx).map_err(|e| log_error(e.to_string()))?;
+    move_illust_files(&mut *tx).await.map_err(log_error)?;
 
-    tx.commit().map_err(|e| log_error(e.to_string()))?;
+    tx.commit().await.map_err(log_error)?;
 
-    let tx = conn.transaction().map_err(|e| log_error(e.to_string()))?;
+    let mut tx = pool.begin().await.map_err(log_error)?;
 
     // COLLECT_UI_WORKを準備
-    prepare_collect_ui_work(&tx).map_err(|e| log_error(e.to_string()))?;
+    prepare_collect_ui_work(&mut *tx).await.map_err(log_error)?;
 
     // after_countを計算
-    reflesh_collect_work(&tx).map_err(|e| log_error(e.to_string()))?;
+    reflesh_collect_work(&mut *tx).await.map_err(log_error)?;
 
-    tx.commit().map_err(|e| log_error(e.to_string()))?;
+    tx.commit().await.map_err(log_error)?;
 
     // DB変更を通知
     window.emit("update_db", ()).unwrap();
 
     // 結果を返却
-    get_collect_summary(&conn).map_err(|e| e.to_string())
+    get_collect_summary(pool).await.map_err(|e| e.to_string())
 }
 
 #[command]
-pub fn set_root(root: String, state: State<AppState>) -> GeneralResponse {
-    let conn = state.db.lock().unwrap();
+pub async fn set_root(root: String, state: State<'_, AppState>) -> Result<(), String> {
+    let pool = &state.pool;
 
-    match conn.execute(
-        "INSERT OR REPLACE INTO COMMON_MST (key, value) VALUES (?, ?)",
-        params![constants::COLLECT_ROOT, root],
-    ) {
-        Ok(_) => GeneralResponse {
-            success: Some(root),
-            error: None,
-        },
-        Err(e) => GeneralResponse {
-            success: None,
-            error: Some(e.to_string()),
-        },
-    }
+    sqlx::query("INSERT OR REPLACE INTO COMMON_MST (key, value) VALUES (?, ?)")
+        .bind(constants::COLLECT_ROOT)
+        .bind(root.clone())
+        .execute(pool)
+        .await
+        .map_err(log_error)?;
+
+    Ok(())
 }
 
 #[command]
-pub fn get_root(state: State<AppState>) -> Result<Option<String>, String> {
-    let conn = state.db.lock().unwrap();
-    let mut stmt = conn
-        .prepare("SELECT value FROM COMMON_MST WHERE key = ?")
-        .map_err(|e| log_error(e.to_string()))?;
-    let root_path: Option<String> = stmt
-        .query_row([constants::COLLECT_ROOT], |row| row.get(0))
-        .optional()
-        .map_err(|e| log_error(e.to_string()))?;
+pub async fn get_root(state: State<'_, AppState>) -> Result<Option<String>, String> {
+    let pool = &state.pool;
+
+    let root_path = sqlx::query_scalar("SELECT value FROM COMMON_MST WHERE key = ?")
+        .bind(constants::COLLECT_ROOT)
+        .fetch_optional(pool)
+        .await
+        .map_err(log_error)?;
+
     Ok(root_path)
 }
 
 #[command]
-pub fn get_available_unique_tags(state: State<AppState>) -> Result<Vec<TagInfo>, String> {
-    let conn = state.db.lock().unwrap();
+pub async fn get_available_unique_tags(state: State<'_, AppState>) -> Result<Vec<TagInfo>, String> {
+    let pool = &state.pool;
 
     let sql = include_str!("../sql/collect/get_available_unique_tags.sql");
-    let mut stmt = conn.prepare(sql).map_err(|e| log_error(e.to_string()))?;
 
-    let iter = stmt
-        .query_map([], |row| {
-            Ok(TagInfo {
-                tag: row.get(0)?,
-                count: row.get(1)?,
-            })
-        })
-        .map_err(|e| log_error(e.to_string()))?;
-
-    let tags = iter.into_iter().filter_map(|tag| tag.ok()).collect();
+    let tags = sqlx::query_as::<_, TagInfo>(sql)
+        .fetch_all(pool)
+        .await
+        .map_err(log_error)?;
 
     Ok(tags)
 }
 
 #[command]
-pub fn sync_db(root: String, state: State<AppState>) -> Result<Vec<FileSummary>, String> {
-    let mut conn = state.db.lock().unwrap();
-    let res = process_sync_db(root, &mut conn).map_err(|e| log_error(e.to_string()))?;
+pub async fn sync_db(root: String, state: State<'_, AppState>) -> Result<Vec<FileSummary>, String> {
+    let mut pool = &state.pool;
+    let res = process_sync_db(root, &mut pool).await.map_err(log_error)?;
 
     Ok(res)
 }
 
 #[command]
-pub fn delete_missing_illusts(
+pub async fn delete_missing_illusts(
     items: Vec<FileSummary>,
-    state: State<AppState>,
+    state: State<'_, AppState>,
 ) -> Result<(), String> {
-    let mut conn = state.db.lock().unwrap();
-    let tx = conn.transaction().map_err(|e| log_error(e.to_string()))?;
+    let pool = &state.pool;
+    let mut tx = pool.begin().await.map_err(log_error)?;
 
     // 1. ILLUST_INFO から削除
     for item in &items {
-        tx.execute(
-            "DELETE FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?",
-            params![item.illust_id, item.suffix],
-        )
-        .map_err(|e| log_error(e.to_string()))?;
+        sqlx::query("DELETE FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?")
+            .bind(item.illust_id)
+            .bind(item.suffix)
+            .execute(&mut *tx)
+            .await
+            .map_err(log_error)?;
     }
 
     // 2. 孤立した ILLUST_DETAIL を削除
-    tx.execute(
+    sqlx::query(
         "DELETE FROM ILLUST_DETAIL
         WHERE NOT EXISTS (
             SELECT 1 FROM ILLUST_INFO I
             WHERE I.cnum = ILLUST_DETAIL.cnum
         );",
-        (),
     )
-    .map_err(|e| log_error(e.to_string()))?;
+    .execute(&mut *tx)
+    .await
+    .map_err(log_error)?;
 
-    tx.commit().map_err(|e| log_error(e.to_string()))?;
+    tx.commit().await.map_err(log_error)?;
     Ok(())
 }

@@ -1,4 +1,5 @@
 use serde::Serialize;
+use sqlx::prelude::FromRow;
 use ts_rs::TS;
 
 #[derive(Serialize, TS)]
@@ -12,10 +13,9 @@ pub struct ProcessStats {
     pub failed_file_paths: Vec<String>,
 }
 
-#[derive(Debug, Clone, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, FromRow)]
 pub struct FileDetail {
-    pub id: u32,
+    pub illust_id: u32,
     pub suffix: u8,
     pub save_dir: String,
     pub extension: String,

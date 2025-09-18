@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+use futures::channel::oneshot;
 use rand::{distr::Alphanumeric, Rng};
 use reqwest::Client;
 use serde::{de::DeserializeOwned, Serialize};
@@ -8,7 +9,6 @@ use sha2::{Digest, Sha256};
 use std::sync::{Arc, Mutex};
 use std::{collections::HashMap, path::PathBuf};
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
-use tokio::sync::oneshot;
 
 use crate::constants::{AUTH_TOKEN_URL, CLIENT_ID, CLIENT_SECRET, LOGIN_URL, REDIRECT_URI};
 

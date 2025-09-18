@@ -2,7 +2,7 @@
 DROP TABLE IF EXISTS tmp_missing_files;
 CREATE TEMP TABLE tmp_missing_files AS
 SELECT I.illust_id, I.suffix, I.save_dir,
-       I.save_dir || '/' || I.illust_id || '_p' || I.suffix || '.' || I.extension AS path
+       I.save_dir || '\' || I.illust_id || '_p' || I.suffix || '.' || I.extension AS path
 FROM ILLUST_INFO I
 LEFT JOIN SYNC_DB_WORK SW
   ON I.illust_id = SW.illust_id AND I.suffix = SW.suffix
@@ -12,8 +12,8 @@ WHERE SW.rowid IS NULL;
 DROP TABLE IF EXISTS tmp_moved_files;
 CREATE TEMP TABLE tmp_moved_files AS
 SELECT I.illust_id, I.suffix, SW.save_dir AS actual_save_dir,
-       I.save_dir || '/' || I.illust_id || '_p' || I.suffix || '.' || I.extension AS old_path,
-       SW.save_dir || '/' || I.illust_id || '_p' || I.suffix || '.' || I.extension AS new_path
+       I.save_dir || '\' || I.illust_id || '_p' || I.suffix || '.' || I.extension AS old_path,
+       SW.save_dir || '\' || I.illust_id || '_p' || I.suffix || '.' || I.extension AS new_path
 FROM ILLUST_INFO I
 JOIN SYNC_DB_WORK SW
   ON I.illust_id = SW.illust_id AND I.suffix = SW.suffix

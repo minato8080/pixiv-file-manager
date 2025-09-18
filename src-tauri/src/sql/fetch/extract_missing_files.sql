@@ -1,8 +1,9 @@
 -- missing_files.sql
-SELECT D.illust_id,
+SELECT I.illust_id,
        I.suffix,
        I.extension,
-       I.save_dir
+       I.save_dir,
+       I.save_dir || '\'  || I.illust_id || '_p' || I.suffix || '.' || I.extension AS file_path,
 FROM ILLUST_DETAIL D
 JOIN TAG_INFO T
   ON D.illust_id = T.illust_id AND D.cnum = T.cnum

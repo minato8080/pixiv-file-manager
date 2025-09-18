@@ -1,22 +1,25 @@
-use crate::models::manage::{ExecuteResult, TagFixRuleAction};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use chrono::Utc;
-use rusqlite::params;
+use sqlx::SqliteConnection;
 
-pub fn validate_and_insert_tag_fix_rule(
-    conn: &rusqlite::Connection,
+use crate::{
+    execute_queries,
+    models::manage::{ExecuteResult, TagFixRuleAction},
+};
+
+pub async fn validate_and_insert_tag_fix_rule(
+    conn: &mut SqliteConnection,
     src_tag: &str,
     dst_tag: Option<&str>,
     action_type: TagFixRuleAction,
 ) -> Result<()> {
     if action_type == TagFixRuleAction::Add {
-        let count: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM TAG_FIX_RULES WHERE src_tag = ?1 AND action_type != 0",
-                params![src_tag],
-                |row| row.get(0),
-            )
-            .context("Failed to query conflicting rules")?;
+        let count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM TAG_FIX_RULES WHERE src_tag = ?1 AND action_type != 0",
+        )
+        .bind(src_tag)
+        .fetch_one(&mut *conn)
+        .await?;
 
         if count > 0 {
             anyhow::bail!(
@@ -25,13 +28,12 @@ pub fn validate_and_insert_tag_fix_rule(
             );
         }
     } else {
-        let count: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM TAG_FIX_RULES WHERE src_tag = ?1 AND action_type = 0",
-                params![src_tag],
-                |row| row.get(0),
-            )
-            .context("Failed to query conflicting rules")?;
+        let count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM TAG_FIX_RULES WHERE src_tag = ?1 AND action_type = 0",
+        )
+        .bind(src_tag)
+        .fetch_one(&mut *conn)
+        .await?;
 
         if count > 0 {
             anyhow::bail!(
@@ -43,31 +45,33 @@ pub fn validate_and_insert_tag_fix_rule(
 
     let now = Utc::now().timestamp();
 
-    conn.execute(
+    sqlx::query(
         "INSERT INTO TAG_FIX_RULES (src_tag, dst_tag, action_type, created_at)
          VALUES (?1, ?2, ?3, ?4)",
-        params![src_tag, dst_tag, action_type as i64, now],
     )
-    .context("Failed to insert tag fix rule")?;
+    .bind(src_tag)
+    .bind(dst_tag)
+    .bind(action_type as i64)
+    .bind(now)
+    .execute(&mut *conn)
+    .await?;
 
     Ok(())
 }
 
-pub fn apply_tag_fix_rules(conn: &rusqlite::Connection) -> Result<ExecuteResult> {
+pub async fn apply_tag_fix_rules(conn: &mut SqliteConnection) -> Result<ExecuteResult> {
     let sql = include_str!("../sql/manage/apply_tag_fix_rules.sql");
-    conn.execute_batch(sql)?;
+    execute_queries(&mut *conn, sql).await?;
 
     // カウンター取得
-    let (replaced, deleted, added) = conn.query_row(
-        "SELECT replaced, deleted, added FROM tmp_tag_fix_counts LIMIT 1",
-        [],
-        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-    )?;
+    let result = sqlx::query_as::<_, ExecuteResult>(
+        "SELECT replaced, deleted, added,
+            replaced + deleted + added AS total_updated
+     FROM tmp_tag_fix_counts
+     LIMIT 1",
+    )
+    .fetch_one(&mut *conn)
+    .await?;
 
-    Ok(ExecuteResult {
-        replaced,
-        deleted,
-        added,
-        total_updated: replaced + deleted + added,
-    })
+    Ok(result)
 }

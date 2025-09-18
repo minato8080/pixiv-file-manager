@@ -53,7 +53,7 @@ export const AddRemoveModeUI = () => {
   useEffect(() => {
     if (selectedFiles.length > 0) {
       const initialFileTagStates = selectedFiles.map((file) => ({
-        fileId: file.id,
+        fileId: file.illust_id,
         fileName: file.file_name,
         tags: file.tags
           ? file.tags

@@ -166,7 +166,7 @@ export const ResultArea = () => {
     return (
       <button
         className={`block w-full cursor-pointer hover:bg-gray-100 px-1 rounded text-xs whitespace-nowrap text-start ${
-          item.is_new ? "bg-blue-200" : ""
+          item.unsave ? "bg-blue-200" : ""
         }`}
         onClick={handleClick}
       >

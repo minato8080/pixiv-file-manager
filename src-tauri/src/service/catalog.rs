@@ -1,9 +1,18 @@
 use anyhow::{anyhow, Result};
-use sqlx::{sqlite::SqliteArguments, Acquire, Arguments, SqlitePool};
+use sqlx::{error::BoxDynError, sqlite::SqliteArguments, Arguments, SqlitePool};
 
 use std::{collections::HashSet, fs, path::Path};
 
-use crate::{ execute_queries, models::catalog::{AssociateCharacter, AssociateInfo, AssociateSaveDir, EditTag}, named_params, service::common::{execute_named_queries, parse_file_info, remove_invalid_chars}
+use crate::{
+    execute_queries,
+    models::{
+        catalog::{AssociateCharacter, AssociateInfo, AssociateSaveDir, EditTag},
+        common::BindValue,
+    },
+    service::common::{
+        execute_multi_insert_query, execute_named_queries, hash_params, parse_file_info,
+        remove_invalid_chars,
+    },
 };
 
 pub async fn process_move_files(
@@ -11,7 +20,7 @@ pub async fn process_move_files(
     file_names: Vec<String>,
     target_folder: &str,
     move_linked_files: bool,
-) -> Result<()> {
+) -> Result<(), BoxDynError> {
     let mut tx = pool.begin().await?;
     let mut updates = HashSet::new();
     // target_folderがない場合、作成
@@ -41,17 +50,17 @@ pub async fn process_move_files(
     for (id, suffix_opt, cnum_opt) in updates {
         let mut update_sql = String::from("UPDATE ILLUST_INFO SET save_dir = ?");
         let mut update_arguments = SqliteArguments::default();
-        update_arguments.add(&target_folder).map_err(|_|anyhow!("Failed to add argument"))?;
+        update_arguments.add(&target_folder)?;
 
         if let Some(ref cnum) = cnum_opt {
             update_sql.push_str(" WHERE illust_id = ? AND cnum = ?");
-            update_arguments.add(&id).map_err(|_|anyhow!("Failed to add argument"))?;
-            update_arguments.add(cnum).map_err(|_|anyhow!("Failed to add argument"))?;
+            update_arguments.add(&id)?;
+            update_arguments.add(cnum)?;
         } else {
             // suffix指定
             update_sql.push_str(" WHERE illust_id = ? AND suffix = ?");
-            update_arguments.add(&id).map_err(|_|anyhow!("Failed to add argument"))?;
-            update_arguments.add(&suffix_opt).map_err(|_|anyhow!("Failed to add argument"))?;
+            update_arguments.add(&id)?;
+            update_arguments.add(&suffix_opt)?;
         }
 
         // 実体ファイル情報を取得
@@ -60,16 +69,16 @@ pub async fn process_move_files(
         );
 
         let mut select_arguments = SqliteArguments::default();
-        select_arguments.add(&id).map_err(|_|anyhow!("Failed to add argument"))?;
+        select_arguments.add(&id)?;
 
         if let Some(ref cnum) = cnum_opt {
             select_sql.push_str("cnum = ?");
-            select_arguments.add(cnum).map_err(|_|anyhow!("Failed to add argument"))?;
+            select_arguments.add(cnum)?;
         } else if let Some(ref suffix) = suffix_opt {
             select_sql.push_str("suffix = ?");
-            select_arguments.add(suffix).map_err(|_|anyhow!("Failed to add argument"))?;
+            select_arguments.add(suffix)?;
         } else {
-            return Err(anyhow!("Either suffix or cnum is required"));
+            return Err(anyhow!("Either suffix or cnum is required").into());
         }
 
         let file_names_to_update: Vec<(String, String)> =
@@ -89,7 +98,7 @@ pub async fn process_move_files(
 
         // DBを更新
         sqlx::query_with(&update_sql, update_arguments)
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
     }
     tx.commit().await?;
@@ -105,40 +114,57 @@ pub async fn process_label_character_name(
     collect_dir: Option<&str>,
 ) -> Result<()> {
     let mut tx = pool.begin().await?;
-    let conn = tx.acquire().await?;
 
     // 一時テーブルを準備
     let sql = include_str!("../sql/catalog/prepare_tmp_label_target.sql");
-    execute_queries(&mut *conn, sql).await?;
+    execute_queries(&mut *tx, sql).await?;
 
     {
         // データを挿入
         let sql = include_str!("../sql/catalog/insert_tmp_label_target.sql");
         for file_name in file_names {
-            let info = parse_file_info(file_name)?;
-            execute_named_queries(&mut *tx,sql,&named_params!({
-                ":illust_id"=> info.illust_id as i64,
-                ":suffix"=> info.suffix as i64,
-            })).await?;
+            let f = parse_file_info(file_name)?;
+            execute_named_queries(
+                &mut *tx,
+                sql,
+                &hash_params(&vec![
+                    (":illust_id", f.illust_id.into()),
+                    (":suffix", f.suffix.into()),
+                ])?,
+            )
+            .await?;
         }
     }
 
     // charcter と cnumの更新
     let sql = if update_linked_files {
-        include_str!("../sql/catalog/update_character_linked.sql").to_string()
+        include_str!("../sql/catalog/update_character_linked.sql")
     } else {
-        include_str!("../sql/catalog/update_character_indivisual.sql").to_string()
-            + include_str!("../sql/merge_cnum.sql")
+        concat!(
+            include_str!("../sql/catalog/update_character_indivisual.sql"),
+            include_str!("../sql/merge_cnum.sql"),
+        )
     };
-    execute_named_queries(&mut *tx, &sql, &named_params!({":character"=> character_name})).await?;
+
+    execute_named_queries(
+        &mut *tx,
+        sql,
+        &hash_params(&vec![(":character", character_name.into())])?,
+    )
+    .await?;
 
     // CHARACTER_INFOの更新
     if let Some(character) = character_name {
         let sql = include_str!("../sql/catalog/update_character_info.sql");
-        execute_named_queries(&mut *tx, sql, &named_params!({
-            ":character"=> character,
-            ":collect"=> collect_dir
-        })).await?;
+        execute_named_queries(
+            &mut *tx,
+            sql,
+            &hash_params(&vec![
+                (":character", character.into()),
+                (":collect", collect_dir.into()),
+            ])?,
+        )
+        .await?;
     }
     tx.commit().await?;
 
@@ -151,11 +177,10 @@ pub async fn process_add_remove_tags(
     pool: &SqlitePool,
 ) -> Result<()> {
     let mut tx = pool.begin().await?;
-    let conn = tx.acquire().await?;
 
     // 一時テーブル作成
     let init_sql = include_str!("../sql/catalog/prepare_tmp_edit_tags.sql");
-    execute_queries(&mut *conn, &init_sql).await?;
+    execute_queries(&mut *tx, &init_sql).await?;
 
     // 全データを tmp_edit_tags に投入
     for edit in edit_tags {
@@ -164,7 +189,7 @@ pub async fn process_add_remove_tags(
             sqlx::query_scalar("SELECT cnum FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?")
                 .bind(file_info.illust_id)
                 .bind(file_info.suffix)
-                .fetch_one(&mut *conn)
+                .fetch_one(&mut *tx)
                 .await?;
 
         for tag in &edit.tags {
@@ -175,19 +200,21 @@ pub async fn process_add_remove_tags(
             .bind(file_info.suffix)
             .bind(cnum)
             .bind(remove_invalid_chars(tag))
-            .execute(&mut *conn)
+            .execute(&mut *tx)
             .await?;
         }
     }
 
     // 洗い替え
     let sql = if update_linked_files {
-        include_str!("../sql/catalog/overwrite_tags_linked.sql").to_string()
+        include_str!("../sql/catalog/overwrite_tags_linked.sql")
     } else {
-        include_str!("../sql/catalog/overwrite_tags_individual.sql").to_string()
-            + include_str!("../sql/merge_cnum.sql")
+        concat!(
+            include_str!("../sql/catalog/overwrite_tags_individual.sql"),
+            include_str!("../sql/merge_cnum.sql"),
+        )
     };
-    execute_queries(&mut *conn, &sql).await?;
+    execute_queries(&mut *tx, &sql).await?;
 
     tx.commit().await?;
     Ok(())
@@ -200,11 +227,10 @@ pub async fn process_overwrite_tags(
     pool: &SqlitePool,
 ) -> Result<()> {
     let mut tx = pool.begin().await?;
-    let conn = tx.acquire().await?;
 
     // 一時テーブル作成
     let init_sql = include_str!("../sql/catalog/prepare_tmp_edit_tags.sql");
-    execute_queries(&mut *conn, &init_sql).await?;
+    execute_queries(&mut *tx, &init_sql).await?;
 
     // 全データを tmp_edit_tags に投入
     for file_name in file_names {
@@ -213,7 +239,7 @@ pub async fn process_overwrite_tags(
             sqlx::query_scalar("SELECT cnum FROM ILLUST_INFO WHERE illust_id = ? AND suffix = ?")
                 .bind(file_info.illust_id)
                 .bind(file_info.suffix)
-                .fetch_one(&mut *conn)
+                .fetch_one(&mut *tx)
                 .await?;
 
         for tag in &tags {
@@ -224,19 +250,21 @@ pub async fn process_overwrite_tags(
             .bind(file_info.suffix)
             .bind(cnum)
             .bind(remove_invalid_chars(tag))
-            .execute(&mut *conn)
+            .execute(&mut *tx)
             .await?;
         }
     }
 
     // 洗い替え
     let sql = if update_linked_files {
-        include_str!("../sql/catalog/overwrite_tags_linked.sql").to_string()
+        include_str!("../sql/catalog/overwrite_tags_linked.sql")
     } else {
-        include_str!("../sql/catalog/overwrite_tags_individual.sql").to_string()
-            + include_str!("../sql/merge_cnum.sql")
+        concat!(
+            include_str!("../sql/catalog/overwrite_tags_individual.sql"),
+            include_str!("../sql/merge_cnum.sql"),
+        )
     };
-    execute_queries(&mut *conn, &sql).await?;
+    execute_queries(&mut *tx, &sql).await?;
 
     tx.commit().await?;
     Ok(())
@@ -246,7 +274,7 @@ pub async fn process_get_associated_info(
     pool: &SqlitePool,
     file_names: Vec<String>,
 ) -> Result<AssociateInfo> {
-    let mut conn = pool.acquire().await?;
+    let mut tx = pool.begin().await?;
 
     if file_names.is_empty() {
         return Ok(AssociateInfo {
@@ -255,30 +283,30 @@ pub async fn process_get_associated_info(
         });
     }
 
-    // ファイル名から (illust_id, suffix) を生成
-    let values_placeholder: Vec<String> = file_names
+    let rows: Vec<_> = file_names
         .iter()
         .map(|f| {
-            let info = parse_file_info(f).unwrap();
-            format!("({}, {})", info.illust_id, info.suffix)
+            let p = parse_file_info(f)?;
+            Ok::<Vec<BindValue>, anyhow::Error>(vec![p.illust_id.into(), p.suffix.into()])
         })
-        .collect();
-    let values_str = values_placeholder.join(", ");
+        .collect::<Result<Vec<_>, _>>()?;
 
-    // SQL ファイルを読み込んで値を置換
-    let sql_template = include_str!("../sql/catalog/get_associated_info.sql");
-    let sql = sql_template.replace("{{VALUES_PLACEHOLDER}}", &values_str);
-    execute_queries(&mut *conn, &sql).await?;
+    let sql = include_str!("../sql/catalog/prepare_tmp_target_files.sql");
+    execute_multi_insert_query(&mut *tx, sql, &rows).await?;
+
+    let sql = include_str!("../sql/catalog/prepare_tmp_associated_files.sql");
+    execute_queries(&mut *tx, &sql).await?;
 
     // character 集計
-    let sql = 
-        "SELECT character, COUNT(DISTINCT key) AS count FROM tmp_associated_files GROUP BY character";
-    let characters: Vec<AssociateCharacter> = sqlx::query_as(sql).fetch_all(pool).await?;
+    let sql = "SELECT character, COUNT(DISTINCT key) AS count FROM tmp_associated_files GROUP BY character";
+    let characters: Vec<AssociateCharacter> = sqlx::query_as(sql).fetch_all(&mut *tx).await?;
 
     // save_dir 集計
-    let sql = 
+    let sql =
         "SELECT save_dir, COUNT(DISTINCT key) AS count FROM tmp_associated_files GROUP BY save_dir";
-    let save_dirs: Vec<AssociateSaveDir> = sqlx::query_as(sql).fetch_all(pool).await?;
+    let save_dirs: Vec<AssociateSaveDir> = sqlx::query_as(sql).fetch_all(&mut *tx).await?;
+
+    tx.commit().await?;
 
     Ok(AssociateInfo {
         characters,

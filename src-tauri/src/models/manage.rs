@@ -93,7 +93,7 @@ impl From<TagFixRuleRaw> for TagFixRule {
 
 #[derive(Debug, Serialize, Deserialize, Clone, TS, FromRow)]
 #[ts(export)]
-pub struct ExecuteResult {
+pub struct TagFixResult {
     pub added: i32,
     pub replaced: i32,
     pub deleted: i32,

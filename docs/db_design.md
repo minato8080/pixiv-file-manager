@@ -16,6 +16,7 @@
   - `author_id`: INTEGER NOT NULL - 作者の識別子
   - `series`: TEXT - シリーズ名
   - `character`: TEXT - イラストのキャラクター名
+  - `created_at` INTEGER - イラストの投稿時間
   - **PRIMARY KEY**: (`illust_id`, `cnum`)
 
 - **TAG_INFO**

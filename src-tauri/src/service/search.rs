@@ -3,8 +3,7 @@ use sqlx::SqlitePool;
 
 use crate::{
     models::search::{AuthorInfo, CharacterInfo, SearchResult, TagInfo},
-    named_params,
-    service::common::build_named_query,
+    service::common::{build_named_query, hash_params},
 };
 
 pub async fn process_search_by_criteria(
@@ -17,12 +16,12 @@ pub async fn process_search_by_criteria(
 
     let results = build_named_query(
         &sql,
-        &named_params!({
-            ":character"=>character,
-            ":author_id"=>author_id.map(|v| v as i64),
-            ":tag_count"=>tags.len() as i64,
-            ":tags"=>tags,
-        }),
+        &hash_params(&vec![
+            (":character", character.into()),
+            (":author_id", author_id.into()),
+            (":tag_count", tags.len().into()),
+            (":tags", tags.into()),
+        ])?,
     )?
     .build_query_as()
     .fetch_all(pool)
@@ -48,27 +47,28 @@ pub async fn process_filter_dropdowns(
     author_id: Option<u32>,
     pool: &SqlitePool,
 ) -> Result<(Vec<TagInfo>, Vec<CharacterInfo>, Vec<AuthorInfo>)> {
-    let params = &named_params!({
-        ":character"=>character,
-        ":author_id"=>author_id.map(|v| v as i64),
-        ":tag_count"=>tags.len() as i64,
-        ":tags"=>tags,
-    });
+    let param_vec = vec![
+        (":character", character.into()),
+        (":author_id", author_id.into()),
+        (":tag_count", tags.len().into()),
+        (":tags", tags.into()),
+    ];
+    let params = hash_params(&param_vec)?;
 
     let sql = include_str!("../sql/search/get_filtered_tags.sql");
-    let tag_results: Vec<TagInfo> = build_named_query(&sql, params)?
+    let tag_results: Vec<TagInfo> = build_named_query(&sql, &params)?
         .build_query_as()
         .fetch_all(pool)
         .await?;
 
     let sql = include_str!("../sql/search/get_filtered_characters.sql");
-    let character_results: Vec<CharacterInfo> = build_named_query(&sql, params)?
+    let character_results: Vec<CharacterInfo> = build_named_query(&sql, &params)?
         .build_query_as()
         .fetch_all(pool)
         .await?;
 
     let sql = include_str!("../sql/search/get_filtered_authors.sql");
-    let author_results: Vec<AuthorInfo> = build_named_query(&sql, params)?
+    let author_results: Vec<AuthorInfo> = build_named_query(&sql, &params)?
         .build_query_as()
         .fetch_all(pool)
         .await?;

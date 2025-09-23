@@ -3,7 +3,7 @@ use tauri::{command, Emitter, State};
 use crate::{
     models::{
         common::AppState,
-        manage::{ExecuteResult, TagFixRule, TagFixRuleAction, TagFixRuleRaw},
+        manage::{TagFixResult, TagFixRule, TagFixRuleAction, TagFixRuleRaw},
         search::TagInfo,
     },
     service::{
@@ -38,9 +38,8 @@ pub async fn add_tag_fix_rule(
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     let pool = &state.pool;
-    let conn = &mut pool.acquire().await.map_err(|e| e.to_string())?;
 
-    validate_and_insert_tag_fix_rule(&mut *conn, &src_tag, dst_tag.as_deref(), action_type)
+    validate_and_insert_tag_fix_rule(&pool, &src_tag, dst_tag.as_deref(), action_type)
         .await
         .map_err(|e| e.to_string())
 }
@@ -83,12 +82,10 @@ pub async fn delete_tag_fix_rule(id: i64, state: State<'_, AppState>) -> Result<
 pub async fn execute_tag_fixes(
     state: State<'_, AppState>,
     window: tauri::Window,
-) -> Result<ExecuteResult, String> {
+) -> Result<TagFixResult, String> {
     let pool = &state.pool;
     let mut tx = pool.begin().await.map_err(log_error)?;
-    let result = apply_tag_fix_rules(&mut tx)
-        .await
-        .map_err(log_error)?;
+    let result = apply_tag_fix_rules(&mut tx).await.map_err(log_error)?;
     tx.commit().await.map_err(log_error)?;
     // DB変更を通知
     window.emit("update_db", ()).unwrap();

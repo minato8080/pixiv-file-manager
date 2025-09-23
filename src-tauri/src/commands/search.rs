@@ -70,9 +70,7 @@ pub async fn search_by_id(
 ) -> Result<Vec<SearchResult>, String> {
     let pool = &state.pool;
 
-    let results = process_search_by_id(id, pool)
-        .await
-        .map_err(log_error)?;
+    let results = process_search_by_id(id, pool).await.map_err(log_error)?;
 
     Ok(results)
 }

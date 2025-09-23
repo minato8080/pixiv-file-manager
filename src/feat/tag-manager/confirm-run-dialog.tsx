@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ExecuteResult } from "@/bindings/ExecuteResult";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,10 @@ export default function ConfirmRunDialog({ open, onOpenChange, onRun }: Props) {
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<ExecuteResult | null>(null);
 
+  useEffect(() => {
+    setResult(null);
+  }, [open]);
+
   async function handleRun() {
     setResult(null);
     setRunning(true);
@@ -39,15 +43,7 @@ export default function ConfirmRunDialog({ open, onOpenChange, onRun }: Props) {
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        if (!v) {
-          setResult(null);
-        }
-        onOpenChange(v);
-      }}
-    >
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-white">
         <DialogHeader>
           <DialogTitle>{result ? "Completed" : "Run all rules?"}</DialogTitle>

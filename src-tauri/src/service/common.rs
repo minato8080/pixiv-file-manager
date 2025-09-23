@@ -6,7 +6,7 @@ use std::fmt::Display;
 use std::time::Duration;
 use std::{collections::HashMap, path::Path};
 
-use crate::models::common::{BindValue, BindValueWrapper, FileInfo};
+use crate::models::common::{BindValue, FileInfo};
 
 pub fn format_duration(ms: u64) -> String {
     let duration = Duration::from_millis(ms);
@@ -87,7 +87,6 @@ pub fn parse_file_info(file_name: &str) -> Result<FileInfo> {
 
 pub async fn update_cnum(conn: &mut SqliteConnection) -> Result<()> {
     let sql = include_str!("../sql/update_cnum.sql");
-
     execute_queries(&mut *conn, sql).await?;
 
     Ok(())
@@ -114,22 +113,25 @@ pub async fn execute_queries(conn: &mut SqliteConnection, sql: &str) -> Result<(
     Ok(())
 }
 
-pub fn to_bind_value<T>(val: T) -> BindValue
-where
-    T: Into<BindValueWrapper>,
-{
-    val.into().into_inner()
-}
+pub async fn execute_named_queries(
+    conn: &mut SqliteConnection,
+    sqls: &str,
+    params: &HashMap<&str, BindValue>,
+) -> Result<()> {
+    let queries: Vec<&str> = sqls
+        .split(';')
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .collect();
 
-#[macro_export]
-macro_rules! named_params {
-    ({ $($name:expr => $val:expr),* $(,)? }) => {{
-        let mut map = std::collections::HashMap::new();
-        $(
-            map.insert($name, crate::service::common::to_bind_value($val));
-        )*
-        map
-    }};
+    for raw_sql in queries {
+        build_named_query(raw_sql, params)?
+            .build()
+            .execute(&mut *conn)
+            .await?;
+    }
+
+    Ok(())
 }
 
 pub fn build_named_query<'a>(
@@ -195,23 +197,110 @@ pub fn build_named_query<'a>(
     Ok(builder)
 }
 
-pub async fn execute_named_queries(
+/// INSERT INTO ... VALUES \[(?, ?)\]の形式で、複数行のデータを一括で挿入するクエリを実行する。
+pub async fn execute_multi_insert_query<'a>(
     conn: &mut SqliteConnection,
-    sqls: &str,
-    params: &HashMap<&str, BindValue>,
-) -> Result<()> {
-    let queries: Vec<&str> = sqls
-        .split(';')
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .collect();
-
-    for raw_sql in queries {
-        build_named_query(raw_sql, params)?
-            .build()
-            .execute(&mut *conn)
-            .await?;
+    sql_template: &'a str,
+    rows: &'a [Vec<BindValue>],
+) -> sqlx::Result<()> {
+    if rows.is_empty() {
+        return Err(sqlx::Error::Io(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "No rows provided",
+        )));
     }
 
+    let expanded = expand_multi_values(sql_template, rows.len())?;
+    let query = bind_rows(&expanded, &rows)?;
+    query.execute(&mut *conn).await?;
+
     Ok(())
+}
+
+/// SQL テンプレートを受け取り、`[(?,0,?)]` を行数分に展開した文字列を返す
+fn expand_multi_values(sql_template: &str, rows_len: usize) -> sqlx::Result<String> {
+    // [(...)] を検出
+    let start = sql_template.find("[(").ok_or_else(|| {
+        sqlx::Error::Io(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "template must contain [(..)]",
+        ))
+    })?;
+    let end = sql_template[start..]
+        .find(")]")
+        .map(|i| start + i + 2)
+        .ok_or_else(|| {
+            sqlx::Error::Io(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "template must contain [(..)]",
+            ))
+        })?;
+
+    let prefix = &sql_template[..start];
+    let pattern = &sql_template[start + 1..end - 1]; // "(?,0,?)" 部分
+    let suffix = &sql_template[end..];
+
+    let mut values = String::new();
+    for i in 0..rows_len {
+        if i > 0 {
+            values.push_str(", ");
+        }
+        values.push_str(pattern);
+    }
+
+    Ok(format!("{prefix}{values}{suffix}"))
+}
+
+/// 展開済みの SQL に行データを bind する
+fn bind_rows<'a>(
+    sql: &'a str,
+    rows: &'a [Vec<BindValue>],
+) -> sqlx::Result<sqlx::query::Query<'a, sqlx::Sqlite, sqlx::sqlite::SqliteArguments<'a>>> {
+    // プレースホルダの数
+    let binds_per_row = rows[0].len();
+
+    let mut query = sqlx::query(sql);
+    for (idx, row) in rows.iter().enumerate() {
+        if row.len() != binds_per_row {
+            return Err(sqlx::Error::Io(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!(
+                    "Row {idx} has {} values, expected {}",
+                    row.len(),
+                    binds_per_row
+                ),
+            )));
+        }
+
+        for value in row {
+            match value {
+                BindValue::Text(s) => query = query.bind(s),
+                BindValue::Int(i) => query = query.bind(i),
+                BindValue::OptText(s) => query = query.bind(s),
+                BindValue::OptInt(i) => query = query.bind(i),
+                _ => {
+                    return Err(sqlx::Error::Io(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "Unsupported BindValue type",
+                    )))
+                }
+            }
+        }
+    }
+    Ok(query)
+}
+
+pub fn hash_params<K>(pairs: &[(K, BindValue)]) -> Result<HashMap<&str, BindValue>>
+where
+    K: AsRef<str>,
+{
+    let mut map = HashMap::new();
+    for (k, v) in pairs {
+        let key = k.as_ref();
+        if map.contains_key(key) {
+            return Err(anyhow!("Duplicate key: {}", key));
+        }
+        map.insert(key, v.clone());
+    }
+    Ok(map)
 }

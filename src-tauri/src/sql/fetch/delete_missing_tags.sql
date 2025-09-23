@@ -1,0 +1,7 @@
+DELETE FROM TAG_INFO
+WHERE tag = 'Missing'
+AND EXISTS (
+    SELECT 1
+    FROM ILLUST_DETAIL
+    WHERE ILLUST_DETAIL.author_id <> 0
+);

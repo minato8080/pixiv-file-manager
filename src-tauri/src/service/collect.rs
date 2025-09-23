@@ -11,7 +11,7 @@ use walkdir::WalkDir;
 use crate::constants;
 use crate::execute_queries;
 use crate::models::collect::*;
-use crate::named_params;
+use crate::service::common::hash_params;
 use crate::service::common::{execute_named_queries, update_cnum};
 
 pub async fn prepare_collect_ui_work(conn: &mut SqliteConnection) -> Result<()> {
@@ -20,9 +20,7 @@ pub async fn prepare_collect_ui_work(conn: &mut SqliteConnection) -> Result<()> 
     execute_named_queries(
         &mut *conn,
         &sql,
-        &named_params!({
-            ":collect_root"=>constants::COLLECT_ROOT
-        }),
+        &hash_params(&vec![(":collect_root", constants::COLLECT_ROOT.into())])?,
     )
     .await?;
     Ok(())
@@ -33,33 +31,33 @@ pub async fn reflesh_collect_work(conn: &mut SqliteConnection) -> Result<()> {
         .execute(&mut *conn)
         .await?;
 
-    let sql1 = include_str!("../sql/collect/insert_collect_filter_work_character.sql");
+    let sql = include_str!("../sql/collect/insert_collect_filter_work_character.sql");
     execute_named_queries(
         &mut *conn,
-        sql1,
-        &named_params!({
-            ":uncategorized_dir"=>constants::UNCATEGORIZED_DIR,
-            ":collect_root"=>constants::COLLECT_ROOT
-        }),
+        sql,
+        &hash_params(&vec![
+            (":uncategorized_dir", constants::UNCATEGORIZED_DIR.into()),
+            (":collect_root", constants::COLLECT_ROOT.into()),
+        ])?,
     )
     .await?;
 
-    let sql2 = include_str!("../sql/collect/insert_collect_filter_work_series.sql");
+    let sql = include_str!("../sql/collect/insert_collect_filter_work_series.sql");
     execute_named_queries(
         &mut *conn,
-        sql2,
-        &named_params!({
-            ":uncategorized_dir"=>constants::UNCATEGORIZED_DIR,
-            ":collect_root"=>constants::COLLECT_ROOT
-        }),
+        sql,
+        &hash_params(&vec![
+            (":uncategorized_dir", constants::UNCATEGORIZED_DIR.into()),
+            (":collect_root", constants::COLLECT_ROOT.into()),
+        ])?,
     )
     .await?;
 
-    let sql3 = include_str!("../sql/collect/delete_collect_filter_work.sql");
-    execute_queries(&mut *conn, sql3).await?;
+    let sql = include_str!("../sql/collect/delete_collect_filter_work.sql");
+    execute_queries(&mut *conn, sql).await?;
 
-    let sql4 = include_str!("../sql/collect/update_after_count.sql");
-    execute_queries(&mut *conn, sql4).await?;
+    let sql = include_str!("../sql/collect/update_after_count.sql");
+    execute_queries(&mut *conn, sql).await?;
 
     Ok(())
 }
@@ -88,9 +86,7 @@ pub async fn collect_character_info(conn: &mut SqliteConnection) -> Result<()> {
     execute_named_queries(
         &mut *conn,
         sql,
-        &named_params!({
-            ":collect_root"=>constants::COLLECT_ROOT
-        }),
+        &hash_params(&vec![(":collect_root", constants::COLLECT_ROOT.into())])?,
     )
     .await?;
     Ok(())

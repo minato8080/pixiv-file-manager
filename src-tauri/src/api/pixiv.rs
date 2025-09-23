@@ -26,25 +26,28 @@ impl RealPixivClientProvider {
 #[async_trait]
 impl PixivClientProvider for RealPixivClientProvider {
     async fn refresh_client(&self) -> Result<()> {
-        let mut client = {
-            let mut locked_client = self.inner.lock().unwrap();
-            match locked_client.take() {
-                Some(c) => c,
-                None => PixivClient::new()?,
-            }
-        };
+        async_runtime::spawn_blocking({
+            let inner_clone = self.inner.clone();
+            move || {
+                let mut locked_client = inner_clone
+                    .lock()
+                    .map_err(|e| anyhow!("Mutex is poisoned: {}", e))?;
 
-        // 認証処理は spawn_blocking で実行
-        let refreshed_client = async_runtime::spawn_blocking(move || {
-            let refresh_token = std::env::var("REFRESH_TOKEN")?;
-            *client.refresh_token_mut() = refresh_token;
-            client.refresh_auth()?;
-            Ok::<_, anyhow::Error>(client)
+                let mut client = match locked_client.take() {
+                    Some(c) => c,
+                    None => PixivClient::new()?,
+                };
+
+                let refresh_token = std::env::var("REFRESH_TOKEN")?;
+                *client.refresh_token_mut() = refresh_token;
+                client.refresh_auth()?;
+
+                locked_client.replace(client);
+
+                Ok::<_, anyhow::Error>(())
+            }
         })
         .await??;
-
-        // 更新されたクライアントを再びセット
-        self.inner.lock().unwrap().replace(refreshed_client);
 
         Ok(())
     }

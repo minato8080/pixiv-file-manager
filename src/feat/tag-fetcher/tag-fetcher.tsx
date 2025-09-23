@@ -124,7 +124,7 @@ export default function TagFetcher() {
     <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900">
       {/* Control buttons at top */}
 
-      <div className="flex items-center gap-2 p-2 bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 border-b border-slate-300 dark:border-slate-600">
+      <div className="flex gap-2 p-2 bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 border-b border-slate-300 dark:border-slate-600">
         <Button
           onClick={() => void selectFolders()}
           disabled={isProcessing}
@@ -154,15 +154,14 @@ export default function TagFetcher() {
           className="border-slate-300 hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-700"
         >
           <RotateCw className="h-4 w-4 mr-1 text-amber-600" />
-          Retry
+          Retry Missing Files
         </Button>
-
         <Button
           variant="default"
           onClick={() => void startProcessing()}
           disabled={isProcessing || selectedFolders.length === 0}
           size="sm"
-          className="ml-auto bg-indigo-600 hover:bg-indigo-700 text-white"
+          className="bg-indigo-600 hover:bg-indigo-700 text-white"
         >
           <Play className="h-4 w-4 mr-1" />
           Process Tags

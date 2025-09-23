@@ -6,13 +6,12 @@ use crate::{
         catalog::{AssociateInfo, EditTag},
         common::AppState,
     },
-    named_params,
     service::{
         catalog::{
             process_add_remove_tags, process_get_associated_info, process_label_character_name,
             process_move_files, process_overwrite_tags,
         },
-        common::{execute_named_queries, log_error, parse_file_info},
+        common::{execute_named_queries, hash_params, log_error, parse_file_info},
     },
 };
 
@@ -113,14 +112,15 @@ pub async fn delete_files(
 
         // 3. ILLUST_INFO の削除と TAG_INFO と ILLUST_DETAIL の後処理
         let delete_sql = include_str!("../sql/catalog/delete_file_registration.sql");
-
         execute_named_queries(
             &mut *tx,
             delete_sql,
-            &named_params!( {
-            ":illust_id"=> file_info.illust_id as i64,
-            ":suffix"=> file_info.suffix as i64,
-            ":cnum"=> cnum as i64 }),
+            &hash_params(&vec![
+                (":illust_id", file_info.illust_id.into()),
+                (":suffix", file_info.suffix.into()),
+                (":cnum", cnum.into()),
+            ])
+            .map_err(log_error)?,
         )
         .await
         .map_err(log_error)?;

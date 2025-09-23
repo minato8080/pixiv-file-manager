@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS ILLUST_DETAIL (
     author_id INTEGER NOT NULL,
     series TEXT,
     character TEXT,
+    created_at INTEGER,
     PRIMARY KEY (illust_id, cnum)
 );
 CREATE INDEX IF NOT EXISTS idx_illust_detail_character ON ILLUST_DETAIL(character);

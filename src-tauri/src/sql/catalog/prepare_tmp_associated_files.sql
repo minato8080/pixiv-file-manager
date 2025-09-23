@@ -1,12 +1,3 @@
-BEGIN TRANSACTION;
-
--- tmp_target_files に対象ファイルを登録
-DROP TABLE IF EXISTS tmp_target_files;
-CREATE TEMP TABLE tmp_target_files (illust_id INTEGER, suffix INTEGER);
-
-INSERT INTO tmp_target_files (illust_id, suffix)
-VALUES {{VALUES_PLACEHOLDER}};
-
 -- cnum を取得して tmp_illust_pkeys に保存
 DROP TABLE IF EXISTS tmp_illust_pkeys;
 CREATE TEMP TABLE tmp_illust_pkeys AS
@@ -44,5 +35,3 @@ GROUP BY character;
 SELECT save_dir, COUNT(DISTINCT key) AS count
 FROM tmp_associated_files
 GROUP BY save_dir;
-
-COMMIT;

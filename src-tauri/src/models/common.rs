@@ -8,6 +8,12 @@ pub struct AppState {
     pub pixiv_client_provider: Arc<dyn PixivClientProvider>,
 }
 
+impl Drop for AppState {
+    fn drop(&mut self) {
+        tauri::async_runtime::block_on(self.pool.close());
+    }
+}
+
 #[derive(Debug)]
 pub struct FileInfo {
     pub illust_id: i32,
@@ -16,7 +22,7 @@ pub struct FileInfo {
     pub save_dir: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BindValue {
     Text(String),
     Int(i64),
@@ -26,62 +32,61 @@ pub enum BindValue {
     VecInt(Vec<i64>),
 }
 
-pub enum BindValueWrapper {
-    Inner(BindValue),
-}
+macro_rules! impl_from_num {
+    ($($t:ty),+) => {
+        $(
+            impl From<$t> for BindValue {
+                fn from(v: $t) -> Self {
+                    BindValue::Int(v as i64)
+                }
+            }
 
-impl BindValueWrapper {
-    pub fn into_inner(self) -> BindValue {
-        match self {
-            BindValueWrapper::Inner(v) => v,
-        }
-    }
+            impl From<Option<$t>> for BindValue {
+                fn from(v: Option<$t>) -> Self {
+                    match v {
+                        Some(x) => BindValue::OptInt(Some(x as i64)),
+                        None => BindValue::OptInt(None),
+                    }
+                }
+            }
+            impl From<Vec<$t>> for BindValue {
+                fn from(v: Vec<$t>) -> Self {
+                    BindValue::VecInt(
+                        v.into_iter().map(|x| x as i64).collect()
+                    )
+                }
+            }
+        )+
+    };
 }
+impl_from_num!(i8, i16, i32, i64, u8, u16, u32, u64, isize, usize);
 
-impl From<i64> for BindValueWrapper {
-    fn from(v: i64) -> Self {
-        BindValueWrapper::Inner(BindValue::Int(v))
-    }
-}
-
-impl From<Option<i64>> for BindValueWrapper {
-    fn from(v: Option<i64>) -> Self {
-        BindValueWrapper::Inner(BindValue::OptInt(v))
-    }
-}
-
-impl From<String> for BindValueWrapper {
+impl From<String> for BindValue {
     fn from(v: String) -> Self {
-        BindValueWrapper::Inner(BindValue::Text(v))
+        BindValue::Text(v)
     }
 }
 
-impl From<&str> for BindValueWrapper {
+impl From<&str> for BindValue {
     fn from(v: &str) -> Self {
-        BindValueWrapper::Inner(BindValue::OptText(Some(v.to_string())))
+        BindValue::OptText(Some(v.to_string()))
     }
 }
 
-impl From<Option<String>> for BindValueWrapper {
+impl From<Option<String>> for BindValue {
     fn from(v: Option<String>) -> Self {
-        BindValueWrapper::Inner(BindValue::OptText(v))
+        BindValue::OptText(v)
     }
 }
 
-impl From<Option<&str>> for BindValueWrapper {
+impl From<Option<&str>> for BindValue {
     fn from(v: Option<&str>) -> Self {
-        BindValueWrapper::Inner(BindValue::OptText(v.map(|s| s.to_owned())))
+        BindValue::OptText(v.map(|s| s.to_owned()))
     }
 }
 
-impl From<Vec<String>> for BindValueWrapper {
+impl From<Vec<String>> for BindValue {
     fn from(v: Vec<String>) -> Self {
-        BindValueWrapper::Inner(BindValue::VecText(v))
-    }
-}
-
-impl From<Vec<i64>> for BindValueWrapper {
-    fn from(v: Vec<i64>) -> Self {
-        BindValueWrapper::Inner(BindValue::VecInt(v))
+        BindValue::VecText(v)
     }
 }

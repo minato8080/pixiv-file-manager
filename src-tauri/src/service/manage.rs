@@ -1,14 +1,14 @@
 use anyhow::Result;
 use chrono::Utc;
-use sqlx::SqliteConnection;
+use sqlx::{Pool, Sqlite, SqliteConnection};
 
 use crate::{
     execute_queries,
-    models::manage::{ExecuteResult, TagFixRuleAction},
+    models::manage::{TagFixResult, TagFixRuleAction},
 };
 
 pub async fn validate_and_insert_tag_fix_rule(
-    conn: &mut SqliteConnection,
+    pool: &Pool<Sqlite>,
     src_tag: &str,
     dst_tag: Option<&str>,
     action_type: TagFixRuleAction,
@@ -18,7 +18,7 @@ pub async fn validate_and_insert_tag_fix_rule(
             "SELECT COUNT(*) FROM TAG_FIX_RULES WHERE src_tag = ?1 AND action_type != 0",
         )
         .bind(src_tag)
-        .fetch_one(&mut *conn)
+        .fetch_one(pool)
         .await?;
 
         if count > 0 {
@@ -32,7 +32,7 @@ pub async fn validate_and_insert_tag_fix_rule(
             "SELECT COUNT(*) FROM TAG_FIX_RULES WHERE src_tag = ?1 AND action_type = 0",
         )
         .bind(src_tag)
-        .fetch_one(&mut *conn)
+        .fetch_one(pool)
         .await?;
 
         if count > 0 {
@@ -53,25 +53,19 @@ pub async fn validate_and_insert_tag_fix_rule(
     .bind(dst_tag)
     .bind(action_type as i64)
     .bind(now)
-    .execute(&mut *conn)
+    .execute(pool)
     .await?;
 
     Ok(())
 }
 
-pub async fn apply_tag_fix_rules(conn: &mut SqliteConnection) -> Result<ExecuteResult> {
+pub async fn apply_tag_fix_rules(conn: &mut SqliteConnection) -> Result<TagFixResult> {
     let sql = include_str!("../sql/manage/apply_tag_fix_rules.sql");
     execute_queries(&mut *conn, sql).await?;
 
     // カウンター取得
-    let result = sqlx::query_as::<_, ExecuteResult>(
-        "SELECT replaced, deleted, added,
-            replaced + deleted + added AS total_updated
-     FROM tmp_tag_fix_counts
-     LIMIT 1",
-    )
-    .fetch_one(&mut *conn)
-    .await?;
+    let sql = include_str!("../sql/manage/get_tag_fix_counts.sql");
+    let result: TagFixResult = sqlx::query_as(sql).fetch_one(&mut *conn).await?;
 
     Ok(result)
 }

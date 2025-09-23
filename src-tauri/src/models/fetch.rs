@@ -48,3 +48,13 @@ pub struct FileCounts {
     pub total: i32,
     pub process_time: String,
 }
+
+#[derive(Debug, FromRow)]
+pub struct DeleteFileRow {
+    pub file_path: String,
+    pub keep_file_path: Option<String>,
+    pub illust_id: i64,
+    pub suffix: i64,
+    pub extension: String,
+    pub save_dir: String,
+}

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import { useHistoryStore } from "./history-store";
+import { useTagSearcherStore } from "./tag-searcher-store";
 
 import { AssociateInfo } from "@/bindings/AssociateInfo";
 import { EditTag } from "@/bindings/EditTag";
@@ -19,12 +20,10 @@ export type FileTagState = {
 
 type DialogEditStore = {
   isEditTagsDialogOpen: boolean;
-  selectedFiles: SearchResult[];
   availableTags: string[];
   isOverwriteMode: boolean;
   isUpdateLinkedFiles: boolean;
   associateInfo: AssociateInfo | null;
-  setSelectedFiles: (files: SearchResult[]) => void;
   setAvailableTags: (tags: string[]) => void;
   openEditTagsDialog: (files: SearchResult[]) => void;
   closeEditTagsDialog: () => void;
@@ -71,17 +70,14 @@ export const useDialogEditStore = create<
 >((set, get) => ({
   // Main UI
   isEditTagsDialogOpen: false,
-  selectedFiles: [],
   availableTags: [],
   isOverwriteMode: false,
   isUpdateLinkedFiles: false,
   associateInfo: null,
-  setSelectedFiles: (files: SearchResult[]) => set({ selectedFiles: files }),
   setAvailableTags: (tags) => set({ availableTags: tags }),
-  openEditTagsDialog: (files: SearchResult[]) =>
+  openEditTagsDialog: () =>
     set({
       isEditTagsDialogOpen: true,
-      selectedFiles: files,
     }),
   closeEditTagsDialog: () => {
     get().resetMainUI();
@@ -91,7 +87,6 @@ export const useDialogEditStore = create<
   resetMainUI: () =>
     set({
       isEditTagsDialogOpen: false,
-      selectedFiles: [],
       isUpdateLinkedFiles: false,
       associateInfo: null,
     }),
@@ -194,7 +189,9 @@ export const useDialogEditStore = create<
     useHistoryStore.getState().addOverwriteHistory(finalTags);
 
     return {
-      fileNames: get().selectedFiles.map((f) => f.file_name),
+      fileNames: useTagSearcherStore
+        .getState()
+        .selectedFiles.map((f) => f.file_name),
       tags: finalTags,
     };
   },

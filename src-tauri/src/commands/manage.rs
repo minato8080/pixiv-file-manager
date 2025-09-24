@@ -1,15 +1,13 @@
 use tauri::{command, Emitter, State};
 
+use crate::util::log_error;
 use crate::{
     models::{
         common::AppState,
         manage::{TagFixResult, TagFixRule, TagFixRuleAction, TagFixRuleRaw},
         search::TagInfo,
     },
-    service::{
-        common::log_error,
-        manage::{apply_tag_fix_rules, validate_and_insert_tag_fix_rule},
-    },
+    service::manage::{apply_tag_fix_rules, validate_and_insert_tag_fix_rule},
 };
 
 #[command]

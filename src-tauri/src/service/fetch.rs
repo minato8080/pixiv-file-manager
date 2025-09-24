@@ -16,6 +16,8 @@ use crate::models::fetch::{DeleteFileRow, FileDetail, ProcessStats, TagProgress}
 use crate::service::common::{
     execute_multi_insert_query, format_duration, parse_path_info, remove_invalid_chars, update_cnum,
 };
+use crate::util::log_error;
+use crate::util::ResultWithLocationExt;
 
 async fn fetch_illustration_detail(
     pixiv_client: &PixivClient,
@@ -25,8 +27,8 @@ async fn fetch_illustration_detail(
 
     let illustration = tauri::async_runtime::spawn_blocking(move || {
         let request = PixivRequestBuilder::request_illustration(illust_id.try_into().unwrap());
-        let response = pixiv_client.execute_with_auth(request)?;
-        let illustration = response.json::<IllustrationProxy>()?;
+        let response = pixiv_client.execute_with_auth(request).with_location()?;
+        let illustration = response.json::<IllustrationProxy>().with_location()?;
         anyhow::Ok(illustration)
     })
     .await??;
@@ -55,7 +57,10 @@ pub async fn extract_dir_detail<P: AsRef<Path>>(folder: P) -> Vec<FileDetail> {
                 let file_info = match parse_path_info(&path) {
                     Ok(info) => info,
                     Err(e) => {
-                        eprintln!("ファイル情報の取得に失敗: {} (path: {:?})", e, path);
+                        log_error(format!(
+                            "ファイル情報の取得に失敗: {} (path: {:?})",
+                            e, path
+                        ));
                         return None;
                     }
                 };
@@ -78,7 +83,7 @@ pub async fn extract_dir_detail<P: AsRef<Path>>(folder: P) -> Vec<FileDetail> {
     match result {
         Ok(details) => details,
         Err(e) => {
-            eprintln!("タスクの実行に失敗: {:?}", e);
+            log_error(format!("タスクの実行に失敗: {:?}", e));
             Vec::new()
         }
     }
@@ -91,23 +96,23 @@ pub async fn process_fetch_illust_detail(
 ) -> Result<ProcessStats> {
     let start = Instant::now();
 
-    let mut conn = pool.acquire().await?;
+    let mut conn = pool.acquire().await.with_location()?;
 
     // ワークテーブルを準備
     let sql = include_str!("../sql/fetch/prepare_fetch_work.sql");
-    execute_queries(&mut *conn, sql).await?;
+    execute_queries(&mut *conn, sql).await.with_location()?;
 
-    let mut tx = conn.begin().await?;
+    let mut tx = conn.begin().await.with_location()?;
 
     // フェッチなしでインサートするファイルを処理
     insert_illust_info_no_fetch(&mut *tx).await?;
 
-    tx.commit().await?;
+    tx.commit().await.with_location()?;
 
     // メイン処理
     let mut stats = core_fetch_illust_detail(&mut *conn, start, pixiv_client, window).await?;
 
-    let mut tx = conn.begin().await?;
+    let mut tx = conn.begin().await.with_location()?;
 
     // 重複ファイルを検知して削除
     let cnt = delete_duplicate_files(&mut *tx).await?;
@@ -117,9 +122,9 @@ pub async fn process_fetch_illust_detail(
     delete_missing_tags(&mut *tx).await?;
 
     // 管理番号を更新
-    update_cnum(&mut *tx).await?;
+    update_cnum(&mut *tx).await.with_location()?;
 
-    tx.commit().await?;
+    tx.commit().await.with_location()?;
 
     // 全体処理終了
     let duration = start.elapsed();
@@ -143,7 +148,8 @@ async fn core_fetch_illust_detail(
     // フェッチ回数
     let total: u64 = sqlx::query_scalar("SELECT COUNT(*) FROM tmp_fetch_ids;")
         .fetch_one(&mut *conn)
-        .await?;
+        .await
+        .with_location()?;
 
     let interval = std::env::var("INTERVAL_MILL_SEC")
         .ok()
@@ -154,10 +160,11 @@ async fn core_fetch_illust_detail(
     // フェッチ対象を取得
     let tmp_fetch_ids: Vec<u32> = sqlx::query_scalar("SELECT illust_id FROM tmp_fetch_ids;")
         .fetch_all(&mut *conn)
-        .await?;
+        .await
+        .with_location()?;
 
     for fetch_id in tmp_fetch_ids {
-        let mut tx = conn.begin().await?;
+        let mut tx = conn.begin().await.with_location()?;
         // イラスト情報を登録
         let cnum = insert_illust_info(&mut *tx, fetch_id).await?;
         // フェッチ処理
@@ -169,7 +176,7 @@ async fn core_fetch_illust_detail(
                 .bind(resp.illust.user().id())
                 .bind(cnum)
                 .bind(resp.illust.create_date())
-                .execute(&mut *tx).await?;
+                .execute(&mut *tx).await.with_location()?;
 
                 // タグ情報を登録
                 for tag in resp.illust.tags() {
@@ -177,7 +184,7 @@ async fn core_fetch_illust_detail(
                     .bind(fetch_id)
                     .bind(cnum)
                     .bind(remove_invalid_chars(tag.name()))
-                    .execute(&mut *tx).await?;
+                    .execute(&mut *tx).await.with_location()?;
                 }
 
                 // 作者情報を登録
@@ -185,7 +192,7 @@ async fn core_fetch_illust_detail(
                         .bind(resp.illust.user().id())
                         .bind(resp.illust.user().name())
                         .bind(resp.illust.user().account())
-                .execute(&mut *tx).await?;
+                .execute(&mut *tx).await.with_location()?;
                 success_count += 1;
             }
             Err(err) => {
@@ -194,20 +201,20 @@ async fn core_fetch_illust_detail(
                 sqlx::query(
                     "INSERT OR IGNORE INTO ILLUST_DETAIL (illust_id, author_id, character, cnum) VALUES (?1, 0, NULL, ?2)",
                 )
-                .bind(fetch_id).bind(cnum).execute(&mut *tx).await?;
+                .bind(fetch_id).bind(cnum).execute(&mut *tx).await.with_location()?;
 
                 // 失敗時のタグ情報
                 sqlx::query(
                     "INSERT OR IGNORE INTO TAG_INFO (illust_id, cnum, tag) VALUES (?1, ?2, 'Missing')",
                 )
-                .bind(fetch_id).bind(cnum).execute(&mut *tx).await?;
+                .bind(fetch_id).bind(cnum).execute(&mut *tx).await.with_location()?;
 
                 // 失敗したIDを結果に追加
                 failed_file_paths.push(format!("{}:{}", fetch_id, err))
             }
         }
         // 一件ずつコミット
-        tx.commit().await?;
+        tx.commit().await.with_location()?;
 
         // 処理状況を通知
         let elapsed = start.elapsed().as_millis() as u64;
@@ -220,7 +227,9 @@ async fn core_fetch_illust_detail(
             elapsed_time: format_duration(elapsed),
             remaining_time: format_duration(remaining),
         };
-        window.emit("tag_progress", serde_json::json!(progress))?;
+        window
+            .emit("tag_progress", serde_json::json!(progress))
+            .with_location()?;
 
         // ボットアクセスなのでインターバルを挟む
         std::thread::sleep(std::time::Duration::from_millis(interval));
@@ -243,12 +252,13 @@ pub async fn prepare_illust_fetch_work(
     pool: &SqlitePool,
     file_details: &[FileDetail],
 ) -> Result<()> {
-    let mut tx = pool.begin().await?;
-    let conn = tx.acquire().await?;
+    let mut tx = pool.begin().await.with_location()?;
+    let conn = tx.acquire().await.with_location()?;
 
     sqlx::query("DELETE FROM ILLUST_FETCH_WORK;")
         .execute(&mut *conn)
-        .await?;
+        .await
+        .with_location()?;
 
     let rows: Vec<_> = file_details
         .iter()
@@ -268,9 +278,9 @@ pub async fn prepare_illust_fetch_work(
         "INSERT INTO ILLUST_FETCH_WORK (illust_id, suffix, extension, save_dir, created_time, file_size)
         VALUES [(?, ?, ?, ?, ?, ?)]",
         &rows,
-    ).await?;
+    ).await.with_location()?;
 
-    tx.commit().await?;
+    tx.commit().await.with_location()?;
 
     Ok(())
 }
@@ -281,15 +291,16 @@ async fn insert_illust_info(conn: &mut SqliteConnection, illust_id: u32) -> Resu
     )
     .bind(illust_id)
     .fetch_one(&mut *conn)
-    .await?;
+    .await
+    .with_location()?;
 
     let sql = include_str!("../sql/fetch/insert_illust_info.sql");
-
     sqlx::query(sql)
         .bind(cnum)
         .bind(illust_id)
         .execute(&mut *conn)
-        .await?;
+        .await
+        .with_location()?;
 
     Ok(cnum)
 }
@@ -297,7 +308,7 @@ async fn insert_illust_info(conn: &mut SqliteConnection, illust_id: u32) -> Resu
 async fn insert_illust_info_no_fetch(conn: &mut SqliteConnection) -> Result<()> {
     let sql = include_str!("../sql/fetch/insert_illust_info_no_fetch.sql");
 
-    execute_queries(&mut *conn, sql).await?;
+    execute_queries(&mut *conn, sql).await.with_location()?;
 
     Ok(())
 }
@@ -308,7 +319,8 @@ pub async fn delete_duplicate_files(conn: &mut SqliteConnection) -> anyhow::Resu
                           FROM tmp_delete_files",
     )
     .fetch_all(&mut *conn)
-    .await?;
+    .await
+    .with_location()?;
 
     let mut deleted = 0;
 
@@ -326,7 +338,8 @@ pub async fn delete_duplicate_files(conn: &mut SqliteConnection) -> anyhow::Resu
                 .bind(row.illust_id)
                 .bind(row.suffix)
                 .execute(&mut *conn)
-                .await?;
+                .await
+                .with_location()?;
                 continue;
             }
         }
@@ -334,7 +347,7 @@ pub async fn delete_duplicate_files(conn: &mut SqliteConnection) -> anyhow::Resu
         // 削除対象のファイルが存在するなら削除
         let target = std::path::Path::new(&row.file_path);
         if target.exists() {
-            trash::delete(target)?;
+            trash::delete(target).with_location()?;
             deleted += 1;
         }
     }
@@ -368,7 +381,7 @@ pub async fn extract_missing_files(pool: &SqlitePool) -> Result<Vec<FileDetail>>
 async fn delete_missing_tags(conn: &mut SqliteConnection) -> Result<()> {
     let sql = include_str!("../sql/fetch/delete_missing_tags.sql");
 
-    sqlx::query(sql).execute(&mut *conn).await?;
+    sqlx::query(sql).execute(&mut *conn).await.with_location()?;
 
     Ok(())
 }

@@ -26,7 +26,6 @@ import { useDropdownStore } from "@/stores/dropdown-store";
 export const DialogEditTag = () => {
   const {
     isEditTagsDialogOpen,
-    selectedFiles,
     isOverwriteMode,
     isUpdateLinkedFiles,
     associateInfo,
@@ -40,7 +39,7 @@ export const DialogEditTag = () => {
   } = useDialogEditStore();
   const { loading, setLoading } = useCommonStore();
   const { uniqueTagList } = useDropdownStore();
-  const { fetchTags, quickReload } = useTagSearcherStore();
+  const { selectedFiles, fetchTags, quickReload } = useTagSearcherStore();
 
   // Extract all unique tags from selected files
   useEffect(() => {

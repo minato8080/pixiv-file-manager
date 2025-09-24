@@ -15,10 +15,10 @@ import {
 import { InputDropdown } from "@/src/components/input-dropdown";
 import { useDialogEditStore } from "@/src/stores/dialog-edit-store";
 import { useHistoryStore } from "@/src/stores/history-store";
+import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 
 export const OverwriteModeUI = () => {
   const {
-    selectedFiles,
     overwriteTags,
     editingTagIndex,
     editingTagValue,
@@ -29,6 +29,7 @@ export const OverwriteModeUI = () => {
     setEditingTagValue,
     setTagToOverwrite,
   } = useDialogEditStore();
+  const { selectedFiles } = useTagSearcherStore();
 
   const { overwriteHistory } = useHistoryStore();
 

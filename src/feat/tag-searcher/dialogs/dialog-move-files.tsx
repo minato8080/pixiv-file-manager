@@ -32,13 +32,12 @@ export const DialogMoveFiles = () => {
   const [moveLinkedFiles, setMoveLinkedFiles] = useState(false);
   const [targetFolder, setTargetFolder] = useState("");
   const [pathsToUpdate, setPathsToUpdate] = useState(0);
-  const [selectedFiles, setSelectedFiles] = useState<SearchResult[]>([]);
   const [isLoadingAssociations, setIsLoadingAssociations] = useState(false);
   const [associateInfo, setAssociateInfo] = useState<AssociateInfo | null>(
     null
   );
 
-  const { quickReload } = useTagSearcherStore();
+  const { selectedFiles, quickReload } = useTagSearcherStore();
 
   // 紐づけ更新の情報を取得
   const fetchAssociations = async (searchResult: SearchResult[]) => {
@@ -96,7 +95,6 @@ export const DialogMoveFiles = () => {
     setMoveLinkedFiles(false);
     setTargetFolder("");
     setPathsToUpdate(0);
-    setSelectedFiles([]);
     setLoading(false);
     setIsLoadingAssociations(false);
     setAssociateInfo(null);

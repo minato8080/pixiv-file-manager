@@ -3,10 +3,10 @@ use std::fs;
 use tauri::command;
 
 use crate::models::settings::EnvConfig;
-use crate::service::common::log_error;
 use crate::service::setting::{
     from_map, get_config_path, process_pixiv_authorization, to_env_string,
 };
+use crate::util::log_error;
 
 #[command]
 pub async fn get_environment_variables(app: tauri::AppHandle) -> Result<Option<EnvConfig>, String> {

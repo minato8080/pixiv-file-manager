@@ -1,6 +1,6 @@
 use tauri::{command, State};
-use trash::delete;
 
+use crate::util::log_error;
 use crate::{
     models::{
         catalog::{AssociateInfo, EditTag},
@@ -8,19 +8,19 @@ use crate::{
     },
     service::{
         catalog::{
-            process_add_remove_tags, process_get_associated_info, process_label_character_name,
-            process_move_files, process_overwrite_tags,
+            process_edit_tags, process_get_associated_info, process_label_character_name,
+            process_move_files,
         },
-        common::{execute_named_queries, hash_params, log_error, parse_file_info},
+        common::{execute_named_queries, hash_params, parse_file_info},
     },
 };
 
 #[command]
 pub async fn move_files(
-    state: State<'_, AppState>,
     file_names: Vec<String>,
     target_folder: &str,
     move_linked_files: bool,
+    state: State<'_, AppState>,
 ) -> Result<(), String> {
     let mut pool = &state.pool;
     process_move_files(&mut pool, file_names, target_folder, move_linked_files)
@@ -31,11 +31,11 @@ pub async fn move_files(
 
 #[command]
 pub async fn label_character_name(
-    state: State<'_, AppState>,
     file_names: Vec<String>,
     character_name: Option<String>,
     update_linked_files: bool,
     collect_dir: Option<String>,
+    state: State<'_, AppState>,
 ) -> Result<(), String> {
     let mut pool = &state.pool;
     process_label_character_name(
@@ -57,17 +57,18 @@ pub async fn label_character_name(
 
     Ok(())
 }
-
 #[command]
 pub async fn add_remove_tags(
     edit_tags: Vec<EditTag>,
     update_linked_files: bool,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    let mut pool = &state.pool;
-    process_add_remove_tags(edit_tags, update_linked_files, &mut pool)
+    let pool = &state.pool;
+
+    process_edit_tags(pool, edit_tags, update_linked_files)
         .await
         .map_err(log_error)?;
+
     Ok(())
 }
 
@@ -78,17 +79,27 @@ pub async fn overwrite_tags(
     update_linked_files: bool,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    let mut pool = &state.pool;
-    process_overwrite_tags(file_names, tags, update_linked_files, &mut pool)
+    let pool = &state.pool;
+
+    let edit_tags: Vec<EditTag> = file_names
+        .into_iter()
+        .map(|file_name| EditTag {
+            file_name,
+            tags: tags.clone(),
+        })
+        .collect();
+
+    process_edit_tags(pool, edit_tags, update_linked_files)
         .await
         .map_err(log_error)?;
+
     Ok(())
 }
 
 #[command]
 pub async fn delete_files(
-    state: State<'_, AppState>,
     file_names: Vec<String>,
+    state: State<'_, AppState>,
 ) -> Result<(), String> {
     let pool = &state.pool;
     let mut tx = pool.begin().await.map_err(log_error)?;
@@ -108,7 +119,7 @@ pub async fn delete_files(
 
         // 2. ファイル削除
         let source_path = std::path::Path::new(&save_dir).join(&file_name);
-        delete(source_path).map_err(log_error)?;
+        trash::delete(source_path).map_err(log_error)?;
 
         // 3. ILLUST_INFO の削除と TAG_INFO と ILLUST_DETAIL の後処理
         let delete_sql = include_str!("../sql/catalog/delete_file_registration.sql");
@@ -132,8 +143,8 @@ pub async fn delete_files(
 
 #[command]
 pub async fn get_associated_info(
-    state: State<'_, AppState>,
     file_names: Vec<String>,
+    state: State<'_, AppState>,
 ) -> Result<AssociateInfo, String> {
     let pool = &state.pool;
     Ok(process_get_associated_info(&pool, file_names)

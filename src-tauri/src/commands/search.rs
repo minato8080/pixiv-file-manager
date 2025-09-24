@@ -1,7 +1,8 @@
 use tauri::{command, State};
 
 use crate::models::{common::AppState, search::*};
-use crate::service::{common::log_error, search::*};
+use crate::service::search::*;
+use crate::util::log_error;
 
 #[command]
 pub async fn get_unique_tags(state: State<'_, AppState>) -> Result<Vec<TagInfo>, String> {

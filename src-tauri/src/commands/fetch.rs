@@ -8,16 +8,16 @@ use crate::models::common::AppState;
 use crate::models::fetch::{FileCounts, FileDetail, ProcessStats};
 
 use crate::models::fetch::FolderCount;
-use crate::service::common::log_error;
 use crate::service::fetch::{
     extract_dir_detail, extract_missing_files, prepare_illust_fetch_work,
     process_fetch_illust_detail,
 };
+use crate::util::log_error;
 
 #[command]
 pub async fn count_files_in_dir(
-    state: State<'_, AppState>,
     folders: Vec<String>,
+    state: State<'_, AppState>,
 ) -> Result<FileCounts, String> {
     let mut pool = &state.pool;
 

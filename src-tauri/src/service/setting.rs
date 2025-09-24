@@ -11,6 +11,7 @@ use std::{collections::HashMap, path::PathBuf};
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
 use crate::constants::{AUTH_TOKEN_URL, CLIENT_ID, CLIENT_SECRET, LOGIN_URL, REDIRECT_URI};
+use crate::util::ResultWithLocationExt;
 
 pub async fn process_pixiv_authorization(app: tauri::AppHandle) -> Result<String> {
     let (tx, rx) = oneshot::channel::<String>();
@@ -44,11 +45,12 @@ pub async fn process_pixiv_authorization(app: tauri::AppHandle) -> Result<String
         }
         true
     })
-    .build()?;
+    .build()
+    .with_location()?;
 
-    let code = rx.await?;
+    let code = rx.await.with_location()?;
 
-    let _ = window.close()?;
+    let _ = window.close().with_location()?;
 
     let refresh_token = exchange_code_for_token(code, code_verifier).await?;
 
@@ -89,10 +91,11 @@ async fn exchange_code_for_token(code: String, code_verifier: String) -> Result<
             "PixivAndroidApp/5.0.234 (Android 11; Pixel 5)",
         )
         .send()
-        .await?;
+        .await
+        .with_location()?;
 
-    let text = res.text().await?;
-    let json: Value = serde_json::from_str(&text)?;
+    let text = res.text().await.with_location()?;
+    let json: Value = serde_json::from_str(&text).with_location()?;
 
     if let Some(refresh_token) = json.get("refresh_token") {
         Ok(refresh_token.as_str().unwrap_or_default().to_string())

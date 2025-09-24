@@ -14,10 +14,10 @@ import {
 } from "@/components/ui/select";
 import { InputDropdown } from "@/src/components/input-dropdown";
 import { useDialogEditStore } from "@/src/stores/dialog-edit-store";
+import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 
 export const AddRemoveModeUI = () => {
   const {
-    selectedFiles,
     fileTagStates,
     availableTags,
     tagToAdd,
@@ -29,6 +29,7 @@ export const AddRemoveModeUI = () => {
     addTagsToAll,
     removeTagsFromAll,
   } = useDialogEditStore();
+  const { selectedFiles } = useTagSearcherStore();
 
   // Extract all unique tags from selected files
   useEffect(() => {

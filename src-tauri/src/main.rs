@@ -6,8 +6,10 @@
 mod api;
 mod commands;
 mod constants;
+mod errors;
 mod models;
 mod service;
+mod util;
 
 use anyhow::{anyhow, Result};
 use models::common::AppState;
@@ -18,7 +20,8 @@ use tauri::Manager;
 
 use crate::api::pixiv::RealPixivClientProvider;
 use crate::commands::{catalog::*, collect::*, fetch::*, manage::*, search::*, settings::*};
-use crate::service::common::{execute_queries, log_error};
+use crate::service::common::execute_queries;
+use crate::util::log_error;
 
 fn main() {
     tauri::Builder::default()
@@ -118,7 +121,7 @@ fn init_logger(app: &tauri::App) {
                 msg
             ))
         })
-        .level(log::LevelFilter::Debug)
+        .level(log::LevelFilter::Error)
         .chain(fern::log_file(log_file).unwrap())
         .apply()
         .unwrap();
@@ -149,8 +152,12 @@ async fn init_app_state(app: tauri::AppHandle) -> Result<()> {
 
 async fn init_db(pool: &SqlitePool) -> Result<()> {
     let mut tx = pool.begin().await?;
+
     let sql = include_str!("./sql/initialize_db.sql");
+
     execute_queries(&mut tx, sql).await?;
+
     tx.commit().await?;
+
     Ok(())
 }

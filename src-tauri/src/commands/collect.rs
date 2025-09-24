@@ -4,10 +4,10 @@ use crate::constants;
 use crate::models::collect::FileSummary;
 use crate::models::search::TagInfo;
 use crate::service::collect::{
-    collect_character_info, collect_illust_detail, get_collect_summary, move_illust_files,
-    prepare_collect_ui_work, process_sync_db, reflesh_collect_work,
+    apply_file_moves, collect_character_info, collect_illust_detail, get_collect_summary,
+    mark_illust_move_targets, prepare_collect_ui_work, process_sync_db, reflesh_collect_work,
 };
-use crate::service::common::log_error;
+use crate::util::log_error;
 use crate::{
     models::{
         collect::{CollectSummary, TagAssignment},
@@ -129,6 +129,7 @@ pub async fn delete_collect(
     if let Some(id) = assignment.id {
         // id指定時
         let sql = sql_template.to_owned() + " WHERE id = ?1";
+
         sqlx::query(&sql)
             .bind(id)
             .execute(&mut *tx)
@@ -143,6 +144,7 @@ pub async fn delete_collect(
             .expect("Invalid assignment: expected exactly one of 'character' or 'series'");
 
         let sql = sql_template.to_owned() + " WHERE entity_key = ?1";
+
         sqlx::query(&sql)
             .bind(entity_key)
             .execute(&mut *tx)
@@ -194,9 +196,13 @@ pub async fn perform_collect(
 
     collect_illust_detail(&mut *tx).await.map_err(log_error)?;
 
-    move_illust_files(&mut *tx).await.map_err(log_error)?;
+    let moves = mark_illust_move_targets(&mut *tx)
+        .await
+        .map_err(log_error)?;
 
     tx.commit().await.map_err(log_error)?;
+
+    apply_file_moves(moves);
 
     let mut tx = pool.begin().await.map_err(log_error)?;
 

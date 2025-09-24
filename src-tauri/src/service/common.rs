@@ -1,11 +1,10 @@
-use anyhow::{anyhow, Result};
 use chrono::{DateTime, FixedOffset, Utc};
 use regex::Regex;
 use sqlx::{QueryBuilder, Sqlite, SqliteConnection};
-use std::fmt::Display;
 use std::time::Duration;
 use std::{collections::HashMap, path::Path};
 
+use crate::errors::{db::ParameterError, parse::FileParseError};
 use crate::models::common::{BindValue, FileInfo};
 
 pub fn format_duration(ms: u64) -> String {
@@ -40,40 +39,40 @@ pub fn remove_invalid_chars(path: &str) -> String {
         .collect()
 }
 
-pub fn parse_path_info(path: &Path) -> Result<FileInfo> {
+pub fn parse_path_info(path: &Path) -> Result<FileInfo, FileParseError> {
     let filename = path
         .file_name()
         .and_then(|f| f.to_str())
-        .ok_or_else(|| anyhow!("ファイル名が取得できません: {:?}", path))?;
+        .ok_or_else(|| FileParseError::FileNameNotFound(format!("{:?}", path)))?;
 
     let mut file_info = parse_file_info(filename)?;
 
     let save_dir = path
         .parent()
         .and_then(|p| p.to_str())
-        .ok_or_else(|| anyhow!("親ディレクトリの取得に失敗しました: {:?}", path))?
+        .ok_or_else(|| FileParseError::ParentDirNotFound(format!("{:?}", path)))?
         .to_string();
+
     file_info.save_dir = Some(save_dir);
 
     Ok(file_info)
 }
 
-pub fn parse_file_info(file_name: &str) -> Result<FileInfo> {
-    // 拡張子は必要に応じて拡張可能
+pub fn parse_file_info(file_name: &str) -> Result<FileInfo, FileParseError> {
     let reg = Regex::new(r"^(\d+)_p(\d+)\.(jpg|png|jpeg)$")
-        .map_err(|e| anyhow!("正規表現のコンパイルに失敗: {}", e))?;
+        .map_err(|e| FileParseError::RegexCompileError(e.to_string()))?;
 
     let caps = reg
         .captures(file_name)
-        .ok_or_else(|| anyhow!("ファイル名の形式が不正です: {}", file_name))?;
+        .ok_or_else(|| FileParseError::InvalidFormat(file_name.to_string()))?;
 
     let illust_id = caps[1]
         .parse::<i32>()
-        .map_err(|_| anyhow!("illust_id のパースに失敗: {}", &caps[1]))?;
+        .map_err(|_| FileParseError::InvalidIllustId(caps[1].to_string()))?;
 
     let suffix = caps[2]
         .parse::<i16>()
-        .map_err(|_| anyhow!("suffix のパースに失敗: {}", &caps[2]))?;
+        .map_err(|_| FileParseError::InvalidSuffix(caps[2].to_string()))?;
 
     let extension = caps[3].to_string();
 
@@ -85,21 +84,14 @@ pub fn parse_file_info(file_name: &str) -> Result<FileInfo> {
     })
 }
 
-pub async fn update_cnum(conn: &mut SqliteConnection) -> Result<()> {
+pub async fn update_cnum(conn: &mut SqliteConnection) -> sqlx::Result<()> {
     let sql = include_str!("../sql/update_cnum.sql");
     execute_queries(&mut *conn, sql).await?;
 
     Ok(())
 }
 
-pub fn log_error<T: Display>(error: T) -> String {
-    let s = error.to_string();
-    log::error!("{}", s);
-    eprintln!("{}", s);
-    s
-}
-
-pub async fn execute_queries(conn: &mut SqliteConnection, sql: &str) -> Result<()> {
+pub async fn execute_queries(conn: &mut SqliteConnection, sql: &str) -> sqlx::Result<()> {
     let queries: Vec<&str> = sql
         .split(';')
         .map(|q| q.trim())
@@ -117,7 +109,7 @@ pub async fn execute_named_queries(
     conn: &mut SqliteConnection,
     sqls: &str,
     params: &HashMap<&str, BindValue>,
-) -> Result<()> {
+) -> sqlx::Result<()> {
     let queries: Vec<&str> = sqls
         .split(';')
         .map(|s| s.trim())
@@ -137,7 +129,7 @@ pub async fn execute_named_queries(
 pub fn build_named_query<'a>(
     sql: &str,
     params: &'a HashMap<&str, BindValue>,
-) -> Result<QueryBuilder<'a, Sqlite>> {
+) -> sqlx::Result<QueryBuilder<'a, Sqlite>> {
     let re = Regex::new(r":([A-Za-z0-9_]+)").unwrap();
     let mut builder: QueryBuilder<Sqlite> = QueryBuilder::new("");
 
@@ -290,7 +282,7 @@ fn bind_rows<'a>(
     Ok(query)
 }
 
-pub fn hash_params<K>(pairs: &[(K, BindValue)]) -> Result<HashMap<&str, BindValue>>
+pub fn hash_params<K>(pairs: &[(K, BindValue)]) -> Result<HashMap<&str, BindValue>, ParameterError>
 where
     K: AsRef<str>,
 {
@@ -298,7 +290,7 @@ where
     for (k, v) in pairs {
         let key = k.as_ref();
         if map.contains_key(key) {
-            return Err(anyhow!("Duplicate key: {}", key));
+            return Err(ParameterError::DuplicateKey(key.to_string()));
         }
         map.insert(key, v.clone());
     }

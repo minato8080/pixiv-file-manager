@@ -7,7 +7,9 @@
 設定画面でリフレッシュトークンを入力するとタグ取得ができるようになります。
 ボットアクセスのため、リクエストのインターバルは１秒以上を設定してください。
 
-Windows のみ対応。インストーラーは　 Actions から。
+Windows のみ対応。[Get the installer.](https://github.com/minato8080/pixiv-file-manager/actions)
+
+![screenshot](image.png)
 
 ## 主な機能
 

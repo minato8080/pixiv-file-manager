@@ -1,9 +1,20 @@
 # Pixiv ファイルマネージャー
 
-[Powerful Pixiv Downloader(Chrome 拡張)](https://github.com/xuejianxianzun/PixivBatchDownloader)でダウンロードした画像ファイルをローカルで分類するアプリです。
+[Powerful Pixiv Downloader(Chrome 拡張)](https://github.com/xuejianxianzun/PixivBatchDownloader)でダウンロードした画像ファイル(`1234567_p0.jpg` のファイル名形式)をローカルで分類するアプリです。
+
+非公式 API 経由でイラスト情報を取得し、db ファイルに紐づけます。
 
 設定画面でリフレッシュトークンを入力するとタグ取得ができるようになります。
-ボットアクセスなのでリクエストのインターバルは１秒以上を設定してください。
+ボットアクセスのため、リクエストのインターバルは１秒以上を設定してください。
+
+Windows のみ対応。インストーラーは　 Actions から。
+
+## 主な機能
+
+- ローカルファイルに対して [pixiv.net](https://www.pixiv.net/) からタグや作者の情報を取得する。
+- タグ、キャラクター、作者で画像を検索。
+- キャラクター情報、シリーズ情報でフォルダ一括整理。
+- アプリ外での移動・削除に対して同期。
 
 ## 画面一覧
 
@@ -25,16 +36,19 @@
 
 ### 4. タグ管理画面
 
-- タグを一括で置換・追加・削除
+- タグを一括で置換・追加・削除 (主に表記揺れの修正)
 
 ### 5. 設定画面
 
 - 各種アプリの設定
+- リフレッシュトークンの取得
 
 ## 技術スタック
 
-フロントエンド：React, TypeScript
+フロントエンド：React(TypeScript)
 
-バックエンド：Rust, Tauri
+バックエンド：Rust
+
+フレームワーク:Tauri
 
 データベース：SQLite3

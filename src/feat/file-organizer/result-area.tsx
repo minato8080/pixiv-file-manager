@@ -86,7 +86,9 @@ export const ResultArea = () => {
 
     const assignment: TagAssignment = {
       id: updatedItem.id,
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
       series: updatedItem.series || null,
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
       character: updatedItem.character || null,
     };
 
@@ -196,7 +198,7 @@ export const ResultArea = () => {
           </span>
         </div>
         <div className="col-span-8   text-xs text-gray-800 font-mono truncate">
-          {item.new_path}
+          {item.collect_dir}
         </div>
         <div className="col-span-1 flex justify-end">
           {item.id !== -1 && (

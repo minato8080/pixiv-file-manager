@@ -85,7 +85,7 @@ export const OperationArea = () => {
   return (
     <>
       {operationMode && searchResults.length > 0 && (
-        <div className="flex items-center gap-2 mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-200 dark:border-blue-800">
+        <>
           <Button
             variant="outline"
             size="sm"
@@ -153,7 +153,7 @@ export const OperationArea = () => {
           <div className="ml-auto text-sm font-medium text-blue-700 dark:text-blue-300">
             {selectedFiles.length} of {searchResults.length} selected
           </div>
-        </div>
+        </>
       )}
     </>
   );

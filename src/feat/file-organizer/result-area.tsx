@@ -22,8 +22,11 @@ const VirtualizedSelect = VirtualizedSelectGenerics<TagInfo>;
 const SERIES = "series";
 const CHARACTER = "character";
 type TagType = typeof SERIES | typeof CHARACTER;
+
 const isNull = (...values: (string | null)[]) =>
   values.every((v) => v === null);
+
+const emptyToNull = (value: string | null) => (value === "" ? null : value);
 
 interface EditingState {
   id: number;
@@ -61,9 +64,14 @@ export const ResultArea = () => {
 
   const removeAssignment = async (item: CollectSummary) => {
     setLoading(true);
+    const assignment: TagAssignment = {
+      id: item.id,
+      series: item.series,
+      character: item.character,
+    };
     try {
-      const summary: CollectSummary[] = await invoke("delete_collect", {
-        assignment: item,
+      const summary: CollectSummary[] = await invoke("remove_collect", {
+        assignment,
       });
       setCollectSummary(summary);
     } finally {
@@ -81,20 +89,18 @@ export const ResultArea = () => {
 
     const updatedItem = {
       ...collectSummary[index],
-      [field]: value === "" ? null : value,
+      [field]: emptyToNull(value),
     };
 
     const assignment: TagAssignment = {
       id: updatedItem.id,
-      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-      series: updatedItem.series || null,
-      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-      character: updatedItem.character || null,
+      series: emptyToNull(updatedItem.series),
+      character: emptyToNull(updatedItem.character),
     };
 
     setLoading(true);
     try {
-      const summary: CollectSummary[] = await invoke("assign_tag", {
+      const summary: CollectSummary[] = await invoke("assign_collect", {
         assignment,
       });
       setCollectSummary(summary);
@@ -115,7 +121,7 @@ export const ResultArea = () => {
 
     setLoading(true);
     try {
-      const summary: CollectSummary[] = await invoke("assign_tag", {
+      const summary: CollectSummary[] = await invoke("assign_collect", {
         assignment,
       });
       setCollectSummary(summary);

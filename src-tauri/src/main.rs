@@ -36,8 +36,8 @@ fn main() {
             add_remove_tags,
             overwrite_tags,
             // collect
-            assign_tag,
-            delete_collect,
+            assign_collect,
+            remove_collect,
             delete_missing_illusts,
             get_available_unique_tags,
             get_related_tags,

@@ -1,15 +1,15 @@
 import { ChevronDown, History } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useOutsideClose } from "@/src/hooks/useOutsideClose";
 import { SearchHistory, useHistoryStore } from "@/src/stores/history-store";
 import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 
 export const DropdownHistory = () => {
   const { searchHistory } = useHistoryStore();
   const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const {
     setSelectedTags,
@@ -18,20 +18,10 @@ export const DropdownHistory = () => {
     setSearchId,
   } = useTagSearcherStore();
 
-  // Handle click outside for dropdowns
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      // Tag dropdown
-      if (isOpen && !dropdownRef.current?.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isOpen]);
+  const dropdownRef = useOutsideClose<HTMLDivElement>({
+    onClose: () => setIsOpen(false),
+    enabled: isOpen,
+  });
 
   // Apply history item
   const applyHistoryItem = (history: SearchHistory) => {

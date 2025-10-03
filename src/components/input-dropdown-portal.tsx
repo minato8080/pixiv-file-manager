@@ -9,6 +9,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
+import { useOutsideClose } from "../hooks/useOutsideClose";
 import { inferObjKey, getString, getNumber } from "../types/type-guard-util";
 import { LimitedKeyOf } from "../types/util-types";
 
@@ -77,8 +78,11 @@ export function InputDropdown<T>({
   });
 
   const inputRef = useRef<HTMLInputElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useOutsideClose<HTMLDivElement>({
+    onClose: () => setIsOpen(false),
+    enabled: isOpen,
+  });
 
   // 入力値変更時のフィルタリング
   useEffect(() => {
@@ -173,31 +177,6 @@ export function InputDropdown<T>({
       window.removeEventListener("resize", handleResize);
     };
   }, [isOpen, calculatePosition]);
-
-  // 外部クリックでドロップダウンを閉じる
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, []);
 
   // 入力変更ハンドラ
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

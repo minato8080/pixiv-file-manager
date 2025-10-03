@@ -8,6 +8,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { useOutsideClose } from "@/src/hooks/useOutsideClose";
 import { useCommonStore } from "@/src/stores/common-store";
 import { useDialogDeleteStore } from "@/src/stores/dialog-delete-store";
 import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
@@ -22,6 +23,11 @@ export const DialogDeleteFiles = () => {
   const { setSelectedFiles } = useTagSearcherStore();
   const { fetchTags, fetchCharacters, fetchAuthors, quickReload } =
     useTagSearcherStore();
+
+  const dialogRef = useOutsideClose<HTMLDivElement>({
+    onClose: closeDeleteFilesDialog,
+    enabled: isDeleteFilesDialogOpen,
+  });
 
   const handleDelete = async () => {
     setLoading(true);
@@ -51,6 +57,7 @@ export const DialogDeleteFiles = () => {
       onOpenChange={(b) => !b && closeDeleteFilesDialog}
     >
       <DialogContent
+        ref={dialogRef}
         aria-describedby={undefined}
         className="sm:max-w-md bg-white dark:bg-gray-900"
       >
@@ -74,6 +81,7 @@ export const DialogDeleteFiles = () => {
             variant="outline"
             onClick={() => void handleDelete()}
             disabled={loading}
+            autoFocus={true}
           >
             {loading ? "Deleting..." : "Delete"}
           </Button>

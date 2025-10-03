@@ -52,15 +52,6 @@ export default function FileOrganizer() {
   }, [setFilteredCharacterTagList, setFilteredSeriesTagList, availableTagList]);
 
   useEffect(() => {
-    const getTags = async () => {
-      try {
-        const tags = await invoke<TagInfo[]>("get_available_unique_tags");
-        setAvailableTagList(tags);
-      } catch (error) {
-        console.error("Error fetching tags:", error);
-      }
-    };
-
     const initialize = async () => {
       setLoading(true);
       try {
@@ -71,15 +62,18 @@ export default function FileOrganizer() {
           setRootPath(root);
         }
         await loadSummary();
+        const tags = await invoke<TagInfo[]>("get_available_unique_tags");
+        setAvailableTagList(tags);
+      } catch (error) {
+        console.error("Error initialize file-organizer:", error);
       } finally {
         setLoading(false);
       }
     };
 
     void initialize();
-    void getTags();
     const unlisten = listen<null>("update_db", () => {
-      void getTags();
+      void initialize();
     });
     return () => {
       void unlisten.then((f) => f());
@@ -99,7 +93,7 @@ export default function FileOrganizer() {
         series: selectedSeriesTag || null,
         character: selectedCharacterTag || null,
       };
-      const summary: CollectSummary[] = await invoke("assign_tag", {
+      const summary: CollectSummary[] = await invoke("assign_collect", {
         assignment,
       });
       setCollectSummary(summary);

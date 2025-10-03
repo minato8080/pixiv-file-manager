@@ -7,9 +7,8 @@ import { DialogEditTag } from "./dialogs/dialog-edit-tag";
 import { DialogLabelCharacter } from "./dialogs/dialog-label-character";
 import { DialogMoveFiles } from "./dialogs/dialog-move-files";
 import { ImageViewerModal } from "./image-viewer-modal";
-import { OperationArea } from "./operation-area";
 import { TagsSearcherResultArea } from "./result-area";
-import { TagArea } from "./tag-area";
+import { TagOperationWrapper } from "./TagOperationWrapper";
 
 import { VIEW_MODE_KEYS } from "@/src/constants";
 import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
@@ -95,11 +94,7 @@ export default function TagSearcher() {
       {/* Compact search controls with more color */}
       <ControlArea />
 
-      {/* Selected Tags */}
-      <TagArea />
-
-      {/* Operation Controls */}
-      <OperationArea />
+      <TagOperationWrapper />
 
       {/* Results Area */}
       <TagsSearcherResultArea />

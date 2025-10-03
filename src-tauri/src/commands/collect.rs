@@ -35,7 +35,7 @@ pub async fn get_related_tags(
 }
 
 #[command]
-pub async fn assign_tag(
+pub async fn assign_collect(
     assignment: TagAssignment,
     state: State<'_, AppState>,
 ) -> Result<Vec<CollectSummary>, String> {
@@ -112,7 +112,7 @@ pub async fn assign_tag(
 }
 
 #[command]
-pub async fn delete_collect(
+pub async fn remove_collect(
     assignment: TagAssignment,
     state: State<'_, AppState>,
 ) -> Result<Vec<CollectSummary>, String> {

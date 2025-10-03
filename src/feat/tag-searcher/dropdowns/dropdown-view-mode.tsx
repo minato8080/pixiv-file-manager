@@ -2,6 +2,7 @@ import { ChevronDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { VIEW_MODES, ViewModeKey } from "@/src/constants";
+import { useOutsideClose } from "@/src/hooks/useOutsideClose";
 import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 
 export const DropdownViewMode = () => {
@@ -11,8 +12,13 @@ export const DropdownViewMode = () => {
     isViewModeDropdownOpen,
     setIsViewModeDropdownOpen,
   } = useTagSearcherStore();
+  const dropdownRef = useOutsideClose<HTMLDivElement>({
+    onClose: () => setIsViewModeDropdownOpen(false),
+    enabled: isViewModeDropdownOpen,
+  });
+
   return (
-    <div className="relative">
+    <div className="relative" ref={dropdownRef}>
       <Button
         variant="outline"
         size="sm"

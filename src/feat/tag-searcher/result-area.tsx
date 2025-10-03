@@ -1,11 +1,13 @@
 import { ScrollArea } from "@radix-ui/react-scroll-area";
 import { CheckSquare, Square, Search } from "lucide-react";
+import type React from "react";
 import { useEffect, useRef, useState } from "react";
 
-import { SearchResult } from "@/bindings/SearchResult";
+import type { SearchResult } from "@/bindings/SearchResult";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { VIEW_MODES } from "@/src/constants";
+import { useClickHandler } from "@/src/hooks/useClickHandler";
 import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 
 export const TagsSearcherResultArea = () => {
@@ -13,17 +15,31 @@ export const TagsSearcherResultArea = () => {
     searchResults,
     currentViewMode,
     operationMode,
+    setOperationMode,
     toggleItemSelection,
-    setSelectedImage,
+    showImage,
     selectedFiles,
     isQuickReload,
+    selectedImage,
+    setSelectedFiles,
   } = useTagSearcherStore();
 
   const [delayedSearchResults, setDelayedSearchResults] = useState<
     SearchResult[]
   >([]);
+  const [focusedIndex, setFocusedIndex] = useState<number>(0);
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<Map<number, HTMLElement>>(new Map());
   const timeoutId = useRef<NodeJS.Timeout | null>(null);
+  const anchorIndex = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!selectedImage) {
+      containerRef.current?.focus();
+    }
+  }, [searchResults, selectedImage]);
 
   useEffect(() => {
     if (isQuickReload.current) {
@@ -40,10 +56,8 @@ export const TagsSearcherResultArea = () => {
       const delay = 1000; // N秒間隔で処理
 
       const processBatch = () => {
-        // 50件ずつ取り出してURL変換
         const batch = results.slice(index, index + batchSize);
 
-        // searchResultsに追加
         setDelayedSearchResults((prevResults) => [...prevResults, ...batch]);
 
         index += batchSize;
@@ -54,7 +68,6 @@ export const TagsSearcherResultArea = () => {
         }
       };
 
-      // 最初のバッチを処理開始
       processBatch();
     };
     updateResultsInBatches(searchResults);
@@ -65,9 +78,135 @@ export const TagsSearcherResultArea = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchResults]);
 
+  useEffect(() => {
+    const element = itemRefs.current.get(focusedIndex);
+    if (element) {
+      element.scrollIntoView({ block: "nearest", behavior: "auto" });
+    }
+  }, [focusedIndex]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (delayedSearchResults.length === 0) return;
+
+    const isGrid = currentViewMode !== "details";
+    let cols = 1; // Default to 1 for details view
+
+    if (isGrid && gridRef.current) {
+      const style = getComputedStyle(gridRef.current);
+      const gridCols = style.gridTemplateColumns.split(" ").length;
+      cols = gridCols > 0 ? gridCols : 1;
+    }
+
+    let newIndex = focusedIndex;
+
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        newIndex = Math.min(
+          focusedIndex + cols,
+          delayedSearchResults.length - 1
+        );
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        newIndex = Math.max(focusedIndex - cols, 0);
+        break;
+      case "ArrowRight":
+        if (isGrid) {
+          e.preventDefault();
+          newIndex = Math.min(
+            focusedIndex + 1,
+            delayedSearchResults.length - 1
+          );
+        }
+        break;
+      case "ArrowLeft":
+        if (isGrid) {
+          e.preventDefault();
+          newIndex = Math.max(focusedIndex - 1, 0);
+        }
+        break;
+      case "Enter":
+      case " ":
+        if (isGrid) {
+          e.preventDefault();
+          showImage(searchResults[focusedIndex].file_name);
+        }
+        break;
+      default:
+        return;
+    }
+
+    setFocusedIndex(newIndex);
+
+    if (operationMode) {
+      if (e.shiftKey && anchorIndex.current !== null) {
+        // Shift + Arrow: extend selection
+        const start = Math.min(anchorIndex.current, newIndex);
+        const end = Math.max(anchorIndex.current, newIndex);
+        const range = delayedSearchResults.slice(start, end + 1);
+        setSelectedFiles(range);
+      } else {
+        // Arrow only: move selection
+        anchorIndex.current = newIndex;
+        setSelectedFiles([delayedSearchResults[newIndex]]);
+      }
+    }
+  };
+
+  /** item クリック処理 */
+  const onClick = (
+    e: React.MouseEvent,
+    result: SearchResult,
+    index: number
+  ) => {
+    containerRef.current?.focus();
+
+    if (!operationMode) {
+      showImage(result.file_name);
+      setFocusedIndex(index);
+      return;
+    }
+
+    if (e.shiftKey && anchorIndex.current !== null) {
+      // Shift + Click: select range from anchor to current
+      e.preventDefault();
+      const start = Math.min(anchorIndex.current, index);
+      const end = Math.max(anchorIndex.current, index);
+      const range = delayedSearchResults.slice(start, end + 1);
+      setSelectedFiles(range);
+    } else {
+      // Ctrl/Cmd + Click: toggle individual item
+      e.preventDefault();
+      toggleItemSelection(result);
+      anchorIndex.current = index;
+    }
+
+    setFocusedIndex(index);
+  };
+
+  const onDoubleClick = (
+    _e: React.MouseEvent,
+    result: SearchResult,
+    index: number
+  ) => {
+    if (operationMode) {
+      showImage(result.file_name);
+    } else {
+      setOperationMode(true);
+      setSelectedFiles([result]);
+      setFocusedIndex(index);
+    }
+  };
+
+  const handleClick = useClickHandler({
+    onClick,
+    onDoubleClick,
+  });
+
   const renderDetails = () => {
     return (
-      <div className="w-full">
+      <div className="w-full select-none">
         <table className="w-full">
           <thead className="bg-gray-100 dark:bg-gray-800 sticky top-0">
             <tr>
@@ -80,22 +219,21 @@ export const TagsSearcherResultArea = () => {
             </tr>
           </thead>
           <tbody>
-            {delayedSearchResults.map((result) => (
+            {delayedSearchResults.map((result, index) => (
               <tr
                 key={result.file_name}
+                ref={(el) => {
+                  if (el) itemRefs.current.set(index, el);
+                  else itemRefs.current.delete(index);
+                }}
                 className={cn(
-                  "hover:bg-blue-50 dark:hover:bg-blue-900/20 border-b border-gray-200 dark:border-gray-700",
+                  "hover:bg-blue-50 dark:hover:bg-blue-900/20 border-b border-gray-200 dark:border-gray-700 cursor-pointer",
                   operationMode &&
                     selectedFiles.includes(result) &&
-                    "bg-blue-100 dark:bg-blue-900/30"
+                    "bg-blue-100 dark:bg-blue-900/30",
+                  focusedIndex === index && "bg-blue-100"
                 )}
-                onClick={() => {
-                  if (operationMode) {
-                    toggleItemSelection(result);
-                  } else {
-                    setSelectedImage(result.file_name);
-                  }
-                }}
+                onClick={(e) => handleClick(e, result, index)}
               >
                 {operationMode && (
                   <td className="p-2">
@@ -138,25 +276,27 @@ export const TagsSearcherResultArea = () => {
 
   const renderGdid = () => {
     return (
-      <div className={`grid ${VIEW_MODES[currentViewMode].gridCols} gap-1 p-2`}>
-        {delayedSearchResults.map((result) => (
+      <div
+        ref={gridRef}
+        className={`grid ${VIEW_MODES[currentViewMode].gridStyle} gap-1 p-2 select-none`}
+      >
+        {delayedSearchResults.map((result, index) => (
           <div
             key={result.file_name}
+            ref={(el) => {
+              if (el) itemRefs.current.set(index, el);
+              else itemRefs.current.delete(index);
+            }}
             className={cn(
               "flex flex-col items-center p-1 rounded-md border hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer",
               operationMode &&
                 selectedFiles.includes(result) &&
                 "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700",
               !selectedFiles.includes(result) &&
-                "border-gray-200 dark:border-gray-700"
+                "border-gray-200 dark:border-gray-700",
+              focusedIndex === index && "ring-2 ring-blue-400"
             )}
-            onClick={() => {
-              if (operationMode) {
-                toggleItemSelection(result);
-              } else {
-                setSelectedImage(result.file_name);
-              }
-            }}
+            onClick={(e) => handleClick(e, result, index)}
           >
             {operationMode && (
               <div className="self-start mb-1">
@@ -182,8 +322,13 @@ export const TagsSearcherResultArea = () => {
   };
 
   return (
-    <Card className="flex-1 overflow-hidden border-2 border-gray-200 dark:border-gray-700">
-      <ScrollArea className="h-full overflow-auto">
+    <Card
+      className="flex-1 overflow-hidden border-2 border-gray-200 dark:border-gray-700 focus:outline-none"
+      ref={containerRef}
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
+    >
+      <ScrollArea className="h-full overflow-auto focus:outline-none">
         {delayedSearchResults.length > 0 ? (
           currentViewMode === "details" ? (
             renderDetails()

@@ -20,9 +20,9 @@ export const TagArea = () => {
     setSelectedTags(selectedTags.filter((param) => param.tag !== tag));
   };
 
-  if (selectedTags.length > 0 || selectedCharacter || selectedAuthor)
+  if (selectedTags.length > 0 || !!selectedCharacter || !!selectedAuthor)
     return (
-      <div className="flex flex-wrap gap-1 mb-3 p-2 bg-gray-50 dark:bg-gray-800/50 rounded-md border">
+      <>
         {selectedTags.map((tag) => (
           <Badge
             key={tag.tag}
@@ -69,7 +69,7 @@ export const TagArea = () => {
             </Button>
           </Badge>
         )}
-      </div>
+      </>
     );
 
   return null;

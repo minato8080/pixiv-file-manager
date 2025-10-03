@@ -4,11 +4,12 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { createPortal } from "react-dom";
 import { FixedSizeList, type ListChildComponentProps } from "react-window";
+
+import { useOutsideClose } from "../hooks/useOutsideClose";
 const List = FixedSizeList<string[]>;
 
 interface VirtualizedSelectProps {
@@ -38,7 +39,10 @@ export const VirtualizedSelect: React.FC<VirtualizedSelectProps> = ({
     openUpward: false,
   });
   const [searchText, setSearchText] = useState(value ?? "");
-  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const dropdownRef = useOutsideClose<HTMLDivElement>({
+    onClose: onClose,
+  });
 
   // 絞り込まれた表示対象オプション
   const filteredOptions = useMemo(() => {
@@ -114,31 +118,6 @@ export const VirtualizedSelect: React.FC<VirtualizedSelectProps> = ({
       window.removeEventListener("resize", handleResize);
     };
   }, [anchorRef, calculatePosition, dropdownHeight]);
-
-  // 外側クリック / Esc対応
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        onClose();
-      }
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [onClose]);
 
   // リスト行
   const Row = ({ index, style, data }: ListChildComponentProps<string[]>) => {

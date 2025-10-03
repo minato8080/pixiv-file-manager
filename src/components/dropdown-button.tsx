@@ -1,6 +1,7 @@
 import { ChevronDown } from "lucide-react";
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 
+import { useOutsideClose } from "../hooks/useOutsideClose";
 import { useTagSearcherStore } from "../stores/tag-searcher-store";
 import { getNumber, getString, inferObjKey } from "../types/type-guard-util";
 import { LimitedKeyOf } from "../types/util-types";
@@ -58,23 +59,10 @@ export function DropdownButton<T>({
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState("");
 
-  // Refs for dropdown
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // Handle click outside for dropdowns
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      // Tag dropdown
-      if (isOpen && !dropdownRef.current?.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isOpen]);
+  const dropdownRef = useOutsideClose<HTMLDivElement>({
+    onClose: () => setIsOpen(false),
+    enabled: isOpen,
+  });
 
   useEffect(() => setFilter(""), [searchResults]);
 

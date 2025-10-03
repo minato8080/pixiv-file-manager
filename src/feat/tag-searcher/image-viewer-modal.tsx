@@ -7,8 +7,7 @@ import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 import { useDialogDeleteStore } from "@/stores/dialog-delete-store";
 
 export function ImageViewerModal() {
-  const { searchResults, selectedImage, setSelectedImage } =
-    useTagSearcherStore();
+  const { searchResults, selectedImage, showImage } = useTagSearcherStore();
   const [currentIndex, setCurrentIndex] = useState<number>(0);
 
   const { setSelectedFiles } = useTagSearcherStore();
@@ -46,7 +45,7 @@ export function ImageViewerModal() {
 
   const close = () => {
     setCurrentIndex(-1);
-    setSelectedImage(null);
+    showImage(null);
   };
 
   // Keyboard event handler - only active when modal is open
@@ -65,9 +64,6 @@ export function ImageViewerModal() {
         case "Delete":
           handleDelete();
           break;
-        case "Escape":
-          setSelectedImage(null);
-          break;
         default:
           break;
       }
@@ -77,13 +73,7 @@ export function ImageViewerModal() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [
-    handlePrevious,
-    handleNext,
-    handleDelete,
-    selectedImage,
-    setSelectedImage,
-  ]);
+  }, [handlePrevious, handleNext, handleDelete, selectedImage, showImage]);
 
   if (!currentItem) return null;
 
@@ -113,7 +103,7 @@ export function ImageViewerModal() {
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 rounded-md hover:bg-gray-700 bg-gray-500"
-                onClick={() => setSelectedImage(null)}
+                onClick={() => showImage(null)}
               >
                 <X className="h-4 w-4" />
                 <span className="sr-only">Close</span>
@@ -141,7 +131,7 @@ export function ImageViewerModal() {
                 alt={currentItem.file_name}
                 className="max-h-full max-w-full object-contain"
                 style={{ userSelect: "none" }}
-                onDoubleClick={(e) => e.preventDefault()}
+                onClick={close}
               />
             </div>
 

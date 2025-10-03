@@ -102,29 +102,27 @@ export const ControlArea = () => {
       {/* History dropdown */}
       <DropdownHistory />
 
-      <div className="ml-auto flex items-center gap-1">
-        {/* View Mode Selector */}
-        <DropdownViewMode />
+      {/* View Mode Selector */}
+      <DropdownViewMode />
 
-        {/* Select Button */}
-        <Button
-          variant={operationMode ? "secondary" : "outline"}
-          size="sm"
-          className={`h-9 ${
-            operationMode
-              ? "bg-blue-100 text-blue-800 border-blue-300"
-              : "bg-white dark:bg-gray-800"
-          }`}
-          onClick={() => setOperationMode(!operationMode)}
-        >
-          {operationMode ? (
-            <CheckSquare className="h-4 w-4 text-blue-600" />
-          ) : (
-            <Square className="h-4 w-4" />
-          )}
-          <span className="ml-1">Select</span>
-        </Button>
-      </div>
+      {/* Select Button */}
+      <Button
+        variant={operationMode ? "secondary" : "outline"}
+        size="sm"
+        className={`h-9 ${
+          operationMode
+            ? "bg-blue-100 text-blue-800 border-blue-300"
+            : "bg-white dark:bg-gray-800"
+        }`}
+        onClick={() => setOperationMode(!operationMode)}
+      >
+        {operationMode ? (
+          <CheckSquare className="h-4 w-4 text-blue-600" />
+        ) : (
+          <Square className="h-4 w-4" />
+        )}
+        <span className="ml-1">Select</span>
+      </Button>
     </div>
   );
 };

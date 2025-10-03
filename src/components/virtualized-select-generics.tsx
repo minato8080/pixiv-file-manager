@@ -10,6 +10,7 @@ import {
 import { createPortal } from "react-dom";
 import { FixedSizeList, type ListChildComponentProps } from "react-window";
 
+import { useOutsideClose } from "../hooks/useOutsideClose";
 import {
   Object,
   getNumber,
@@ -52,8 +53,10 @@ export function VirtualizedSelect<T extends Object>({
     openUpward: false,
   });
   const [searchText, setSearchText] = useState<string>(value);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useOutsideClose<HTMLDivElement>({
+    onClose: () => onClose?.(),
+  });
 
   // 絞り込まれた表示対象オプション
   const filteredOptions = useMemo(() => {
@@ -133,31 +136,6 @@ export function VirtualizedSelect<T extends Object>({
       window.removeEventListener("resize", handleResize);
     };
   }, [containerRef, calculatePosition, dropdownHeight]);
-
-  // 外側クリック / Esc対応
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        onClose?.();
-      }
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose?.();
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [onClose]);
 
   // リスト行
   const Row = ({ index, style, data }: ListChildComponentProps<Object[]>) => {

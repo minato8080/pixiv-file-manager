@@ -44,7 +44,7 @@ type TagSearcherStore = {
   setOperationMode: (mode: boolean) => void;
   setIsDeleting: (deleting: boolean) => void;
   setCurrentViewMode: (viewMode: ViewModeKey) => void;
-  setSelectedImage: (image: string | null) => void;
+  showImage: (image: string | null) => void;
   setSelectedTags: (tags: TagInfo[]) => void;
   setSelectedCharacter: (character: CharacterInfo | null) => void;
   setSelectedAuthor: (author: AuthorInfo | null) => void;
@@ -74,13 +74,13 @@ export const useTagSearcherStore = create<TagSearcherStore>((set, get) => ({
   isQuickReload: { current: false },
   setSearchResults: (results) => set({ searchResults: results }),
   setSelectedFiles: (files) => set({ selectedFiles: files }),
-  setOperationMode: (mode) => set({ operationMode: mode }),
+  setOperationMode: (mode) => set({ operationMode: mode, selectedFiles: [] }),
   setIsDeleting: (deleting) => set({ isDeleting: deleting }),
   setCurrentViewMode: (viewMode) => {
     useMemoriedStore.getState().setCurrentViewMode(viewMode);
     set({ currentViewMode: viewMode });
   },
-  setSelectedImage: (image) => set({ selectedImage: image }),
+  showImage: (image) => set({ selectedImage: image }),
   setSelectedTags: (tags) => set({ selectedTags: tags }),
   setSelectedCharacter: (character) => set({ selectedCharacter: character }),
   setSelectedAuthor: (author) => set({ selectedAuthor: author }),

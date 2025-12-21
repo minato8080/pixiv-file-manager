@@ -3,7 +3,7 @@ DELETE FROM COLLECT_UI_WORK;
 
 -- キャラクター単位で件数集計し、COLLECT_UI_WORKへ挿入
 WITH root_value AS (
-    SELECT value as root FROM COMMON_MST WHERE key = :collect_root
+    SELECT value as root FROM COMMON_MST WHERE key = :character_root
 ),
 character_summary AS (
     SELECT 
@@ -13,9 +13,9 @@ character_summary AS (
         C.character,
         CASE
             WHEN rv.root IS NULL THEN NULL
-            WHEN C.series IS NULL THEN rv.root || '\' || C.character
-            WHEN C.character IS NULL THEN rv.root || '\' || C.series
-            ELSE rv.root || '\' || C.series || '\' || C.character
+            WHEN C.series IS NULL THEN rv.root || '\' || RTRIM(C.character, '. ')
+            WHEN C.character IS NULL THEN rv.root || '\' || RTRIM(C.series, '. ')
+            ELSE rv.root || '\' || RTRIM(C.series, '. ') || '\' || RTRIM(C.character, '. ')
         END AS new_path,
         CASE
             WHEN C.character IS NULL THEN 1
@@ -30,9 +30,9 @@ character_summary AS (
         AND I.save_dir = (
             CASE
                 WHEN rv.root IS NULL THEN NULL
-                WHEN C.series IS NULL THEN rv.root || '\' || C.character
-                WHEN C.character IS NULL THEN rv.root || '\' || C.series
-                ELSE rv.root || '\' || C.series || '\' || C.character
+                WHEN C.series IS NULL THEN rv.root || '\' || RTRIM(C.character, '. ')
+                WHEN C.character IS NULL THEN rv.root || '\' || RTRIM(C.series, '. ')
+                ELSE rv.root || '\' || RTRIM(C.series, '. ') || '\' || RTRIM(C.character, '. ')
             END
         )
     GROUP BY C.series, C.character
@@ -53,7 +53,7 @@ FROM character_summary;
 
 -- シリーズの事前カウント
 WITH root_value AS (
-  SELECT value as root FROM COMMON_MST WHERE key = :collect_root
+  SELECT value as root FROM COMMON_MST WHERE key = :character_root
 ),
 series_paths AS (
   SELECT

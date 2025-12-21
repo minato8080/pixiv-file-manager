@@ -1,4 +1,5 @@
-pub const COLLECT_ROOT: &str = "collect_root";
+pub const CHARACTER_ROOT: &str = "character_root";
+pub const AUTHOR_ROOT: &str = "author_root";
 pub const UNCATEGORIZED_DIR: &str = "\\uncategorized";
 
 pub const CLIENT_ID: &str = "MOBrBDS8blbauoSck0ZfDbtuzpyT";

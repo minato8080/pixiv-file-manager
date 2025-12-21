@@ -59,7 +59,7 @@ pub async fn assign_collect(
 
     // root を取得（なければ None）
     let root: Option<String> = sqlx::query_scalar("SELECT value FROM COMMON_MST WHERE key = ?")
-        .bind(constants::COLLECT_ROOT)
+        .bind(constants::CHARACTER_ROOT)
         .fetch_optional(&mut *tx)
         .await
         .map_err(log_error)?;
@@ -222,12 +222,23 @@ pub async fn perform_collect(
 }
 
 #[command]
-pub async fn set_root(root: String, state: State<'_, AppState>) -> Result<(), String> {
+pub async fn set_root(
+    character_root: String,
+    author_root: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
     let pool = &state.pool;
 
     sqlx::query("INSERT OR REPLACE INTO COMMON_MST (key, value) VALUES (?, ?)")
-        .bind(constants::COLLECT_ROOT)
-        .bind(root.clone())
+        .bind(constants::CHARACTER_ROOT)
+        .bind(character_root.clone())
+        .execute(pool)
+        .await
+        .map_err(log_error)?;
+
+    sqlx::query("INSERT OR REPLACE INTO COMMON_MST (key, value) VALUES (?, ?)")
+        .bind(constants::AUTHOR_ROOT)
+        .bind(author_root.clone())
         .execute(pool)
         .await
         .map_err(log_error)?;
@@ -236,11 +247,24 @@ pub async fn set_root(root: String, state: State<'_, AppState>) -> Result<(), St
 }
 
 #[command]
-pub async fn get_root(state: State<'_, AppState>) -> Result<Option<String>, String> {
+pub async fn get_character_root(state: State<'_, AppState>) -> Result<Option<String>, String> {
     let pool = &state.pool;
 
     let root_path = sqlx::query_scalar("SELECT value FROM COMMON_MST WHERE key = ?")
-        .bind(constants::COLLECT_ROOT)
+        .bind(constants::CHARACTER_ROOT)
+        .fetch_optional(pool)
+        .await
+        .map_err(log_error)?;
+
+    Ok(root_path)
+}
+
+#[command]
+pub async fn get_author_root(state: State<'_, AppState>) -> Result<Option<String>, String> {
+    let pool = &state.pool;
+
+    let root_path = sqlx::query_scalar("SELECT value FROM COMMON_MST WHERE key = ?")
+        .bind(constants::AUTHOR_ROOT)
         .fetch_optional(pool)
         .await
         .map_err(log_error)?;

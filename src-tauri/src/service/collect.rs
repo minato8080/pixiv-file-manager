@@ -21,7 +21,8 @@ pub async fn prepare_collect_ui_work(conn: &mut SqliteConnection) -> Result<()> 
     execute_named_queries(
         &mut *conn,
         &sql,
-        &hash_params(&vec![(":collect_root", constants::COLLECT_ROOT.into())]).with_location()?,
+        &hash_params(&vec![(":character_root", constants::CHARACTER_ROOT.into())])
+            .with_location()?,
     )
     .await
     .with_location()?;
@@ -41,7 +42,7 @@ pub async fn reflesh_collect_work(conn: &mut SqliteConnection) -> Result<()> {
         sql,
         &hash_params(&vec![
             (":uncategorized_dir", constants::UNCATEGORIZED_DIR.into()),
-            (":collect_root", constants::COLLECT_ROOT.into()),
+            (":character_root", constants::CHARACTER_ROOT.into()),
         ])
         .with_location()?,
     )
@@ -54,7 +55,7 @@ pub async fn reflesh_collect_work(conn: &mut SqliteConnection) -> Result<()> {
         sql,
         &hash_params(&vec![
             (":uncategorized_dir", constants::UNCATEGORIZED_DIR.into()),
-            (":collect_root", constants::COLLECT_ROOT.into()),
+            (":character_root", constants::CHARACTER_ROOT.into()),
         ])
         .with_location()?,
     )
@@ -92,7 +93,8 @@ pub async fn collect_character_info(conn: &mut SqliteConnection) -> Result<()> {
     execute_named_queries(
         &mut *conn,
         sql,
-        &hash_params(&vec![(":collect_root", constants::COLLECT_ROOT.into())]).with_location()?,
+        &hash_params(&vec![(":character_root", constants::CHARACTER_ROOT.into())])
+            .with_location()?,
     )
     .await
     .with_location()?;
@@ -108,33 +110,54 @@ pub async fn collect_illust_detail(conn: &mut SqliteConnection) -> Result<()> {
 }
 
 pub async fn mark_illust_move_targets(conn: &mut SqliteConnection) -> Result<Vec<MoveIllustFiles>> {
-    let sql = include_str!("../sql/collect/prepare_tmp_move_candidates.sql");
-    sqlx::query(sql).execute(&mut *conn).await.with_location()?;
+    // 集計
+    let sql = include_str!("../sql/collect/prepare_tmp_move.sql");
+    execute_named_queries(
+        &mut *conn,
+        sql,
+        &hash_params(&vec![(":author_root", constants::AUTHOR_ROOT.into())]).with_location()?,
+    )
+    .await
+    .with_location()?;
 
-    let rows: Vec<MoveIllustFiles> = sqlx::query_as("SELECT * FROM tmp_move_candidates")
-        .fetch_all(&mut *conn)
-        .await
-        .with_location()?;
+    let rows: Vec<MoveIllustFiles> =
+        sqlx::query_as("SELECT illust_id, suffix, extension, src_dir, dest_dir FROM tmp_move")
+            .fetch_all(&mut *conn)
+            .await
+            .with_location()?;
 
-    // ファイルチェック
+    // 集計のファイルチェック
     let mut ng_keys = Vec::new();
-    for row in &rows {
+    for row in rows {
         let filename = format!("{}_p{}.{}", row.illust_id, row.suffix, row.extension);
         let src_path = Path::new(&row.src_dir).join(&filename);
         let dest_path = Path::new(&row.dest_dir).join(&filename);
 
         if !src_path.exists() {
             log_error(format!("移動元にファイルが存在しません: {:?}", src_path));
-            ng_keys.push((row.illust_id, row.suffix));
+            ng_keys.push((row.illust_id, row.suffix, 0));
         } else if dest_path.exists() {
-            log_error(format!("移動先にファイルが存在します: {:?}", src_path));
-            ng_keys.push((row.illust_id, row.suffix));
+            log_error(format!("移動先にファイルが存在します: {:?}", dest_path));
+            ng_keys.push((row.illust_id, row.suffix, 1));
         }
     }
 
-    // NGを削除
-    for (illust_id, suffix) in ng_keys {
-        sqlx::query("DELETE FROM tmp_move_candidates WHERE illust_id = ? AND suffix = ?")
+    // NGを除外
+    let sql = include_str!("../sql/collect/modify_illust_info.sql");
+    for (illust_id, suffix, status) in ng_keys {
+        if status == 1 {
+            // DB誤りなので更新
+            execute_named_queries(
+                &mut *conn,
+                sql,
+                &hash_params(&vec![
+                    (":illust_id", illust_id.into()),
+                    (":suffix", suffix.into()),
+                ])?,
+            )
+            .await?;
+        }
+        sqlx::query("DELETE FROM tmp_move WHERE illust_id = ? AND suffix = ?")
             .bind(illust_id)
             .bind(suffix)
             .execute(&mut *conn)
@@ -142,12 +165,12 @@ pub async fn mark_illust_move_targets(conn: &mut SqliteConnection) -> Result<Vec
             .with_location()?;
     }
 
-    // 一括UPDATE
-    let sql = include_str!("../sql/collect/update_from_move_candidates.sql");
-    sqlx::query(sql).execute(&mut *conn).await.with_location()?;
+    // パスを一括更新
+    let sql = include_str!("../sql/collect/update_illust_info.sql");
+    execute_queries(&mut *conn, sql).await.with_location()?;
 
     // 残ったOKを返す
-    let ok_rows: Vec<MoveIllustFiles> = sqlx::query_as("SELECT * FROM tmp_move_candidates")
+    let ok_rows: Vec<MoveIllustFiles> = sqlx::query_as("SELECT * FROM tmp_move")
         .fetch_all(&mut *conn)
         .await
         .with_location()?;

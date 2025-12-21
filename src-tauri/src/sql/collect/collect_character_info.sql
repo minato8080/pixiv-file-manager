@@ -8,7 +8,7 @@ WHERE entity_key IN (
 );
 
 WITH root_value AS (
-    SELECT value AS root FROM COMMON_MST WHERE key = :collect_root
+    SELECT value AS root FROM COMMON_MST WHERE key = :character_root
 ),
 work_with_path AS (
     SELECT

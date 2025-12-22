@@ -166,7 +166,10 @@ pub async fn mark_illust_move_targets(conn: &mut SqliteConnection) -> Result<Vec
     }
 
     // パスを一括更新
-    let sql = include_str!("../sql/collect/update_illust_info.sql");
+    let sql = concat!(
+        include_str!("../sql/collect/update_illust_info.sql"),
+        include_str!("../sql/merge_cnum.sql"),
+    );
     execute_queries(&mut *conn, sql).await.with_location()?;
 
     // 残ったOKを返す
@@ -268,7 +271,13 @@ pub async fn process_sync_db(root: String, pool: &SqlitePool) -> Result<Vec<File
 
         // メイン処理(SQL)
         let sql = include_str!("../sql/collect/process_sync_db.sql");
-        execute_queries(&mut *conn, sql).await.with_location()?;
+        execute_named_queries(
+            &mut *conn,
+            sql,
+            &hash_params(&vec![(":root", root.into())])?,
+        )
+        .await
+        .with_location()?;
 
         // 重複ファイルをゴミ箱に
         let rows: Vec<String> = sqlx::query_scalar("SELECT path FROM tmp_to_trash")

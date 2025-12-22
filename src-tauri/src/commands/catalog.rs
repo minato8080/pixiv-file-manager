@@ -1,4 +1,4 @@
-use tauri::{command, State};
+use tauri::{command, Emitter, State};
 
 use crate::util::log_error;
 use crate::{
@@ -21,11 +21,16 @@ pub async fn move_files(
     target_folder: &str,
     move_linked_files: bool,
     state: State<'_, AppState>,
+    window: tauri::Window,
 ) -> Result<(), String> {
     let mut pool = &state.pool;
     process_move_files(&mut pool, file_names, target_folder, move_linked_files)
         .await
         .map_err(log_error)?;
+
+    // DB変更を通知
+    window.emit("update_db", ()).unwrap();
+
     Ok(())
 }
 
@@ -36,6 +41,7 @@ pub async fn label_character_name(
     update_linked_files: bool,
     collect_dir: Option<String>,
     state: State<'_, AppState>,
+    window: tauri::Window,
 ) -> Result<(), String> {
     let mut pool = &state.pool;
     process_label_character_name(
@@ -55,6 +61,9 @@ pub async fn label_character_name(
             .map_err(log_error)?;
     }
 
+    // DB変更を通知
+    window.emit("update_db", ()).unwrap();
+
     Ok(())
 }
 #[command]
@@ -62,12 +71,16 @@ pub async fn add_remove_tags(
     edit_tags: Vec<EditTag>,
     update_linked_files: bool,
     state: State<'_, AppState>,
+    window: tauri::Window,
 ) -> Result<(), String> {
     let pool = &state.pool;
 
     process_edit_tags(pool, edit_tags, update_linked_files)
         .await
         .map_err(log_error)?;
+
+    // DB変更を通知
+    window.emit("update_db", ()).unwrap();
 
     Ok(())
 }
@@ -78,6 +91,7 @@ pub async fn overwrite_tags(
     tags: Vec<String>,
     update_linked_files: bool,
     state: State<'_, AppState>,
+    window: tauri::Window,
 ) -> Result<(), String> {
     let pool = &state.pool;
 
@@ -93,6 +107,9 @@ pub async fn overwrite_tags(
         .await
         .map_err(log_error)?;
 
+    // DB変更を通知
+    window.emit("update_db", ()).unwrap();
+
     Ok(())
 }
 
@@ -100,6 +117,7 @@ pub async fn overwrite_tags(
 pub async fn delete_files(
     file_names: Vec<String>,
     state: State<'_, AppState>,
+    window: tauri::Window,
 ) -> Result<(), String> {
     let pool = &state.pool;
     let mut tx = pool.begin().await.map_err(log_error)?;
@@ -138,6 +156,10 @@ pub async fn delete_files(
     }
 
     tx.commit().await.map_err(log_error)?;
+
+    // DB変更を通知
+    window.emit("update_db", ()).unwrap();
+
     Ok(())
 }
 

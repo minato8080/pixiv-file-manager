@@ -6,7 +6,8 @@ SELECT I.illust_id, I.suffix, I.save_dir,
 FROM ILLUST_INFO I
 LEFT JOIN SYNC_DB_WORK SW
   ON I.illust_id = SW.illust_id AND I.suffix = SW.suffix
-WHERE SW.rowid IS NULL;
+WHERE SW.rowid IS NULL
+  AND I.save_dir LIKE :root || '%';
 
 -- (B) 移動したファイル
 DROP TABLE IF EXISTS tmp_moved_files;

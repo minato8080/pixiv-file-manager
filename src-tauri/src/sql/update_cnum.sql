@@ -74,8 +74,8 @@ WHERE EXISTS (
 );
 
 -- 3) ILLUST_DETAIL を必要な分だけ複製（新しい cnum にまだ無いもの）
-INSERT INTO ILLUST_DETAIL (illust_id, cnum, author_id, series, character)
-SELECT D.illust_id, ca.new_cnum, D.author_id, D.series, D.character
+INSERT INTO ILLUST_DETAIL (illust_id, cnum, author_id, series, character, created_at)
+SELECT D.illust_id, ca.new_cnum, D.author_id, D.series, D.character, D.created_at
 FROM ILLUST_DETAIL D
 JOIN tmp_cnum_assign ca
   ON ca.illust_id = D.illust_id

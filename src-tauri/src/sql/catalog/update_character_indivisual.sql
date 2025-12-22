@@ -11,27 +11,32 @@ CREATE TEMP TABLE tmp_next_cnum_ex AS
 SELECT
     lt.illust_id,
     lt.suffix,
-    D.cnum AS old_cnum,
-    mc.max_cnum + ROW_NUMBER() OVER (PARTITION BY lt.illust_id ORDER BY lt.suffix) AS new_cnum,
-    D.author_id,
-    D.series
+    I.cnum AS old_cnum,
+    mc.max_cnum
+      + ROW_NUMBER() OVER (
+          PARTITION BY lt.illust_id
+          ORDER BY lt.suffix
+        ) AS new_cnum
 FROM tmp_label_target lt
 JOIN ILLUST_INFO I
-  ON I.illust_id = lt.illust_id AND I.suffix = lt.suffix
-JOIN ILLUST_DETAIL D
-  ON D.illust_id = I.illust_id AND D.cnum = I.cnum
+  ON I.illust_id = lt.illust_id
+ AND I.suffix    = lt.suffix
 JOIN tmp_max_cnum mc
   ON mc.illust_id = lt.illust_id;
 
 -- 3. ILLUST_DETAIL に新規行を追加
-INSERT INTO ILLUST_DETAIL (illust_id, cnum, author_id, character, series)
+INSERT INTO ILLUST_DETAIL (illust_id, cnum, author_id, character, series, created_at)
 SELECT
-  illust_id,
-  new_cnum,
-  author_id,
+  nc.illust_id,
+  nc.new_cnum,
+  D.author_id,
   :character,
-  series
-FROM tmp_next_cnum_ex;
+  D.series,
+  D.created_at
+FROM tmp_next_cnum_ex nc
+JOIN ILLUST_DETAIL D
+  ON D.illust_id = nc.illust_id
+ AND D.cnum      = nc.old_cnum;
 
 -- 4. TAG_INFO 複製
 INSERT INTO TAG_INFO (illust_id, cnum, tag)
@@ -46,8 +51,14 @@ JOIN TAG_INFO T
 -- 5. ILLUST_INFO 更新
 UPDATE ILLUST_INFO
 SET cnum = (
-  SELECT new_cnum FROM tmp_next_cnum_ex nc
+  SELECT new_cnum
+  FROM tmp_next_cnum_ex nc
   WHERE nc.illust_id = ILLUST_INFO.illust_id
-    AND nc.suffix = ILLUST_INFO.suffix
+    AND nc.suffix    = ILLUST_INFO.suffix
 )
-WHERE (illust_id, suffix) IN (SELECT illust_id, suffix FROM tmp_label_target);
+WHERE EXISTS (
+  SELECT 1
+  FROM tmp_next_cnum_ex nc
+  WHERE nc.illust_id = ILLUST_INFO.illust_id
+    AND nc.suffix    = ILLUST_INFO.suffix
+);

@@ -117,10 +117,14 @@ pub async fn execute_named_queries(
         .collect();
 
     for raw_sql in queries {
-        build_named_query(raw_sql, params)?
+        if let Err(e) = build_named_query(raw_sql, params)?
             .build()
             .execute(&mut *conn)
-            .await?;
+            .await
+        {
+            eprintln!("SQL failed: {}\nError: {:?}", raw_sql, e);
+            return Err(e);
+        }
     }
 
     Ok(())
@@ -142,13 +146,9 @@ pub fn build_named_query<'a>(
         // パラメータ名を取得
         let key = &sql[mat.start()..mat.end()];
         let value = params.get(key).ok_or_else(|| {
-            let sql_prefix = &sql[..std::cmp::min(sql.len(), 40)];
             sqlx::Error::Io(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
-                format!(
-                    "Parameter not found: '{}'. SQL starts with: '{}...'",
-                    key, sql_prefix
-                ),
+                format!("Parameter not found: '{}'. SQL: '{}'", key, sql),
             ))
         })?;
 
@@ -185,7 +185,6 @@ pub fn build_named_query<'a>(
     }
     // 最後に残った文字列を追加
     builder.push(&sql[last_index..]);
-
     Ok(builder)
 }
 

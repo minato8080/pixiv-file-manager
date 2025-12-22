@@ -287,9 +287,16 @@ pub async fn get_available_unique_tags(state: State<'_, AppState>) -> Result<Vec
 }
 
 #[command]
-pub async fn sync_db(root: String, state: State<'_, AppState>) -> Result<Vec<FileSummary>, String> {
+pub async fn sync_db(
+    root: String,
+    state: State<'_, AppState>,
+    window: tauri::Window,
+) -> Result<Vec<FileSummary>, String> {
     let mut pool = &state.pool;
     let res = process_sync_db(root, &mut pool).await.map_err(log_error)?;
+
+    // DB変更を通知
+    window.emit("update_db", ()).unwrap();
 
     Ok(res)
 }

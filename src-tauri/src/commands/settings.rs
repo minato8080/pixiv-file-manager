@@ -6,7 +6,7 @@ use crate::models::settings::EnvConfig;
 use crate::service::setting::{
     from_map, get_config_path, process_pixiv_authorization, to_env_string,
 };
-use crate::util::log_error;
+use crate::util::LogErr;
 
 #[command]
 pub async fn get_environment_variables(app: tauri::AppHandle) -> Result<Option<EnvConfig>, String> {
@@ -36,6 +36,6 @@ pub async fn save_environment_variables(
 
 #[command]
 pub async fn pixiv_authorization(app: tauri::AppHandle) -> Result<String, String> {
-    let refresh_token = process_pixiv_authorization(app).await.map_err(log_error)?;
+    let refresh_token = process_pixiv_authorization(app).await.log_err()?;
     Ok(refresh_token)
 }

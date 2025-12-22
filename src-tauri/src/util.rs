@@ -27,3 +27,21 @@ pub fn log_error<T: Display>(error: T) -> String {
     eprintln!("{}", s);
     s
 }
+
+pub trait LogErr<T> {
+    fn log_err(self) -> Result<T, String>;
+}
+
+impl<T, E> LogErr<T> for Result<T, E>
+where
+    E: Display,
+{
+    fn log_err(self) -> Result<T, String> {
+        self.map_err(|e| {
+            let s = e.to_string();
+            log::error!("{}", s);
+            eprintln!("{}", s);
+            s
+        })
+    }
+}

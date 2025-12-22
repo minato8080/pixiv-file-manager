@@ -7,7 +7,7 @@ use crate::service::collect::{
     apply_file_moves, collect_character_info, collect_illust_detail, get_collect_summary,
     mark_illust_move_targets, prepare_collect_ui_work, process_sync_db, reflesh_collect_work,
 };
-use crate::util::log_error;
+use crate::util::LogErr;
 use crate::{
     models::{
         collect::{CollectSummary, TagAssignment},
@@ -29,7 +29,7 @@ pub async fn get_related_tags(
         .bind(tag)
         .fetch_all(pool)
         .await
-        .map_err(log_error)?;
+        .log_err()?;
 
     Ok(tags)
 }
@@ -46,7 +46,7 @@ pub async fn assign_collect(
 
     // 本処理
     let pool = &state.pool;
-    let mut tx = pool.begin().await.map_err(log_error)?;
+    let mut tx = pool.begin().await.log_err()?;
 
     // id指定時は洗い替え
     if let Some(id) = assignment.id {
@@ -54,7 +54,7 @@ pub async fn assign_collect(
             .bind(id)
             .execute(&mut *tx)
             .await
-            .map_err(log_error)?;
+            .log_err()?;
     }
 
     // root を取得（なければ None）
@@ -62,7 +62,7 @@ pub async fn assign_collect(
         .bind(constants::CHARACTER_ROOT)
         .fetch_optional(&mut *tx)
         .await
-        .map_err(log_error)?;
+        .log_err()?;
 
     let collect_dir = root.map(|r| {
         let mut parts = vec![r];
@@ -97,16 +97,16 @@ pub async fn assign_collect(
     .bind(collect_type)
     .execute(&mut *tx)
     .await
-    .map_err(log_error)?;
+    .log_err()?;
 
     // ソートし直す
-    sort_collect_work(&mut *tx).await.map_err(log_error)?;
+    sort_collect_work(&mut *tx).await.log_err()?;
 
     // after_countを計算
-    reflesh_collect_work(&mut *tx).await.map_err(log_error)?;
+    reflesh_collect_work(&mut *tx).await.log_err()?;
 
     // コミット
-    tx.commit().await.map_err(log_error)?;
+    tx.commit().await.log_err()?;
 
     get_collect_summary(pool).await.map_err(|e| e.to_string())
 }
@@ -122,7 +122,7 @@ pub async fn remove_collect(
     }
 
     let pool = &state.pool;
-    let mut tx = pool.begin().await.map_err(log_error)?;
+    let mut tx = pool.begin().await.log_err()?;
 
     let sql_template = "UPDATE COLLECT_UI_WORK SET collect_type = 3, unsave = 1, after_count = 0";
 
@@ -134,7 +134,7 @@ pub async fn remove_collect(
             .bind(id)
             .execute(&mut *tx)
             .await
-            .map_err(log_error)?;
+            .log_err()?;
     } else {
         // entity指定時
         let entity_key = assignment
@@ -149,14 +149,14 @@ pub async fn remove_collect(
             .bind(entity_key)
             .execute(&mut *tx)
             .await
-            .map_err(log_error)?;
+            .log_err()?;
     }
 
     // after_countを計算
-    reflesh_collect_work(&mut *tx).await.map_err(log_error)?;
+    reflesh_collect_work(&mut *tx).await.log_err()?;
 
     // コミット
-    tx.commit().await.map_err(log_error)?;
+    tx.commit().await.log_err()?;
 
     get_collect_summary(pool).await.map_err(|e| e.to_string())
 }
@@ -164,15 +164,15 @@ pub async fn remove_collect(
 #[command]
 pub async fn load_assignments(state: State<'_, AppState>) -> Result<Vec<CollectSummary>, String> {
     let pool = &state.pool;
-    let mut tx = pool.begin().await.map_err(log_error)?;
+    let mut tx = pool.begin().await.log_err()?;
 
     // COLLECT_UI_WORKを準備
-    prepare_collect_ui_work(&mut *tx).await.map_err(log_error)?;
+    prepare_collect_ui_work(&mut *tx).await.log_err()?;
 
     // after_countを計算
-    reflesh_collect_work(&mut *tx).await.map_err(log_error)?;
+    reflesh_collect_work(&mut *tx).await.log_err()?;
 
-    tx.commit().await.map_err(log_error)?;
+    tx.commit().await.log_err()?;
 
     // 結果を返却
     get_collect_summary(pool).await.map_err(|e| e.to_string())
@@ -184,35 +184,33 @@ pub async fn perform_collect(
     window: tauri::Window,
 ) -> Result<Vec<CollectSummary>, String> {
     let pool = &state.pool;
-    let mut tx = pool.begin().await.map_err(log_error)?;
+    let mut tx = pool.begin().await.log_err()?;
 
     // COLLECT_UI_WORKから、unsave = false のレコードをすべて削除する
     sqlx::query("DELETE FROM COLLECT_UI_WORK WHERE unsave = false")
         .execute(&mut *tx)
         .await
-        .map_err(log_error)?;
+        .log_err()?;
 
-    collect_character_info(&mut *tx).await.map_err(log_error)?;
+    collect_character_info(&mut *tx).await.log_err()?;
 
-    collect_illust_detail(&mut *tx).await.map_err(log_error)?;
+    collect_illust_detail(&mut *tx).await.log_err()?;
 
-    let moves = mark_illust_move_targets(&mut *tx)
-        .await
-        .map_err(log_error)?;
+    let moves = mark_illust_move_targets(&mut *tx).await.log_err()?;
 
-    tx.commit().await.map_err(log_error)?;
+    tx.commit().await.log_err()?;
 
     apply_file_moves(moves);
 
-    let mut tx = pool.begin().await.map_err(log_error)?;
+    let mut tx = pool.begin().await.log_err()?;
 
     // COLLECT_UI_WORKを準備
-    prepare_collect_ui_work(&mut *tx).await.map_err(log_error)?;
+    prepare_collect_ui_work(&mut *tx).await.log_err()?;
 
     // after_countを計算
-    reflesh_collect_work(&mut *tx).await.map_err(log_error)?;
+    reflesh_collect_work(&mut *tx).await.log_err()?;
 
-    tx.commit().await.map_err(log_error)?;
+    tx.commit().await.log_err()?;
 
     // DB変更を通知
     window.emit("update_db", ()).unwrap();
@@ -234,14 +232,14 @@ pub async fn set_root(
         .bind(character_root.clone())
         .execute(pool)
         .await
-        .map_err(log_error)?;
+        .log_err()?;
 
     sqlx::query("INSERT OR REPLACE INTO COMMON_MST (key, value) VALUES (?, ?)")
         .bind(constants::AUTHOR_ROOT)
         .bind(author_root.clone())
         .execute(pool)
         .await
-        .map_err(log_error)?;
+        .log_err()?;
 
     Ok(())
 }
@@ -254,7 +252,7 @@ pub async fn get_character_root(state: State<'_, AppState>) -> Result<Option<Str
         .bind(constants::CHARACTER_ROOT)
         .fetch_optional(pool)
         .await
-        .map_err(log_error)?;
+        .log_err()?;
 
     Ok(root_path)
 }
@@ -267,7 +265,7 @@ pub async fn get_author_root(state: State<'_, AppState>) -> Result<Option<String
         .bind(constants::AUTHOR_ROOT)
         .fetch_optional(pool)
         .await
-        .map_err(log_error)?;
+        .log_err()?;
 
     Ok(root_path)
 }
@@ -281,7 +279,7 @@ pub async fn get_available_unique_tags(state: State<'_, AppState>) -> Result<Vec
     let tags = sqlx::query_as::<_, TagInfo>(sql)
         .fetch_all(pool)
         .await
-        .map_err(log_error)?;
+        .log_err()?;
 
     Ok(tags)
 }
@@ -293,7 +291,7 @@ pub async fn sync_db(
     window: tauri::Window,
 ) -> Result<Vec<FileSummary>, String> {
     let mut pool = &state.pool;
-    let res = process_sync_db(root, &mut pool).await.map_err(log_error)?;
+    let res = process_sync_db(root, &mut pool).await.log_err()?;
 
     // DB変更を通知
     window.emit("update_db", ()).unwrap();
@@ -307,7 +305,7 @@ pub async fn delete_missing_illusts(
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     let pool = &state.pool;
-    let mut tx = pool.begin().await.map_err(log_error)?;
+    let mut tx = pool.begin().await.log_err()?;
 
     // 1. ILLUST_INFO から削除
     for item in &items {
@@ -316,7 +314,7 @@ pub async fn delete_missing_illusts(
             .bind(item.suffix)
             .execute(&mut *tx)
             .await
-            .map_err(log_error)?;
+            .log_err()?;
     }
 
     // 2. 孤立した ILLUST_DETAIL を削除
@@ -329,8 +327,8 @@ pub async fn delete_missing_illusts(
     )
     .execute(&mut *tx)
     .await
-    .map_err(log_error)?;
+    .log_err()?;
 
-    tx.commit().await.map_err(log_error)?;
+    tx.commit().await.log_err()?;
     Ok(())
 }

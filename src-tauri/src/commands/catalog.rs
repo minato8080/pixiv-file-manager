@@ -171,5 +171,5 @@ pub async fn get_associated_info(
     let pool = &state.pool;
     Ok(process_get_associated_info(&pool, file_names)
         .await
-        .map_err(|e| e.to_string())?)
+        .log_err()?)
 }

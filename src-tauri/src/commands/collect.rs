@@ -108,7 +108,7 @@ pub async fn assign_collect(
     // コミット
     tx.commit().await.log_err()?;
 
-    get_collect_summary(pool).await.map_err(|e| e.to_string())
+    get_collect_summary(pool).await.log_err()
 }
 
 #[command]
@@ -158,7 +158,7 @@ pub async fn remove_collect(
     // コミット
     tx.commit().await.log_err()?;
 
-    get_collect_summary(pool).await.map_err(|e| e.to_string())
+    get_collect_summary(pool).await.log_err()
 }
 
 #[command]
@@ -175,7 +175,7 @@ pub async fn load_assignments(state: State<'_, AppState>) -> Result<Vec<CollectS
     tx.commit().await.log_err()?;
 
     // 結果を返却
-    get_collect_summary(pool).await.map_err(|e| e.to_string())
+    get_collect_summary(pool).await.log_err()
 }
 
 #[command]
@@ -216,7 +216,7 @@ pub async fn perform_collect(
     window.emit("update_db", ()).unwrap();
 
     // 結果を返却
-    get_collect_summary(pool).await.map_err(|e| e.to_string())
+    get_collect_summary(pool).await.log_err()
 }
 
 #[command]

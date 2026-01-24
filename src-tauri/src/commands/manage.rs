@@ -39,7 +39,7 @@ pub async fn add_tag_fix_rule(
 
     validate_and_insert_tag_fix_rule(&pool, &src_tag, dst_tag.as_deref(), action_type)
         .await
-        .map_err(|e| e.to_string())
+        .log_err()
 }
 
 #[command]

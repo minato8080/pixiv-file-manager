@@ -88,9 +88,10 @@ CREATE TABLE IF NOT EXISTS AUTHOR_INFO (
     author_id INTEGER NOT NULL,
     author_name TEXT NOT NULL,
     author_account TEXT NOT NULL,
+    fs_author_name TEXT NOT NULL,
     PRIMARY KEY (author_id)
 );
-INSERT OR IGNORE INTO AUTHOR_INFO (author_id, author_name, author_account) VALUES (0, 'Missing', 'Missing');
+INSERT OR IGNORE INTO AUTHOR_INFO (author_id, author_name, fs_author_name, author_account) VALUES (0, 'Missing', 'Missing', 'Missing');
 
 
 CREATE TABLE IF NOT EXISTS TAG_FIX_RULES (

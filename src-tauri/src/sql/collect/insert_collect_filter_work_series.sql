@@ -24,7 +24,7 @@ series_count AS (
     GROUP BY illust_id, cnum
 ),
 uncategorized_dir AS (
-    SELECT value || :uncategorized_dir AS dir FROM COMMON_MST WHERE key = :collect_root
+    SELECT value || :uncategorized_dir AS dir FROM COMMON_MST WHERE key = :character_root
 )
 INSERT INTO COLLECT_FILTER_WORK (
     illust_id,

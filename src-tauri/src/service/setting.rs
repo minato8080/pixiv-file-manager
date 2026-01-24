@@ -104,16 +104,12 @@ async fn exchange_code_for_token(code: String, code_verifier: String) -> Result<
     }
 }
 
-pub fn get_config_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    app.path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())
-        .map(|p| p.join(".env"))
+pub fn get_config_path(app: &tauri::AppHandle) -> Result<PathBuf, anyhow::Error> {
+    Ok(app.path().app_data_dir().map(|p| p.join(".env"))?)
 }
 
-pub fn from_map<T: DeserializeOwned>(map: HashMap<String, String>) -> Result<T, String> {
-    serde_json::from_value(serde_json::to_value(map).map_err(|e| e.to_string())?)
-        .map_err(|e| e.to_string())
+pub fn from_map<T: DeserializeOwned>(map: HashMap<String, String>) -> Result<T, serde_json::Error> {
+    serde_json::from_value(serde_json::to_value(map)?)
 }
 
 pub fn to_env_string<T: Serialize>(cfg: &T) -> String {

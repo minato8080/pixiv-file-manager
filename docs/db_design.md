@@ -39,6 +39,7 @@
   - `author_id`: INTEGER NOT NULL - 作者の識別子
   - `author_name`: TEXT NOT NULL - 作者名
   - `author_account`: TEXT NOT NULL - 作者のアカウント
+  - `fs_author_name`: TEXT NOT NULL - ファイルシステムでの名称
   - **PRIMARY KEY**: (`author_id`)
 
 - **TAG_FIX_RULES**

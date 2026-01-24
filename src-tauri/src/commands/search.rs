@@ -2,7 +2,7 @@ use tauri::{command, State};
 
 use crate::models::{common::AppState, search::*};
 use crate::service::search::*;
-use crate::util::log_error;
+use crate::util::LogErr;
 
 #[command]
 pub async fn get_unique_tags(state: State<'_, AppState>) -> Result<Vec<TagInfo>, String> {
@@ -13,7 +13,7 @@ pub async fn get_unique_tags(state: State<'_, AppState>) -> Result<Vec<TagInfo>,
     let tags = sqlx::query_as::<_, TagInfo>(sql)
         .fetch_all(pool)
         .await
-        .map_err(log_error)?;
+        .log_err()?;
 
     Ok(tags)
 }
@@ -29,7 +29,7 @@ pub async fn get_unique_characters(
     let characters = sqlx::query_as::<_, CharacterInfo>(sql)
         .fetch_all(pool)
         .await
-        .map_err(log_error)?;
+        .log_err()?;
 
     Ok(characters)
 }
@@ -43,7 +43,7 @@ pub async fn get_unique_authors(state: State<'_, AppState>) -> Result<Vec<Author
     let authors = sqlx::query_as::<_, AuthorInfo>(sql)
         .fetch_all(pool)
         .await
-        .map_err(log_error)?;
+        .log_err()?;
 
     Ok(authors)
 }
@@ -59,7 +59,7 @@ pub async fn search_by_criteria(
 
     let results = process_search_by_criteria(tags, character, author_id, pool)
         .await
-        .map_err(log_error)?;
+        .log_err()?;
 
     Ok(results)
 }
@@ -71,7 +71,7 @@ pub async fn search_by_id(
 ) -> Result<Vec<SearchResult>, String> {
     let pool = &state.pool;
 
-    let results = process_search_by_id(id, pool).await.map_err(log_error)?;
+    let results = process_search_by_id(id, pool).await.log_err()?;
 
     Ok(results)
 }
@@ -87,7 +87,7 @@ pub async fn filter_dropdowns(
 
     let results = process_filter_dropdowns(tags, character, author_id, pool)
         .await
-        .map_err(log_error)?;
+        .log_err()?;
 
     Ok(results)
 }

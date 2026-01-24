@@ -188,10 +188,21 @@ async fn core_fetch_illust_detail(
                 }
 
                 // 作者情報を登録
-                sqlx::query("INSERT OR REPLACE INTO AUTHOR_INFO (author_id, author_name, author_account) VALUES (?1, ?2, ?3)",)
-                        .bind(resp.illust.user().id())
-                        .bind(resp.illust.user().name())
-                        .bind(resp.illust.user().account())
+                let raw_name = resp.illust.user().name();
+                let author_id = resp.illust.user().id();
+                let author_account = resp.illust.user().account();
+                let author_name = if raw_name.trim().is_empty() {
+                    author_id.clone().to_string()
+                } else {
+                    raw_name.to_string()
+                };
+                let sanitized_author_name = remove_invalid_chars(&author_name);
+                let fs_author_name = format!("{}_{}", sanitized_author_name, author_id.clone());
+                sqlx::query("INSERT OR REPLACE INTO AUTHOR_INFO (author_id, author_name, author_account, fs_author_name) VALUES (?1, ?2, ?3, ?4)",)
+                        .bind(author_id)
+                        .bind(author_name)
+                        .bind(author_account)
+                        .bind(fs_author_name)
                 .execute(&mut *tx).await.with_location()?;
                 success_count += 1;
             }

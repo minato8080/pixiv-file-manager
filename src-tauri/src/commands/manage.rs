@@ -1,6 +1,6 @@
 use tauri::{command, Emitter, State};
 
-use crate::util::log_error;
+use crate::util::LogErr;
 use crate::{
     models::{
         common::AppState,
@@ -21,7 +21,7 @@ pub async fn get_tag_fix_rules(state: State<'_, AppState>) -> Result<Vec<TagFixR
     )
     .fetch_all(pool)
     .await
-    .map_err(log_error)?;
+    .log_err()?;
 
     let rules: Vec<TagFixRule> = raw_rules.into_iter().map(TagFixRule::from).collect();
 
@@ -39,7 +39,7 @@ pub async fn add_tag_fix_rule(
 
     validate_and_insert_tag_fix_rule(&pool, &src_tag, dst_tag.as_deref(), action_type)
         .await
-        .map_err(|e| e.to_string())
+        .log_err()
 }
 
 #[command]
@@ -61,7 +61,7 @@ pub async fn update_tag_fix_rule(
     .bind(id)
     .execute(&state.pool)
     .await
-    .map_err(log_error)?;
+    .log_err()?;
     Ok(())
 }
 
@@ -72,7 +72,7 @@ pub async fn delete_tag_fix_rule(id: i64, state: State<'_, AppState>) -> Result<
         .bind(id)
         .execute(pool)
         .await
-        .map_err(log_error)?;
+        .log_err()?;
     Ok(())
 }
 
@@ -82,9 +82,9 @@ pub async fn execute_tag_fixes(
     window: tauri::Window,
 ) -> Result<TagFixResult, String> {
     let pool = &state.pool;
-    let mut tx = pool.begin().await.map_err(log_error)?;
-    let result = apply_tag_fix_rules(&mut tx).await.map_err(log_error)?;
-    tx.commit().await.map_err(log_error)?;
+    let mut tx = pool.begin().await.log_err()?;
+    let result = apply_tag_fix_rules(&mut tx).await.log_err()?;
+    tx.commit().await.log_err()?;
     // DB変更を通知
     window.emit("update_db", ()).unwrap();
 
@@ -100,7 +100,7 @@ pub async fn get_using_fix_rule_tags(state: State<'_, AppState>) -> Result<Vec<T
     let tags = sqlx::query_as::<_, TagInfo>(sql)
         .fetch_all(pool)
         .await
-        .map_err(log_error)?;
+        .log_err()?;
 
     Ok(tags)
 }

@@ -12,7 +12,7 @@ use crate::service::fetch::{
     extract_dir_detail, extract_missing_files, prepare_illust_fetch_work,
     process_fetch_illust_detail,
 };
-use crate::util::log_error;
+use crate::util::LogErr;
 
 #[command]
 pub async fn count_files_in_dir(
@@ -61,13 +61,13 @@ pub async fn count_files_in_dir(
     // ワークテーブルに保存
     prepare_illust_fetch_work(&mut pool, &file_details)
         .await
-        .map_err(log_error)?;
+        .log_err()?;
 
     let unique_count: u32 =
         sqlx::query_scalar("SELECT COUNT(DISTINCT illust_id) FROM ILLUST_FETCH_WORK;")
             .fetch_one(pool)
             .await
-            .map_err(log_error)?;
+            .log_err()?;
 
     let interval = std::env::var("INTERVAL_MILL_SEC")
         .ok()
@@ -92,11 +92,7 @@ pub async fn capture_illust_detail(
     state: State<'_, AppState>,
     window: tauri::Window,
 ) -> Result<ProcessStats, String> {
-    let pixiv_client = state
-        .pixiv_client_provider
-        .get_client()
-        .await
-        .map_err(log_error)?;
+    let pixiv_client = state.pixiv_client_provider.get_client().await.log_err()?;
 
     let mut pool = &state.pool;
 
@@ -104,7 +100,7 @@ pub async fn capture_illust_detail(
     let result: ProcessStats =
         process_fetch_illust_detail(&mut pool, &pixiv_client, window.clone())
             .await
-            .map_err(log_error)?;
+            .log_err()?;
 
     // DB変更を通知
     window.emit("update_db", ()).unwrap();
@@ -117,27 +113,23 @@ pub async fn recapture_illust_detail(
     state: State<'_, AppState>,
     window: tauri::Window,
 ) -> Result<ProcessStats, String> {
-    let pixiv_client = state
-        .pixiv_client_provider
-        .get_client()
-        .await
-        .map_err(log_error)?;
+    let pixiv_client = state.pixiv_client_provider.get_client().await.log_err()?;
 
     let mut pool = &state.pool;
 
     // 失敗ファイルを抽出
-    let file_details = extract_missing_files(pool).await.map_err(log_error)?;
+    let file_details = extract_missing_files(pool).await.log_err()?;
 
     // ワークテーブルに保存
     prepare_illust_fetch_work(&mut pool, &file_details)
         .await
-        .map_err(log_error)?;
+        .log_err()?;
 
     // 再取得実行
     let result: ProcessStats =
         process_fetch_illust_detail(&mut pool, &pixiv_client, window.clone())
             .await
-            .map_err(log_error)?;
+            .log_err()?;
 
     // DB変更を通知
     window.emit("update_db", ()).unwrap();
@@ -147,9 +139,5 @@ pub async fn recapture_illust_detail(
 
 #[command]
 pub async fn init_pixiv_client(state: State<'_, AppState>) -> Result<(), String> {
-    state
-        .pixiv_client_provider
-        .refresh_client()
-        .await
-        .map_err(log_error)
+    state.pixiv_client_provider.refresh_client().await.log_err()
 }

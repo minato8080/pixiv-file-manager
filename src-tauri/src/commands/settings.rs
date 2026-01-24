@@ -6,17 +6,17 @@ use crate::models::settings::EnvConfig;
 use crate::service::setting::{
     from_map, get_config_path, process_pixiv_authorization, to_env_string,
 };
-use crate::util::log_error;
+use crate::util::LogErr;
 
 #[command]
 pub async fn get_environment_variables(app: tauri::AppHandle) -> Result<Option<EnvConfig>, String> {
-    let config_path = get_config_path(&app)?;
+    let config_path = get_config_path(&app).log_err()?;
 
     dotenvy::from_path_iter(&config_path)
         .ok()
         .map(|iter| {
             let map: HashMap<String, String> = iter.filter_map(|item| item.ok()).collect();
-            from_map(map)
+            from_map(map).log_err()
         })
         .transpose()
 }
@@ -26,7 +26,7 @@ pub async fn save_environment_variables(
     config: EnvConfig,
     app: tauri::AppHandle,
 ) -> Result<bool, String> {
-    let config_path = get_config_path(&app)?;
+    let config_path = get_config_path(&app).log_err()?;
     let env_str = to_env_string(&config);
 
     fs::write(config_path, env_str).map_err(|e| format!("Failed to write config: {}", e))?;
@@ -36,6 +36,6 @@ pub async fn save_environment_variables(
 
 #[command]
 pub async fn pixiv_authorization(app: tauri::AppHandle) -> Result<String, String> {
-    let refresh_token = process_pixiv_authorization(app).await.map_err(log_error)?;
+    let refresh_token = process_pixiv_authorization(app).await.log_err()?;
     Ok(refresh_token)
 }

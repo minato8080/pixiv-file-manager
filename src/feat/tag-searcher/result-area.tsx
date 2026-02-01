@@ -32,7 +32,7 @@ export const TagsSearcherResultArea = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Map<number, HTMLElement>>(new Map());
-  const timeoutId = useRef<NodeJS.Timeout | null>(null);
+  const timeoutIds = useRef<NodeJS.Timeout[]>([]);
   const anchorIndex = useRef<number | null>(null);
 
   useEffect(() => {
@@ -44,7 +44,11 @@ export const TagsSearcherResultArea = () => {
   useEffect(() => {
     if (isQuickReload.current) {
       setDelayedSearchResults(searchResults);
-      isQuickReload.current = false;
+      // ちょっと遅延させる
+      timeoutIds.current.push(setTimeout(() => {
+        isQuickReload.current = false;
+      }, 3000));
+
       return;
     }
 
@@ -64,7 +68,7 @@ export const TagsSearcherResultArea = () => {
 
         // 全ての結果を処理し終えたら停止
         if (index < results.length) {
-          timeoutId.current = setTimeout(processBatch, delay);
+          timeoutIds.current.push(setTimeout(processBatch, delay));
         }
       };
 
@@ -73,7 +77,8 @@ export const TagsSearcherResultArea = () => {
     updateResultsInBatches(searchResults);
 
     return () => {
-      if (timeoutId.current) clearTimeout(timeoutId.current);
+      timeoutIds.current.forEach(timeoutId => clearTimeout(timeoutId));
+      timeoutIds.current = [];
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchResults]);
@@ -229,8 +234,8 @@ export const TagsSearcherResultArea = () => {
                 className={cn(
                   "hover:bg-blue-50 dark:hover:bg-blue-900/20 border-b border-gray-200 dark:border-gray-700 cursor-pointer",
                   operationMode &&
-                    selectedFiles.includes(result) &&
-                    "bg-blue-100 dark:bg-blue-900/30",
+                  selectedFiles.includes(result) &&
+                  "bg-blue-100 dark:bg-blue-900/30",
                   focusedIndex === index && "bg-blue-100"
                 )}
                 onClick={(e) => handleClick(e, result, index)}
@@ -290,10 +295,10 @@ export const TagsSearcherResultArea = () => {
             className={cn(
               "flex flex-col items-center p-1 rounded-md border hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer",
               operationMode &&
-                selectedFiles.includes(result) &&
-                "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700",
+              selectedFiles.includes(result) &&
+              "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700",
               !selectedFiles.includes(result) &&
-                "border-gray-200 dark:border-gray-700",
+              "border-gray-200 dark:border-gray-700",
               focusedIndex === index && "ring-2 ring-blue-400"
             )}
             onClick={(e) => handleClick(e, result, index)}

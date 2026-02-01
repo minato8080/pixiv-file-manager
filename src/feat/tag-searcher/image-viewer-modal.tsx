@@ -7,7 +7,7 @@ import { useTagSearcherStore } from "@/src/stores/tag-searcher-store";
 import { useDialogDeleteStore } from "@/stores/dialog-delete-store";
 
 export function ImageViewerModal() {
-  const { searchResults, selectedImage, showImage } = useTagSearcherStore();
+  const { searchResults, selectedImage, isQuickReload, showImage } = useTagSearcherStore();
   const [currentIndex, setCurrentIndex] = useState<number>(0);
 
   const { setSelectedFiles } = useTagSearcherStore();
@@ -15,10 +15,14 @@ export function ImageViewerModal() {
 
   // Find the index of the selected item
   useEffect(() => {
+    if (isQuickReload.current) {
+      return;
+    }
     if (selectedImage && searchResults.length > 0) {
       const index = searchResults.findIndex(
         (item) => item.file_name === selectedImage
       );
+
       if (index !== -1) {
         setCurrentIndex(index);
       }

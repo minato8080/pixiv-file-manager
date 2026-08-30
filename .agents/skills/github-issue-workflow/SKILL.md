@@ -11,17 +11,17 @@ GitHub Issues / Milestonesを作業状態のSingle Source of Truthとして扱�
 
 ## Issueタイトルの契約
 
-Phase番号や枝番は要求しない。タイトルは検索しやすい短い作業名にし、必要なら次の種別prefixを使う。
+Phase番号や枝番は要求しない。IssueとPRのタイトル・本文・checkpointは原則として日本語で書く。技術名、コマンド、ファイルパス、ブランチ名、GitHubの固定フィールド名（`State`、`Owner`、`Next action`など）は英語のままにしてよい。タイトルは検索しやすい短い作業名にし、必要なら次の日本語種別prefixを使う。
 
 ```text
-Feature: <capability>
-Bug: <behavior to correct>
-Maintenance: <maintenance work>
-Upgrade: <upgrade scope>
-Decision: <policy or design decision>
+機能: <機能名>
+不具合: <直す挙動>
+保守: <保守内容>
+更新: <更新対象>
+判断: <方針・設計判断>
 ```
 
-1 Issue = 1 independently reviewable work unitとする。メジャーverUpのように長期化する作業は、親の`Upgrade:` Issueと、Frontend / Tauri / Rust / CI / verificationなどの子Issueに分けてよい。子IssueはGitHubのsub-issue関係と本文で親を明記するが、Issue番号をタイトルの枝番として再利用しない。
+1件のIssueは、独立してレビューできる1つの作業単位とする。メジャーverUpのように長期化する作業は、親の`更新:` Issueと、フロントエンド / Tauri / Rust / CI / 検証などの子Issueに分けてよい。子IssueはGitHubのsub-issue関係と本文で親を明記するが、Issue番号をタイトルの枝番として再利用しない。
 
 通常の機能・バグ・保守はPhaseなしで管理する。`docs/todo.md`の移行項目は、対応するGitHub Issueが作成され、元の項目との対応が確認できた後に限り、元ファイルを削除する。
 
@@ -142,7 +142,7 @@ Phase番号や子Issueの枝番は割り当てない。親子関係、依存関�
 
 ### Issueがない場合
 
-repo変更依頼に対応するIssueがなければ、実装前に最小Issueを作る。メジャーverUpのような長期作業では、先に親`Upgrade:` Issueを作成し、その下にコンポーネント単位の子Issueを作る。まず`State: READY`、着手時に`IN_PROGRESS`へ更新する。単一工程なら次で十分である。
+repo変更依頼に対応するIssueがなければ、実装前に最小Issueを作る。メジャーverUpのような長期作業では、先に親`更新:` Issueを作成し、その下にコンポーネント単位の子Issueを作る。まず`State: READY`、着手時に`IN_PROGRESS`へ更新する。単一工程なら次で十分である。
 
 ```md
 ## Status
@@ -219,7 +219,7 @@ Issue全体の書き直しを目的にしない。最新取得した本文へ`St
 
 メジャーverUpの期間だけ、長期作業を安全に統合するための暫定ブランチを許可する。
 
-1. 親`Upgrade:` Issueを作成する。
+1. 親`更新:` Issueを作成する。
 2. 最新の`main`から`chore/major-version-upgrade`を作成する。
 3. Frontend / Tauri / Rust / CI / verificationの子Issueとブランチを、必要に応じて暫定ブランチへPRする。
 4. 親Issueに統合順、未解決事項、検証結果をcheckpointする。
@@ -252,10 +252,10 @@ Milestoneを作成・変更してよいのは、ユーザーが明示的にroadm
 
 ```text
 Issue
-#42 Feature: Tag search — IN PROGRESS
+#42 機能: タグ検索 — IN PROGRESS
 
 Changes
-- matching score implemented
+- 一致スコアを実装
 
 Validation
 - test: PASS
@@ -264,7 +264,7 @@ Roadmap
 none
 
 Active
-#42 Feature: Tag search
+#42 機能: タグ検索
 
 Blocked
 none

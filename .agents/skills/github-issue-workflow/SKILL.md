@@ -11,7 +11,7 @@ GitHub Issues / Milestonesを作業状態のSingle Source of Truthとして扱�
 
 ## Issueタイトルの契約
 
-Phase番号や枝番は要求しない。IssueとPRのタイトル・本文・checkpointは原則として日本語で書く。技術名、コマンド、ファイルパス、ブランチ名、GitHubの固定フィールド名（`State`、`Owner`、`Next action`など）に加え、`feat:`、`fix:`、`docs:` などの種別prefixは英語のままでよい。タイトルは検索しやすい短い作業名にし、必要なら次の英語prefixを使う。
+Phase番号や枝番は要求しない。IssueとPRのタイトル・本文・checkpointは、種別prefixを除き原則として日本語で書く。種別prefixは`feat:`、`fix:`、`docs:`、`chore:`などの英語表記に固定する。技術名、コマンド、ファイルパス、ブランチ名、GitHubの固定フィールド名（`State`、`Owner`、`Next action`など）、誤解を避けるために必要な固有名詞は英語のままでよい。タイトルは検索しやすい短い作業名にし、次の英語prefixを使う。
 
 ```text
 feat: <機能名>

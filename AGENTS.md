@@ -45,9 +45,9 @@ For implementation work, use the `github-issue-workflow` skill. Use `intent-firs
 
 GitHub Issues are the backlog and operational checkpoint. Do not maintain a parallel Markdown task list.
 
-IssueとPRのタイトル・本文・checkpointは原則として日本語で書く。技術名、コマンド、ファイルパス、ブランチ名、GitHubの固定フィールド名（`State`、`Owner`、`Next action`など）に加え、`feat:`、`fix:`、`docs:` などの種別prefixは英語のままでよい。その他の説明文は、誤解を避けるために必要な固有名詞を除き日本語にする。
+IssueとPRのタイトル・本文・checkpointは、種別prefixを除き原則として日本語で書く。種別prefixは`feat:`、`fix:`、`docs:`、`chore:`などの英語表記に固定する。技術名、コマンド、ファイルパス、ブランチ名、GitHubの固定フィールド名（`State`、`Owner`、`Next action`など）、誤解を避けるために必要な固有名詞も英語のままでよい。
 
-Issue titles do not require artificial Phase numbers. Use a short type prefix when creating a new Issue; the prefix may be English:
+Issue titles do not require artificial Phase numbers. Use a short English type prefix when creating a new Issue:
 
 * `feat: <機能名>`
 * `fix: <直す挙動>`

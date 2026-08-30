@@ -1,0 +1,83 @@
+{
+  "skill_name": "github-issue-workflow",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "#42を実装して。Issueには詳細なRunbookがありますが、Status欄はまだありません。",
+      "expected_output": "既存Runbookを保持してIssue上部へStatusを追加し、具体的なNext actionを設定してIN_PROGRESSへ同期する。",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "現在のMilestoneから次のタスクを進めて。",
+      "expected_output": "本文がState: READYでdependency blockのないIssueだけを候補とし、IN_PROGRESS/BLOCKED/REVIEWや現在地不足のIssueを自動取得しない。",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Issueはまだないけれど、画像検索機能を追加して。",
+      "expected_output": "実装前にStatus、Outcome、Definition of Done、具体的なNext actionを含む最小Issueを作り、着手時にIN_PROGRESSへする。",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "100行のCSVを人間にレビューしてもらう必要があるので、ここで作業を止めて引き継いで。",
+      "expected_output": "BLOCKED/Owner Humanとし、対象CSV・全100行の具体作業・blocker・人間完了後のAgent resume pointをIssue本文へcheckpointする。",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "実装とテストは終わりPRは未mergeです。Issueを完了にして。",
+      "expected_output": "IssueをClose/DONEにせずREVIEWへし、mergeまたはreviewを具体的なNext actionとして本文を更新する。",
+      "files": []
+    },
+    {
+      "id": 6,
+      "prompt": "別のAgentに続きを任せるので、このセッションを終了して。",
+      "expected_output": "終了前に完了工程、1つのNext action、Owner、resume point、必要なartifact/branch参照をIssue本文へcheckpointする。",
+      "files": []
+    },
+    {
+      "id": 7,
+      "prompt": "Acceptance Criteriaにチェックが付いているので、コメントを読まずに次の作業を推測して進めて。",
+      "expected_output": "Acceptance Criteriaを進捗の代用にせず、本文のStatus/Current progress/Next actionを確認し、不足時は推測せず具体的な事実確認をNext actionにする。",
+      "files": []
+    },
+    {
+      "id": 8,
+      "prompt": "GitHub APIがエラーになったけど、ローカルのTODO.mdを正本にしてMilestone進捗を報告して。",
+      "expected_output": "TODO.mdへfallbackせず、取得/更新不能を明示してGitHub状態を推測しない。",
+      "files": []
+    },
+    {
+      "id": 9,
+      "prompt": "小さなtypo修正用Issueを作って。大きなテンプレートは不要です。",
+      "expected_output": "Status、Outcome、Definition of Doneを保ちつつ、不要なCurrent progress/Runbook/Notesを省いた短いIssueを作る。",
+      "files": []
+    },
+    {
+      "id": 10,
+      "prompt": "status:blocked labelはあるけれど本文はIN_PROGRESSです。このIssueを再開して。",
+      "expected_output": "矛盾を都合よく解釈せず実態を確認し、本文Stateとlabelsを同期してから再開する。",
+      "files": []
+    },
+    {
+      "id": 11,
+      "prompt": "依存Issue #50が未完了なので停止します。人間が今できる作業はありません。",
+      "expected_output": "BLOCKEDとし、Ownerをdependency #50、Next actionを#50の完了条件確認、Resume fromを解消後のAgent再開点にする。架空のHuman action requiredを追加しない。",
+      "files": []
+    },
+    {
+      "id": 12,
+      "prompt": "StateはREADYですがOwnerがHumanのIssueを、次のAgentタスクとして自動選択して。",
+      "expected_output": "Owner: HumanのIssueをAgentが自動取得せず、State: READYかつAgent実行可能なNext actionを持つ別候補を探す。",
+      "files": []
+    },
+    {
+      "id": 13,
+      "prompt": "Agent Aの作業は終わりました。Agent Bはまだ引き受けていません。引き継ぎcheckpointを作って。",
+      "expected_output": "StateをREADY、OwnerをAgentまたはAgent Bとし、完了工程、具体的なNext action、same as Next actionを含むResume from、必要なartifact/branchを本文へ残す。",
+      "files": []
+    }
+  ]
+}
